@@ -1,0 +1,64 @@
+version: '3'
+
+tasks:
+  default:
+    deps: [build]
+
+  frontend:
+    desc: "Build frontend assets"
+    dir: frontend
+    cmds:
+      - npm install
+      - npm run build
+    sources:
+      - src/**/*
+      - package.json
+      - vite.config.ts
+    generates:
+      - dist/**/*
+
+  build:
+    desc: "Build the application"
+    deps: [frontend]
+    cmds:
+      - go build -o lycaon
+    sources:
+      - '**/*.go'
+      - frontend/dist/**/*
+    generates:
+      - lycaon
+
+  test:
+    desc: "Run tests"
+    cmds:
+      - go test ./...
+
+  mock:
+    desc: "Generate mocks"
+    cmds:
+      - go generate ./...
+
+  run:
+    desc: "Run the server"
+    deps: [build]
+    cmds:
+      - ./lycaon serve
+
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - rm -rf lycaon
+      - rm -rf frontend/dist
+      - rm -rf frontend/node_modules
+
+  lint:
+    desc: "Run linters"
+    cmds:
+      - go vet ./...
+      - go fmt ./...
+      - golangci-lint run ./...
+
+  sec:
+    desc: "Run security checks"
+    cmds:
+      - gosec -exclude-generated -quiet ./...
