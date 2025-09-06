@@ -154,7 +154,7 @@ All comment and character literal in source code must be in English
 ### Testing
 
 - Test files should have `package {name}_test`. Do not use same package name
-- Test file name convention is: `xyz.go` → `xyz_test.go`. No other test file (e.g. `xyz_e2e_test.go`) is prohibited
+- Test file name convention is: `xyz.go` → `xyz_test.go`. Other test file names (e.g., `xyz_e2e_test.go`) are not allowed.
 - **Repository Tests Best Practices**:
   - Always use random IDs (e.g., using `time.Now().UnixNano()`) to avoid test conflicts
   - NEVER use hardcoded IDs like "msg-001", "user-001" as they cause test failures when running in parallel
