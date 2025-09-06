@@ -17,51 +17,24 @@ function Login() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    }}>
-      <div className="card" style={{
-        maxWidth: '400px',
-        width: '100%',
-        margin: '0 1rem',
-        textAlign: 'center',
-      }}>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className="card max-w-sm w-full mx-4 text-center">
         <img 
           src="/logo.png" 
           alt="Lycaon Logo"
-          style={{
-            width: '120px',
-            height: '120px',
-            marginBottom: '1rem',
-          }}
+          className="w-30 h-30 mb-4 mx-auto"
         />
         
-        <h2 style={{
-          fontSize: '2rem',
-          marginBottom: '0.5rem',
-          color: 'var(--text-primary)',
-        }}>Lycaon</h2>
+        <h2 className="text-3xl font-bold mb-2 text-gray-800">
+          Lycaon
+        </h2>
         
-        <p style={{
-          color: 'var(--text-secondary)',
-          marginBottom: '2rem',
-        }}>
+        <p className="text-gray-600 mb-8">
           Slack-based Incident Management Service
         </p>
 
         {error && (
-          <div style={{
-            padding: '0.75rem',
-            marginBottom: '1rem',
-            borderRadius: '0.25rem',
-            background: '#fee',
-            color: 'var(--error)',
-            fontSize: '0.875rem',
-          }}>
+          <div className="p-3 mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded">
             {error}
           </div>
         )}
@@ -69,16 +42,9 @@ function Login() {
         <button
           onClick={handleSlackLogin}
           disabled={loading}
-          className="btn-primary"
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            opacity: loading ? 0.5 : 1,
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
+          className={`btn-primary w-full flex items-center justify-center gap-2 ${
+            loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+          }`}
         >
           <svg 
             width="20" 
@@ -99,11 +65,7 @@ function Login() {
           {loading ? 'Redirecting...' : 'Sign in with Slack'}
         </button>
 
-        <p style={{
-          marginTop: '2rem',
-          fontSize: '0.875rem',
-          color: 'var(--text-secondary)',
-        }}>
+        <p className="mt-8 text-sm text-gray-600">
           By signing in, you agree to our terms of service
         </p>
       </div>

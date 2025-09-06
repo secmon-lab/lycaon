@@ -29,45 +29,31 @@ function Dashboard({ user, setUser }: DashboardProps) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header style={{
-        background: 'white',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '1rem 0',
-      }}>
-        <div className="container" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <h1 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <header className="bg-white border-b border-gray-200 py-4">
+        <div className="container flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl flex items-center gap-2">
               <img 
                 src="/logo.png" 
                 alt="Lycaon Logo"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                }}
+                className="w-8 h-8"
               />
               Lycaon
             </h1>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>
+          <div className="flex items-center gap-4">
+            <span className="text-gray-600">
               {user.name}
             </span>
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="btn-secondary"
-              style={{
-                padding: '0.5rem 1rem',
-                fontSize: '0.875rem',
-                opacity: loggingOut ? 0.5 : 1,
-              }}
+              className={`btn-secondary px-4 py-2 text-sm ${
+                loggingOut ? 'opacity-50' : ''
+              }`}
             >
               {loggingOut ? 'Logging out...' : 'Logout'}
             </button>
@@ -76,20 +62,15 @@ function Dashboard({ user, setUser }: DashboardProps) {
       </header>
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: '2rem 0' }}>
+      <main className="flex-1 py-8">
         <div className="container">
           {/* Welcome Card */}
-          <div className="card" style={{ marginBottom: '2rem' }}>
-            <h2 style={{ marginBottom: '1rem' }}>Welcome back, {user.name}!</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          <div className="card mb-8">
+            <h2 className="mb-4">Welcome back, {user.name}!</h2>
+            <p className="text-gray-600 mb-4">
               You're successfully connected to Lycaon incident management system.
             </p>
-            <div style={{
-              padding: '1rem',
-              background: 'var(--background)',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-            }}>
+            <div className="p-4 bg-gray-50 rounded-lg text-sm">
               <p><strong>User ID:</strong> {user.id}</p>
               <p><strong>Email:</strong> {user.email}</p>
               <p><strong>Slack User ID:</strong> {user.slack_user_id}</p>
@@ -97,58 +78,33 @@ function Dashboard({ user, setUser }: DashboardProps) {
           </div>
 
           {/* Placeholder Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '1.5rem',
-          }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="card">
-              <h3 style={{ marginBottom: '0.5rem' }}>📊 Incidents Overview</h3>
-              <p style={{ color: 'var(--text-secondary)' }}>
+              <h3 className="mb-2">📊 Incidents Overview</h3>
+              <p className="text-gray-600">
                 View and manage active incidents
               </p>
-              <div style={{
-                marginTop: '2rem',
-                padding: '2rem',
-                background: 'var(--background)',
-                borderRadius: '0.5rem',
-                textAlign: 'center',
-                color: 'var(--text-secondary)',
-              }}>
+              <div className="mt-8 p-8 bg-gray-50 rounded-lg text-center text-gray-600">
                 Coming soon...
               </div>
             </div>
 
             <div className="card">
-              <h3 style={{ marginBottom: '0.5rem' }}>💬 Recent Messages</h3>
-              <p style={{ color: 'var(--text-secondary)' }}>
+              <h3 className="mb-2">💬 Recent Messages</h3>
+              <p className="text-gray-600">
                 Latest messages from Slack channels
               </p>
-              <div style={{
-                marginTop: '2rem',
-                padding: '2rem',
-                background: 'var(--background)',
-                borderRadius: '0.5rem',
-                textAlign: 'center',
-                color: 'var(--text-secondary)',
-              }}>
+              <div className="mt-8 p-8 bg-gray-50 rounded-lg text-center text-gray-600">
                 Coming soon...
               </div>
             </div>
 
             <div className="card">
-              <h3 style={{ marginBottom: '0.5rem' }}>⚡ Quick Actions</h3>
-              <p style={{ color: 'var(--text-secondary)' }}>
+              <h3 className="mb-2">⚡ Quick Actions</h3>
+              <p className="text-gray-600">
                 Create and manage incidents quickly
               </p>
-              <div style={{
-                marginTop: '2rem',
-                padding: '2rem',
-                background: 'var(--background)',
-                borderRadius: '0.5rem',
-                textAlign: 'center',
-                color: 'var(--text-secondary)',
-              }}>
+              <div className="mt-8 p-8 bg-gray-50 rounded-lg text-center text-gray-600">
                 Coming soon...
               </div>
             </div>
@@ -157,17 +113,8 @@ function Dashboard({ user, setUser }: DashboardProps) {
       </main>
 
       {/* Footer */}
-      <footer style={{
-        background: 'white',
-        borderTop: '1px solid #e2e8f0',
-        padding: '1rem 0',
-        marginTop: 'auto',
-      }}>
-        <div className="container" style={{
-          textAlign: 'center',
-          color: 'var(--text-secondary)',
-          fontSize: '0.875rem',
-        }}>
+      <footer className="bg-white border-t border-gray-200 py-4 mt-auto">
+        <div className="container text-center text-gray-600 text-sm">
           Lycaon Incident Management © {new Date().getFullYear()}
         </div>
       </footer>
