@@ -22,7 +22,7 @@ function Login() {
         <img 
           src="/logo.png" 
           alt="Lycaon Logo"
-          className="w-30 h-30 mb-4 mx-auto"
+          className="w-20 h-20 mb-4 mx-auto"
         />
         
         <h2 className="text-3xl font-bold mb-2 text-gray-800">
@@ -64,10 +64,6 @@ function Login() {
           </svg>
           {loading ? 'Redirecting...' : 'Sign in with Slack'}
         </button>
-
-        <p className="mt-8 text-sm text-gray-600">
-          By signing in, you agree to our terms of service
-        </p>
       </div>
     </div>
   )
