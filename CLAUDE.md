@@ -75,7 +75,7 @@ LYCAON_SLACK_OAUTH_TOKEN=xxx
 LYCAON_FIRESTORE_PROJECT=xxx
 LYCAON_FIRESTORE_DATABASE=xxx
 
-# Gemini (Google Default Application Credentialを使用)
+# Gemini (uses Google Default Application Credential)
 LYCAON_GEMINI_PROJECT=xxx       # GCP Project ID
 LYCAON_GEMINI_MODEL=gemini-1.5-flash
 
