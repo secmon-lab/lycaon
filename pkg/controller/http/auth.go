@@ -64,7 +64,6 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   !h.isLocalhost(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   600, // 10 minutes
 	})
@@ -117,7 +116,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 			return "http"
 		}(), r.Host, r.RequestURI),
 	)
-	
+
 	// Try to extract query params from headers if direct query is empty
 	if r.URL.RawQuery == "" {
 		// Check X-Original-URL header (some proxies use this)
@@ -128,7 +127,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 				logger.Info("Restored query from X-Original-URL", "query", u.RawQuery)
 			}
 		}
-		
+
 		// Check X-Forwarded-Uri header
 		if fwdURI := r.Header.Get("X-Forwarded-Uri"); fwdURI != "" {
 			logger.Info("Attempting to parse X-Forwarded-Uri", "fwdURI", fwdURI)
@@ -234,7 +233,6 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   !h.isLocalhost(r),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  session.ExpiresAt,
 	})
@@ -244,7 +242,6 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		Value:    session.Secret,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   !h.isLocalhost(r),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  session.ExpiresAt,
 	})
@@ -325,10 +322,4 @@ func (h *AuthHandler) getRedirectURI(r *http.Request) string {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host + "/api/auth/callback"
-}
-
-// isLocalhost checks if the request is from localhost
-func (h *AuthHandler) isLocalhost(r *http.Request) bool {
-	host := r.Host
-	return host == "localhost" || host[:9] == "127.0.0.1" || host[:10] == "localhost:"
 }
