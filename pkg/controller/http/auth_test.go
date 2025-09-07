@@ -25,7 +25,7 @@ func TestAuthHandlerLoginNotConfigured(t *testing.T) {
 
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
-	authUC := usecase.NewAuth(ctx, repo)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 
 	handler := controller.NewAuthHandler(ctx, slackConfig, authUC, "")
 
@@ -37,7 +37,7 @@ func TestAuthHandlerLoginNotConfigured(t *testing.T) {
 	handler.HandleLogin(w, req)
 
 	// Assert
-	gt.Equal(t, http.StatusServiceUnavailable, w.Code)
+	gt.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestAuthHandlerLoginConfigured(t *testing.T) {
@@ -51,7 +51,7 @@ func TestAuthHandlerLoginConfigured(t *testing.T) {
 		ClientSecret: "test-client-secret",
 	}
 	repo := repository.NewMemory()
-	authUC := usecase.NewAuth(ctx, repo)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 
 	handler := controller.NewAuthHandler(ctx, slackConfig, authUC, "")
 
@@ -63,10 +63,10 @@ func TestAuthHandlerLoginConfigured(t *testing.T) {
 	// Execute
 	handler.HandleLogin(w, req)
 
-	// Assert - should redirect to Slack OAuth
+	// Assert - should redirect to Slack OAuth (OpenID Connect)
 	gt.Equal(t, http.StatusTemporaryRedirect, w.Code)
 	location := w.Header().Get("Location")
-	gt.True(t, strings.Contains(location, "slack.com/oauth/v2/authorize"))
+	gt.True(t, strings.Contains(location, "slack.com/openid/connect/authorize"))
 	gt.True(t, strings.Contains(location, "client_id=test-client-id"))
 }
 
@@ -78,7 +78,7 @@ func TestAuthHandlerLogout(t *testing.T) {
 
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
-	authUC := usecase.NewAuth(ctx, repo)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 
 	// Create session first
 	session, err := authUC.CreateSession(ctx, "U123", "Test User", "test@example.com")
@@ -129,7 +129,7 @@ func TestAuthHandlerUserMe(t *testing.T) {
 
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
-	authUC := usecase.NewAuth(ctx, repo)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 
 	// Create session
 	session, err := authUC.CreateSession(ctx, "U123", "Test User", "test@example.com")
