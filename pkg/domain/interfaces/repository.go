@@ -25,6 +25,16 @@ type Repository interface {
 	GetSession(ctx context.Context, id string) (*model.Session, error)
 	DeleteSession(ctx context.Context, id string) error
 
+	// Incident operations
+	PutIncident(ctx context.Context, incident *model.Incident) error
+	GetIncident(ctx context.Context, id int) (*model.Incident, error)
+	GetNextIncidentNumber(ctx context.Context) (int, error)
+
+	// Incident request operations
+	SaveIncidentRequest(ctx context.Context, request *model.IncidentRequest) error
+	GetIncidentRequest(ctx context.Context, id string) (*model.IncidentRequest, error)
+	DeleteIncidentRequest(ctx context.Context, id string) error
+
 	// Close closes the repository connection
 	Close() error
 }

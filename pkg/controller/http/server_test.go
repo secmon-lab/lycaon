@@ -26,14 +26,18 @@ func TestServerHealthCheck(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	messageUC := usecase.NewSlackMessage(ctx, repo, nil, nil)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	gt.NoError(t, err)
+	incidentUC := usecase.NewIncident(repo, nil)
 
 	server, err := controller.NewServer(
 		ctx,
 		":8080",
 		slackConfig,
+		repo,
 		authUC,
 		messageUC,
+		incidentUC,
 		false,
 		"",
 	)
@@ -61,14 +65,18 @@ func TestServerFallbackHome(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	messageUC := usecase.NewSlackMessage(ctx, repo, nil, nil)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	gt.NoError(t, err)
+	incidentUC := usecase.NewIncident(repo, nil)
 
 	server, err := controller.NewServer(
 		ctx,
 		":8080",
 		slackConfig,
+		repo,
 		authUC,
 		messageUC,
+		incidentUC,
 		false, // Production mode to trigger fallback
 		"",
 	)

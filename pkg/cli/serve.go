@@ -13,6 +13,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/urfave/cli/v3"
 )
@@ -60,20 +62,42 @@ func cmdServe() *cli.Command {
 				defer closer.Close()
 			}
 
-			// Create Slack client using config
-			slackClient := slackCfg.ConfigureOptional(logger)
+			// Get Slack token from config
+			slackToken := ""
+			if slackCfg.OAuthToken != "" {
+				slackToken = slackCfg.OAuthToken
+			}
+
+			// Create Slack client
+			var slackClient interfaces.SlackClient
+			if slackToken != "" {
+				slackClient = slackSvc.New(slackToken)
+			}
+
+			// Debug log Slack configuration
+			logger.Debug("Slack configuration loaded",
+				"has_signing_secret", slackCfg.SigningSecret != "",
+				"signing_secret_length", len(slackCfg.SigningSecret),
+				"has_oauth_token", slackCfg.OAuthToken != "",
+			)
 
 			// Create use cases
 			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
-			messageUC := usecase.NewSlackMessage(ctx, repo, llmClient, slackClient)
+			messageUC, err := usecase.NewSlackMessage(ctx, repo, llmClient, slackClient, "")
+			if err != nil {
+				return goerr.Wrap(err, "failed to create message use case")
+			}
+			incidentUC := usecase.NewIncident(repo, slackClient)
 
 			// Create HTTP server
 			server, err := controller.NewServer(
 				ctx,
 				serverCfg.Addr,
 				&slackCfg,
+				repo,
 				authUC,
 				messageUC,
+				incidentUC,
 				false, // DevMode removed
 				serverCfg.FrontendURL,
 			)

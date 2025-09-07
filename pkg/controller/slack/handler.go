@@ -9,31 +9,40 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
-	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/utils/async"
 	"github.com/slack-go/slack/slackevents"
 )
 
 // Handler handles Slack webhook endpoints
 type Handler struct {
 	slackConfig        *config.SlackConfig
-	messageUC          usecase.SlackMessageUseCase
+	messageUC          interfaces.SlackMessage
+	incidentUC         interfaces.Incident
 	eventHandler       *EventHandler
 	interactionHandler *InteractionHandler
 }
 
 // NewHandler creates a new Slack handler
-func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, messageUC usecase.SlackMessageUseCase) *Handler {
+func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, repo interfaces.Repository, messageUC interfaces.SlackMessage, incidentUC interfaces.Incident) *Handler {
+	slackToken := ""
+	if slackConfig != nil && slackConfig.OAuthToken != "" {
+		slackToken = slackConfig.OAuthToken
+	}
+
 	return &Handler{
 		slackConfig:        slackConfig,
 		messageUC:          messageUC,
+		incidentUC:         incidentUC,
 		eventHandler:       NewEventHandler(ctx, messageUC),
-		interactionHandler: NewInteractionHandler(ctx),
+		interactionHandler: NewInteractionHandler(ctx, incidentUC, slackToken),
 	}
 }
 
@@ -55,6 +64,14 @@ func (h *Handler) HandleEvent(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, r.Context(), goerr.Wrap(err, "failed to parse event"), http.StatusBadRequest)
 		return
 	}
+
+	// Log token and app ID for debugging multiple app issue
+	ctxlog.From(r.Context()).Debug("Parsed Slack event",
+		"token", eventsAPIEvent.Token,
+		"api_app_id", eventsAPIEvent.APIAppID,
+		"team_id", eventsAPIEvent.TeamID,
+		"type", eventsAPIEvent.Type,
+	)
 
 	// Handle URL verification challenge (no auth needed)
 	if eventsAPIEvent.Type == slackevents.URLVerification {
@@ -81,7 +98,7 @@ func (h *Handler) HandleEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify Slack signature
-	if err := h.verifySlackSignature(r, body); err != nil {
+	if err := h.verifySlackSignature(r.Context(), r, body); err != nil {
 		ctxlog.From(r.Context()).Warn("Invalid Slack signature", "error", err)
 		h.writeError(w, r.Context(), goerr.Wrap(err, "invalid signature"), http.StatusUnauthorized)
 		return
@@ -89,18 +106,20 @@ func (h *Handler) HandleEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Handle callback events
 	if eventsAPIEvent.Type == slackevents.CallbackEvent {
+		// Log event details for debugging
+		ctxlog.From(r.Context()).Debug("Processing Slack event",
+			"type", eventsAPIEvent.Type,
+			"team_id", eventsAPIEvent.TeamID,
+			"api_app_id", eventsAPIEvent.APIAppID,
+		)
+
 		// Acknowledge receipt immediately
 		w.WriteHeader(http.StatusOK)
 
-		// Process event asynchronously
-		go func(ctx context.Context) {
-			if err := h.eventHandler.HandleEvent(ctx, &eventsAPIEvent); err != nil {
-				ctxlog.From(ctx).Error("Failed to handle event",
-					"error", err,
-					"eventType", eventsAPIEvent.Type,
-				)
-			}
-		}(r.Context())
+		// Process event asynchronously using dispatcher
+		async.Dispatch(r.Context(), func(ctx context.Context) error {
+			return h.eventHandler.HandleEvent(ctx, &eventsAPIEvent)
+		})
 		return
 	}
 
@@ -116,41 +135,48 @@ func (h *Handler) HandleInteraction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse form data
-	if err := r.ParseForm(); err != nil {
-		ctxlog.From(r.Context()).Error("Failed to parse form", "error", err)
-		h.writeError(w, r.Context(), goerr.Wrap(err, "failed to parse form"), http.StatusBadRequest)
+	// Read the raw body first for signature verification
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		ctxlog.From(r.Context()).Error("Failed to read request body", "error", err)
+		h.writeError(w, r.Context(), goerr.Wrap(err, "failed to read request body"), http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
-	// Get payload
-	payload := r.FormValue("payload")
-	if payload == "" {
-		h.writeError(w, r.Context(), goerr.New("payload not found"), http.StatusBadRequest)
-		return
-	}
-
-	// Verify signature using the raw form data
-	body := []byte("payload=" + payload)
-	if err := h.verifySlackSignature(r, body); err != nil {
+	// Verify signature using the raw body
+	if err := h.verifySlackSignature(r.Context(), r, body); err != nil {
 		ctxlog.From(r.Context()).Warn("Invalid Slack signature for interaction", "error", err)
 		h.writeError(w, r.Context(), goerr.Wrap(err, "invalid signature"), http.StatusUnauthorized)
 		return
 	}
 
-	// Acknowledge receipt
+	// Parse the form data from the body
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		ctxlog.From(r.Context()).Error("Failed to parse form data", "error", err)
+		h.writeError(w, r.Context(), goerr.Wrap(err, "failed to parse form data"), http.StatusBadRequest)
+		return
+	}
+
+	// Get payload
+	payload := values.Get("payload")
+	if payload == "" {
+		h.writeError(w, r.Context(), goerr.New("payload not found"), http.StatusBadRequest)
+		return
+	}
+
+	// Acknowledge receipt immediately
 	w.WriteHeader(http.StatusOK)
 
-	// Process interaction asynchronously
-	go func(ctx context.Context) {
-		if err := h.interactionHandler.HandleInteraction(ctx, []byte(payload)); err != nil {
-			ctxlog.From(ctx).Error("Failed to handle interaction", "error", err)
-		}
-	}(r.Context())
+	// Process interaction asynchronously using dispatcher
+	async.Dispatch(r.Context(), func(ctx context.Context) error {
+		return h.interactionHandler.HandleInteraction(ctx, []byte(payload))
+	})
 }
 
 // verifySlackSignature verifies the Slack request signature
-func (h *Handler) verifySlackSignature(r *http.Request, body []byte) error {
+func (h *Handler) verifySlackSignature(ctx context.Context, r *http.Request, body []byte) error {
 	timestamp := r.Header.Get("X-Slack-Request-Timestamp")
 	if timestamp == "" {
 		return goerr.New("missing timestamp header")
@@ -177,8 +203,32 @@ func (h *Handler) verifySlackSignature(r *http.Request, body []byte) error {
 	mac.Write([]byte(baseString))
 	expectedSignature := "v0=" + hex.EncodeToString(mac.Sum(nil))
 
+	// Debug logging for signature verification
+	bodyPreview := string(body)
+	if len(bodyPreview) > 100 {
+		bodyPreview = bodyPreview[:100] + "..."
+	}
+
+	// Hash the body for comparison
+	bodyHash := sha256.Sum256(body)
+	bodyHashHex := hex.EncodeToString(bodyHash[:])
+
+	ctxlog.From(ctx).Debug("Verifying Slack signature",
+		"timestamp", timestamp,
+		"received_signature", signature,
+		"expected_signature", expectedSignature,
+		"signing_secret_length", len(h.slackConfig.SigningSecret),
+		"body_length", len(body),
+		"body_hash", bodyHashHex[:16], // First 16 chars of hash for identification
+		"body_preview", bodyPreview,
+	)
+
 	// Compare signatures
 	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
+		ctxlog.From(ctx).Warn("Signature mismatch",
+			"received", signature,
+			"expected", expectedSignature,
+		)
 		return goerr.New("signature mismatch")
 	}
 
@@ -196,6 +246,9 @@ func (h *Handler) writeError(w http.ResponseWriter, ctx context.Context, err err
 	} else {
 		message = err.Error()
 	}
+
+	// Log error with context
+	ctxlog.From(ctx).Debug("Writing error response", "status", status, "error", message)
 
 	json.NewEncoder(w).Encode(map[string]string{
 		"error": message,

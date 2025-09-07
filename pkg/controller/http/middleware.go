@@ -7,16 +7,16 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/m-mizutani/ctxlog"
-	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 )
 
 // Middleware provides common HTTP middleware
 type Middleware struct {
-	authUC usecase.AuthUseCase
+	authUC interfaces.Auth
 }
 
 // NewMiddleware creates a new middleware instance
-func NewMiddleware(ctx context.Context, authUC usecase.AuthUseCase) *Middleware {
+func NewMiddleware(ctx context.Context, authUC interfaces.Auth) *Middleware {
 	return &Middleware{
 		authUC: authUC,
 	}

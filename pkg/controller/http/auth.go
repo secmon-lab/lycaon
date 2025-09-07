@@ -11,18 +11,18 @@ import (
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
-	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 )
 
 // AuthHandler handles authentication endpoints
 type AuthHandler struct {
 	slackConfig *config.SlackConfig
-	authUC      usecase.AuthUseCase
+	authUC      interfaces.Auth
 	frontendURL string
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(ctx context.Context, slackConfig *config.SlackConfig, authUC usecase.AuthUseCase, frontendURL string) *AuthHandler {
+func NewAuthHandler(ctx context.Context, slackConfig *config.SlackConfig, authUC interfaces.Auth, frontendURL string) *AuthHandler {
 	return &AuthHandler{
 		slackConfig: slackConfig,
 		authUC:      authUC,
@@ -53,7 +53,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate OAuth URL using usecase
-	oauthConfig := usecase.OAuthConfig{
+	oauthConfig := interfaces.OAuthConfig{
 		ClientID:     h.slackConfig.ClientID,
 		ClientSecret: h.slackConfig.ClientSecret,
 		RedirectURI:  h.getRedirectURI(r),

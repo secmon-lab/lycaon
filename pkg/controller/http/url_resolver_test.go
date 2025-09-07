@@ -26,6 +26,25 @@ func TestGetFrontendURL(t *testing.T) {
 		gt.Equal(t, result, "https://example.com")
 	})
 
+	t.Run("uses Alt-Used header when present (Cloud Run)", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "internal.example.com"
+		req.Header.Set("Alt-Used", "backstream-lycaon-507354148656.asia-northeast1.run.app")
+
+		result := ctrlhttp.GetFrontendURL(req, "")
+		gt.Equal(t, result, "https://backstream-lycaon-507354148656.asia-northeast1.run.app")
+	})
+
+	t.Run("Alt-Used takes precedence over X-Forwarded-Host", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "internal.example.com"
+		req.Header.Set("X-Forwarded-Host", "public.example.com")
+		req.Header.Set("Alt-Used", "backstream-lycaon-507354148656.asia-northeast1.run.app")
+
+		result := ctrlhttp.GetFrontendURL(req, "")
+		gt.Equal(t, result, "https://backstream-lycaon-507354148656.asia-northeast1.run.app")
+	})
+
 	t.Run("uses X-Forwarded-Host when present", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Host = "internal.example.com"
@@ -94,6 +113,16 @@ func TestGetFrontendURL(t *testing.T) {
 
 		result := ctrlhttp.GetFrontendURL(req, "")
 		gt.Equal(t, result, "https://example.com")
+	})
+
+	t.Run("empty Alt-Used is ignored", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "example.com"
+		req.Header.Set("Alt-Used", "")
+		req.Header.Set("X-Forwarded-Host", "forwarded.example.com")
+
+		result := ctrlhttp.GetFrontendURL(req, "")
+		gt.Equal(t, result, "https://forwarded.example.com")
 	})
 
 	t.Run("handles IPv6 addresses", func(t *testing.T) {

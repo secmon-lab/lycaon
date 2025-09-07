@@ -13,6 +13,7 @@ type Slack struct {
 	ClientSecret  string
 	SigningSecret string
 	OAuthToken    string
+	AppID         string // API App ID to filter events from correct app
 }
 
 // Flags returns CLI flags for Slack configuration

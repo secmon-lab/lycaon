@@ -12,7 +12,7 @@ import (
 	"github.com/secmon-lab/lycaon/frontend"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	slackCtrl "github.com/secmon-lab/lycaon/pkg/controller/slack"
-	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 )
 
 // Server represents the HTTP server
@@ -20,8 +20,8 @@ type Server struct {
 	*http.Server
 	router         chi.Router
 	slackConfig    *config.SlackConfig
-	authUC         usecase.AuthUseCase
-	messageUC      usecase.SlackMessageUseCase
+	authUC         interfaces.Auth
+	messageUC      interfaces.SlackMessage
 	devMode        bool
 	authMiddleware *Middleware
 	slackHandler   *slackCtrl.Handler
@@ -33,8 +33,10 @@ func NewServer(
 	ctx context.Context,
 	addr string,
 	slackConfig *config.SlackConfig,
-	authUC usecase.AuthUseCase,
-	messageUC usecase.SlackMessageUseCase,
+	repo interfaces.Repository,
+	authUC interfaces.Auth,
+	messageUC interfaces.SlackMessage,
+	incidentUC interfaces.Incident,
 	devMode bool,
 	frontendURL string,
 ) (*Server, error) {
@@ -47,7 +49,7 @@ func NewServer(
 	router.Use(LoggingMiddleware(ctx))
 	router.Use(middleware.Recoverer)
 
-	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, messageUC)
+	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 	authHandler := NewAuthHandler(ctx, slackConfig, authUC, frontendURL)
 
 	// Health check

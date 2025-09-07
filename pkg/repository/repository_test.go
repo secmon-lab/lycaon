@@ -268,6 +268,119 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		err = repo.DeleteSession(ctx, nonExistentID)
 		gt.Error(t, err)
 	})
+
+	t.Run("SaveAndGetIncident", func(t *testing.T) {
+		repo := newRepo(t)
+		defer repo.Close()
+
+		ctx := context.Background()
+		now := time.Now()
+
+		// Get next incident number
+		incidentNum, err := repo.GetNextIncidentNumber(ctx)
+		gt.NoError(t, err)
+		gt.True(t, incidentNum > 0)
+
+		// Create incident
+		incident := &model.Incident{
+			ID:                incidentNum,
+			ChannelID:         fmt.Sprintf("C-INC-%d", now.UnixNano()),
+			ChannelName:       fmt.Sprintf("inc-%03d", incidentNum),
+			OriginChannelID:   fmt.Sprintf("C-ORIGIN-%d", now.UnixNano()),
+			OriginChannelName: "general",
+			CreatedBy:         fmt.Sprintf("U-CREATOR-%d", now.UnixNano()),
+			CreatedAt:         now,
+		}
+
+		// Save incident
+		err = repo.PutIncident(ctx, incident)
+		gt.NoError(t, err)
+
+		// Get incident and verify all fields
+		retrieved, err := repo.GetIncident(ctx, incident.ID)
+		gt.NoError(t, err)
+		gt.Equal(t, incident.ID, retrieved.ID)
+		gt.Equal(t, incident.ChannelID, retrieved.ChannelID)
+		gt.Equal(t, incident.ChannelName, retrieved.ChannelName)
+		gt.Equal(t, incident.OriginChannelID, retrieved.OriginChannelID)
+		gt.Equal(t, incident.OriginChannelName, retrieved.OriginChannelName)
+		gt.Equal(t, incident.CreatedBy, retrieved.CreatedBy)
+		// Check timestamp with tolerance
+		gt.True(t, incident.CreatedAt.Sub(retrieved.CreatedAt).Abs() < time.Second)
+	})
+
+	t.Run("GetNextIncidentNumber", func(t *testing.T) {
+		repo := newRepo(t)
+		defer repo.Close()
+
+		ctx := context.Background()
+
+		// Get first number
+		num1, err := repo.GetNextIncidentNumber(ctx)
+		gt.NoError(t, err)
+		gt.True(t, num1 > 0)
+
+		// Get second number - should be incremented
+		num2, err := repo.GetNextIncidentNumber(ctx)
+		gt.NoError(t, err)
+		gt.Equal(t, num1+1, num2)
+
+		// Get third number - should be incremented again
+		num3, err := repo.GetNextIncidentNumber(ctx)
+		gt.NoError(t, err)
+		gt.Equal(t, num2+1, num3)
+	})
+
+	t.Run("ConcurrentIncidentNumberGeneration", func(t *testing.T) {
+		repo := newRepo(t)
+		defer repo.Close()
+
+		ctx := context.Background()
+		numGoroutines := 10
+		results := make(chan int, numGoroutines)
+		errors := make(chan error, numGoroutines)
+
+		// Launch multiple goroutines to get incident numbers concurrently
+		for i := 0; i < numGoroutines; i++ {
+			go func() {
+				num, err := repo.GetNextIncidentNumber(ctx)
+				if err != nil {
+					errors <- err
+				} else {
+					results <- num
+				}
+			}()
+		}
+
+		// Collect results
+		numbers := make(map[int]bool)
+		for i := 0; i < numGoroutines; i++ {
+			select {
+			case err := <-errors:
+				t.Fatalf("Error getting incident number: %v", err)
+			case num := <-results:
+				if numbers[num] {
+					t.Fatalf("Duplicate incident number generated: %d", num)
+				}
+				numbers[num] = true
+			}
+		}
+
+		// Verify we got unique sequential numbers
+		gt.Equal(t, numGoroutines, len(numbers))
+	})
+
+	t.Run("GetIncidentNotFound", func(t *testing.T) {
+		repo := newRepo(t)
+		defer repo.Close()
+
+		ctx := context.Background()
+
+		// Try to get non-existent incident
+		_, err := repo.GetIncident(ctx, 999999)
+		gt.Error(t, err)
+		gt.S(t, err.Error()).Contains("not found")
+	})
 }
 
 func TestMemoryRepository(t *testing.T) {

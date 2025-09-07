@@ -20,9 +20,13 @@ func GetFrontendURL(r *http.Request, configuredURL string) string {
 	scheme := "https"
 
 	// Determine host from headers
-	// Priority: X-Forwarded-Host > Host
+	// Priority: Alt-Used (Cloud Run) > X-Forwarded-Host > Host
 	host := r.Host
-	if forwardedHost := r.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+	
+	// Check for Cloud Run's Alt-Used header first
+	if altUsed := r.Header.Get("Alt-Used"); altUsed != "" {
+		host = altUsed
+	} else if forwardedHost := r.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
 		// X-Forwarded-Host may contain multiple hosts separated by comma
 		// Use the first one (original client request)
 		if parts := strings.Split(forwardedHost, ","); len(parts) > 0 {
