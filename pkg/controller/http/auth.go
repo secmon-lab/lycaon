@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
-	"github.com/slack-go/slack"
 )
 
 // AuthHandler handles authentication endpoints
@@ -44,17 +42,28 @@ func generateRandomState() (string, error) {
 
 // HandleLogin initiates the OAuth flow
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	if !h.slackConfig.IsOAuthConfigured() {
-		writeError(w, goerr.New("Slack OAuth not configured"), http.StatusServiceUnavailable)
-		return
-	}
+	logger := ctxlog.From(r.Context())
 
 	// Generate state parameter for CSRF protection
 	state, err := generateRandomState()
 	if err != nil {
-		logger := ctxlog.From(r.Context())
 		logger.Error("Failed to generate state", "error", err)
 		writeError(w, goerr.Wrap(err, "failed to generate state"), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate OAuth URL using usecase
+	oauthConfig := usecase.OAuthConfig{
+		ClientID:     h.slackConfig.ClientID,
+		ClientSecret: h.slackConfig.ClientSecret,
+		RedirectURI:  h.getRedirectURI(r),
+		State:        state,
+	}
+
+	oauthURL, err := h.authUC.GenerateOAuthURL(r.Context(), oauthConfig)
+	if err != nil {
+		logger.Error("Failed to generate OAuth URL", "error", err)
+		writeError(w, goerr.Wrap(err, "failed to generate OAuth URL"), http.StatusInternalServerError)
 		return
 	}
 
@@ -68,54 +77,20 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   600, // 10 minutes
 	})
 
-	// Generate OAuth URL
-	oauthURL := url.URL{
-		Scheme: "https",
-		Host:   "slack.com",
-		Path:   "/oauth/v2/authorize",
-	}
-
-	q := oauthURL.Query()
-	q.Set("client_id", h.slackConfig.ClientID)
-	q.Set("scope", "channels:history,channels:read,chat:write,users:read")
-	q.Set("redirect_uri", h.getRedirectURI(r))
-	q.Set("state", state)
-	oauthURL.RawQuery = q.Encode()
-
-	logger := ctxlog.From(r.Context())
 	logger.Info("Redirecting to Slack OAuth",
 		"state", state,
 		"redirectURI", h.getRedirectURI(r),
+		"teamID", oauthURL.TeamID,
+		"fullURL", oauthURL.URL,
 	)
 
 	// Redirect to Slack OAuth
-	http.Redirect(w, r, oauthURL.String(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, oauthURL.URL, http.StatusTemporaryRedirect)
 }
 
 // HandleCallback handles the OAuth callback
 func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	logger := ctxlog.From(r.Context())
-
-	// Log the callback URL for debugging
-	logger.Info("OAuth callback received",
-		"method", r.Method,
-		"url", r.URL.String(),
-		"rawQuery", r.URL.RawQuery,
-		"requestURI", r.RequestURI,
-		"host", r.Host,
-		"originalURL", r.Header.Get("X-Original-URL"),
-		"forwardedURI", r.Header.Get("X-Forwarded-Uri"),
-		"referer", r.Header.Get("Referer"),
-		"code", r.URL.Query().Get("code"),
-		"state", r.URL.Query().Get("state"),
-		"queryString", r.URL.RawQuery,
-		"fullURL", fmt.Sprintf("%s://%s%s", func() string {
-			if r.TLS != nil {
-				return "https"
-			}
-			return "http"
-		}(), r.Host, r.RequestURI),
-	)
 
 	// Try to extract query params from headers if direct query is empty
 	if r.URL.RawQuery == "" {
@@ -181,45 +156,30 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange code for token
+	// Exchange code for token using OpenID Connect
 	logger.Info("Exchanging OAuth code for token",
 		"code", code,
 		"redirectURI", h.getRedirectURI(r),
 		"clientID", h.slackConfig.ClientID,
 	)
 
-	resp, err := slack.GetOAuthV2Response(
-		&http.Client{},
-		h.slackConfig.ClientID,
-		h.slackConfig.ClientSecret,
-		code,
-		h.getRedirectURI(r),
-	)
+	user, err := h.authUC.HandleCallback(r.Context(), code, h.getRedirectURI(r))
 	if err != nil {
-		logger.Error("Failed to exchange OAuth code",
+		logger.Error("Failed to handle OAuth callback",
 			"error", err,
 			"code", code,
 			"redirectURI", h.getRedirectURI(r),
 		)
-		writeError(w, goerr.Wrap(err, "failed to exchange authorization code"), http.StatusInternalServerError)
-		return
-	}
-
-	// Get user info
-	client := slack.New(resp.AccessToken)
-	userInfo, err := client.GetUserInfo(resp.AuthedUser.ID)
-	if err != nil {
-		logger.Error("Failed to get user info", "error", err)
-		writeError(w, goerr.Wrap(err, "failed to get user info"), http.StatusInternalServerError)
+		writeError(w, goerr.Wrap(err, "failed to handle OAuth callback"), http.StatusInternalServerError)
 		return
 	}
 
 	// Create session
 	session, err := h.authUC.CreateSession(
 		r.Context(),
-		userInfo.ID,
-		userInfo.Name,
-		userInfo.Profile.Email,
+		user.SlackUserID,
+		user.Name,
+		user.Email,
 	)
 	if err != nil {
 		logger.Error("Failed to create session", "error", err)
@@ -247,8 +207,8 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	logger.Info("User authenticated successfully",
-		"userID", userInfo.ID,
-		"userName", userInfo.Name,
+		"userID", user.SlackUserID,
+		"userName", user.Name,
 	)
 
 	// Redirect to home
@@ -313,13 +273,6 @@ func (h *AuthHandler) HandleUserMe(w http.ResponseWriter, r *http.Request) {
 
 // getRedirectURI constructs the redirect URI
 func (h *AuthHandler) getRedirectURI(r *http.Request) string {
-	if h.frontendURL != "" {
-		return h.frontendURL + "/api/auth/callback"
-	}
-	// Fallback to request-based URL
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	return scheme + "://" + r.Host + "/api/auth/callback"
+	baseURL := GetFrontendURL(r, h.frontendURL)
+	return baseURL + "/api/auth/callback"
 }

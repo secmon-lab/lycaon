@@ -64,7 +64,7 @@ func cmdServe() *cli.Command {
 			slackClient := slackCfg.ConfigureOptional(logger)
 
 			// Create use cases
-			authUC := usecase.NewAuth(ctx, repo)
+			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
 			messageUC := usecase.NewSlackMessage(ctx, repo, llmClient, slackClient)
 
 			// Create HTTP server

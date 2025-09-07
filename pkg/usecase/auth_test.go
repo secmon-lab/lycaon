@@ -9,6 +9,7 @@ import (
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/gt"
+	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 )
@@ -18,7 +19,8 @@ func TestAuthCreateSession(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	auth := usecase.NewAuth(ctx, repo)
+	slackConfig := &config.SlackConfig{}
+	auth := usecase.NewAuth(ctx, repo, slackConfig)
 
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
 	gt.NoError(t, err)
@@ -39,7 +41,8 @@ func TestAuthValidateSession(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	auth := usecase.NewAuth(ctx, repo)
+	slackConfig := &config.SlackConfig{}
+	auth := usecase.NewAuth(ctx, repo, slackConfig)
 
 	// Create a session
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
@@ -73,7 +76,8 @@ func TestAuthDeleteSession(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	auth := usecase.NewAuth(ctx, repo)
+	slackConfig := &config.SlackConfig{}
+	auth := usecase.NewAuth(ctx, repo, slackConfig)
 
 	// Create a session
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
@@ -97,7 +101,8 @@ func TestAuthGetUserFromSession(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	auth := usecase.NewAuth(ctx, repo)
+	slackConfig := &config.SlackConfig{}
+	auth := usecase.NewAuth(ctx, repo, slackConfig)
 
 	// Create a session
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
@@ -130,7 +135,8 @@ func TestAuthCleanupExpiredSessions(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	auth := usecase.NewAuth(ctx, repo)
+	slackConfig := &config.SlackConfig{}
+	auth := usecase.NewAuth(ctx, repo, slackConfig)
 
 	// Create multiple sessions
 	session1, err := auth.CreateSession(ctx, "U1", "User1", "user1@example.com")

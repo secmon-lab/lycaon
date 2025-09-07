@@ -22,8 +22,8 @@ func (s *Server) Flags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "frontend-url",
-			Usage:       "Frontend URL for OAuth callbacks",
-			Value:       "http://localhost:8080",
+			Usage:       "Frontend URL for OAuth callbacks (if not set, automatically detected from request headers)",
+			Value:       "",
 			Sources:     cli.EnvVars("LYCAON_FRONTEND_URL"),
 			Destination: &s.FrontendURL,
 		},

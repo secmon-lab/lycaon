@@ -19,8 +19,29 @@ type SlackMessageUseCase interface {
 	SaveAndRespond(ctx context.Context, event *slackevents.MessageEvent) (string, error)
 }
 
+// OAuthConfig represents OAuth configuration
+type OAuthConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
+	State        string
+}
+
+// OAuthURL represents OAuth URL information
+type OAuthURL struct {
+	URL    string
+	State  string
+	TeamID string
+}
+
 // AuthUseCase defines the interface for authentication operations
 type AuthUseCase interface {
+	// GenerateOAuthURL generates Slack OAuth URL with team ID from API
+	GenerateOAuthURL(ctx context.Context, config OAuthConfig) (*OAuthURL, error)
+
+	// HandleCallback processes the OAuth callback using OpenID Connect
+	HandleCallback(ctx context.Context, code, redirectURI string) (*model.User, error)
+
 	// CreateSession creates a new session for a user
 	CreateSession(ctx context.Context, slackUserID, userName, userEmail string) (*model.Session, error)
 
