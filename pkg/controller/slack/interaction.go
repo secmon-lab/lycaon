@@ -3,19 +3,30 @@ package slack
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
+	"github.com/secmon-lab/lycaon/pkg/utils/async"
 	"github.com/slack-go/slack"
 )
 
 // InteractionHandler handles Slack interactions
 type InteractionHandler struct {
+	incidentUC   interfaces.Incident
+	slackService *slackSvc.Service
+	blockBuilder *slackSvc.BlockBuilder
 }
 
 // NewInteractionHandler creates a new interaction handler
-func NewInteractionHandler(ctx context.Context) *InteractionHandler {
-	return &InteractionHandler{}
+func NewInteractionHandler(ctx context.Context, incidentUC interfaces.Incident, slackToken string) *InteractionHandler {
+	return &InteractionHandler{
+		incidentUC:   incidentUC,
+		slackService: slackSvc.New(slackToken),
+		blockBuilder: slackSvc.NewBlockBuilder(),
+	}
 }
 
 // HandleInteraction handles a Slack interaction
@@ -69,8 +80,64 @@ func (h *InteractionHandler) handleBlockActions(ctx context.Context, interaction
 		// Handle specific actions based on ActionID
 		switch action.ActionID {
 		case "create_incident":
-			ctxlog.From(ctx).Info("Create incident action triggered")
-			// TODO: Implement incident creation logic
+			ctxlog.From(ctx).Info("Create incident action triggered",
+				"user", interaction.User.ID,
+				"channel", interaction.Channel.ID,
+				"requestID", action.Value,
+			)
+
+			requestID := action.Value
+			if requestID == "" {
+				ctxlog.From(ctx).Error("Empty request ID in action value")
+				return goerr.New("empty request ID")
+			}
+
+			// Send immediate acknowledgment to Slack
+			// This prevents the "This interaction failed" error
+			ctxlog.From(ctx).Info("Acknowledging incident creation request")
+
+			// Process incident creation asynchronously with preserved context
+			backgroundCtx := async.NewBackgroundContext(ctx)
+			async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
+				// Call the single usecase method that handles everything
+				incident, err := h.incidentUC.HandleCreateIncidentAction(
+					asyncCtx,
+					requestID,
+					interaction.User.ID, // Use the actual user who clicked the button
+				)
+				if err != nil {
+					ctxlog.From(asyncCtx).Error("Failed to handle incident creation",
+						"error", err,
+						"user", interaction.User.ID,
+						"requestID", requestID,
+					)
+
+					// Send error message
+					errorMessage := "Failed to create incident. Please try again."
+					// Check if error is due to expired or not found request
+					if strings.Contains(err.Error(), "incident request not found") || strings.Contains(err.Error(), "incident request has expired") {
+						errorMessage = "Failed to create incident. The request may have expired."
+					}
+					errorBlocks := h.blockBuilder.BuildErrorBlocks(errorMessage)
+					h.slackService.PostEphemeral(
+						asyncCtx,
+						interaction.Channel.ID,
+						interaction.User.ID,
+						slack.MsgOptionBlocks(errorBlocks...),
+					)
+					return goerr.Wrap(err, "failed to handle incident creation")
+				}
+
+				ctxlog.From(asyncCtx).Info("Incident created successfully",
+					"incidentID", incident.ID,
+					"channelName", incident.ChannelName,
+					"createdBy", interaction.User.ID,
+				)
+				return nil
+			})
+
+			// Return immediately to acknowledge the interaction
+			// The actual processing happens in the background
 
 		case "acknowledge":
 			ctxlog.From(ctx).Info("Acknowledge action triggered")

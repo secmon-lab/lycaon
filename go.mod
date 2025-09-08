@@ -1,6 +1,6 @@
 module github.com/secmon-lab/lycaon
 
-go 1.25.0
+go 1.24.2
 
 require (
 	cloud.google.com/go/firestore v1.18.0

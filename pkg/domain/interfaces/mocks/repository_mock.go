@@ -23,11 +23,23 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			CloseFunc: func() error {
 //				panic("mock out the Close method")
 //			},
+//			DeleteIncidentRequestFunc: func(ctx context.Context, id string) error {
+//				panic("mock out the DeleteIncidentRequest method")
+//			},
 //			DeleteSessionFunc: func(ctx context.Context, id string) error {
 //				panic("mock out the DeleteSession method")
 //			},
+//			GetIncidentFunc: func(ctx context.Context, id int) (*model.Incident, error) {
+//				panic("mock out the GetIncident method")
+//			},
+//			GetIncidentRequestFunc: func(ctx context.Context, id string) (*model.IncidentRequest, error) {
+//				panic("mock out the GetIncidentRequest method")
+//			},
 //			GetMessageFunc: func(ctx context.Context, id string) (*model.Message, error) {
 //				panic("mock out the GetMessage method")
+//			},
+//			GetNextIncidentNumberFunc: func(ctx context.Context) (int, error) {
+//				panic("mock out the GetNextIncidentNumber method")
 //			},
 //			GetSessionFunc: func(ctx context.Context, id string) (*model.Session, error) {
 //				panic("mock out the GetSession method")
@@ -40,6 +52,12 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			},
 //			ListMessagesFunc: func(ctx context.Context, channelID string, limit int) ([]*model.Message, error) {
 //				panic("mock out the ListMessages method")
+//			},
+//			PutIncidentFunc: func(ctx context.Context, incident *model.Incident) error {
+//				panic("mock out the PutIncident method")
+//			},
+//			SaveIncidentRequestFunc: func(ctx context.Context, request *model.IncidentRequest) error {
+//				panic("mock out the SaveIncidentRequest method")
 //			},
 //			SaveMessageFunc: func(ctx context.Context, message *model.Message) error {
 //				panic("mock out the SaveMessage method")
@@ -60,11 +78,23 @@ type RepositoryMock struct {
 	// CloseFunc mocks the Close method.
 	CloseFunc func() error
 
+	// DeleteIncidentRequestFunc mocks the DeleteIncidentRequest method.
+	DeleteIncidentRequestFunc func(ctx context.Context, id string) error
+
 	// DeleteSessionFunc mocks the DeleteSession method.
 	DeleteSessionFunc func(ctx context.Context, id string) error
 
+	// GetIncidentFunc mocks the GetIncident method.
+	GetIncidentFunc func(ctx context.Context, id int) (*model.Incident, error)
+
+	// GetIncidentRequestFunc mocks the GetIncidentRequest method.
+	GetIncidentRequestFunc func(ctx context.Context, id string) (*model.IncidentRequest, error)
+
 	// GetMessageFunc mocks the GetMessage method.
 	GetMessageFunc func(ctx context.Context, id string) (*model.Message, error)
+
+	// GetNextIncidentNumberFunc mocks the GetNextIncidentNumber method.
+	GetNextIncidentNumberFunc func(ctx context.Context) (int, error)
 
 	// GetSessionFunc mocks the GetSession method.
 	GetSessionFunc func(ctx context.Context, id string) (*model.Session, error)
@@ -77,6 +107,12 @@ type RepositoryMock struct {
 
 	// ListMessagesFunc mocks the ListMessages method.
 	ListMessagesFunc func(ctx context.Context, channelID string, limit int) ([]*model.Message, error)
+
+	// PutIncidentFunc mocks the PutIncident method.
+	PutIncidentFunc func(ctx context.Context, incident *model.Incident) error
+
+	// SaveIncidentRequestFunc mocks the SaveIncidentRequest method.
+	SaveIncidentRequestFunc func(ctx context.Context, request *model.IncidentRequest) error
 
 	// SaveMessageFunc mocks the SaveMessage method.
 	SaveMessageFunc func(ctx context.Context, message *model.Message) error
@@ -92,8 +128,29 @@ type RepositoryMock struct {
 		// Close holds details about calls to the Close method.
 		Close []struct {
 		}
+		// DeleteIncidentRequest holds details about calls to the DeleteIncidentRequest method.
+		DeleteIncidentRequest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ID is the id argument value.
+			ID string
+		}
 		// DeleteSession holds details about calls to the DeleteSession method.
 		DeleteSession []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ID is the id argument value.
+			ID string
+		}
+		// GetIncident holds details about calls to the GetIncident method.
+		GetIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ID is the id argument value.
+			ID int
+		}
+		// GetIncidentRequest holds details about calls to the GetIncidentRequest method.
+		GetIncidentRequest []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// ID is the id argument value.
@@ -105,6 +162,11 @@ type RepositoryMock struct {
 			Ctx context.Context
 			// ID is the id argument value.
 			ID string
+		}
+		// GetNextIncidentNumber holds details about calls to the GetNextIncidentNumber method.
+		GetNextIncidentNumber []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 		}
 		// GetSession holds details about calls to the GetSession method.
 		GetSession []struct {
@@ -136,6 +198,20 @@ type RepositoryMock struct {
 			// Limit is the limit argument value.
 			Limit int
 		}
+		// PutIncident holds details about calls to the PutIncident method.
+		PutIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Incident is the incident argument value.
+			Incident *model.Incident
+		}
+		// SaveIncidentRequest holds details about calls to the SaveIncidentRequest method.
+		SaveIncidentRequest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Request is the request argument value.
+			Request *model.IncidentRequest
+		}
 		// SaveMessage holds details about calls to the SaveMessage method.
 		SaveMessage []struct {
 			// Ctx is the ctx argument value.
@@ -158,16 +234,22 @@ type RepositoryMock struct {
 			User *model.User
 		}
 	}
-	lockClose            sync.RWMutex
-	lockDeleteSession    sync.RWMutex
-	lockGetMessage       sync.RWMutex
-	lockGetSession       sync.RWMutex
-	lockGetUser          sync.RWMutex
-	lockGetUserBySlackID sync.RWMutex
-	lockListMessages     sync.RWMutex
-	lockSaveMessage      sync.RWMutex
-	lockSaveSession      sync.RWMutex
-	lockSaveUser         sync.RWMutex
+	lockClose                 sync.RWMutex
+	lockDeleteIncidentRequest sync.RWMutex
+	lockDeleteSession         sync.RWMutex
+	lockGetIncident           sync.RWMutex
+	lockGetIncidentRequest    sync.RWMutex
+	lockGetMessage            sync.RWMutex
+	lockGetNextIncidentNumber sync.RWMutex
+	lockGetSession            sync.RWMutex
+	lockGetUser               sync.RWMutex
+	lockGetUserBySlackID      sync.RWMutex
+	lockListMessages          sync.RWMutex
+	lockPutIncident           sync.RWMutex
+	lockSaveIncidentRequest   sync.RWMutex
+	lockSaveMessage           sync.RWMutex
+	lockSaveSession           sync.RWMutex
+	lockSaveUser              sync.RWMutex
 }
 
 // Close calls CloseFunc.
@@ -194,6 +276,42 @@ func (mock *RepositoryMock) CloseCalls() []struct {
 	mock.lockClose.RLock()
 	calls = mock.calls.Close
 	mock.lockClose.RUnlock()
+	return calls
+}
+
+// DeleteIncidentRequest calls DeleteIncidentRequestFunc.
+func (mock *RepositoryMock) DeleteIncidentRequest(ctx context.Context, id string) error {
+	if mock.DeleteIncidentRequestFunc == nil {
+		panic("RepositoryMock.DeleteIncidentRequestFunc: method is nil but Repository.DeleteIncidentRequest was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		ID  string
+	}{
+		Ctx: ctx,
+		ID:  id,
+	}
+	mock.lockDeleteIncidentRequest.Lock()
+	mock.calls.DeleteIncidentRequest = append(mock.calls.DeleteIncidentRequest, callInfo)
+	mock.lockDeleteIncidentRequest.Unlock()
+	return mock.DeleteIncidentRequestFunc(ctx, id)
+}
+
+// DeleteIncidentRequestCalls gets all the calls that were made to DeleteIncidentRequest.
+// Check the length with:
+//
+//	len(mockedRepository.DeleteIncidentRequestCalls())
+func (mock *RepositoryMock) DeleteIncidentRequestCalls() []struct {
+	Ctx context.Context
+	ID  string
+} {
+	var calls []struct {
+		Ctx context.Context
+		ID  string
+	}
+	mock.lockDeleteIncidentRequest.RLock()
+	calls = mock.calls.DeleteIncidentRequest
+	mock.lockDeleteIncidentRequest.RUnlock()
 	return calls
 }
 
@@ -233,6 +351,78 @@ func (mock *RepositoryMock) DeleteSessionCalls() []struct {
 	return calls
 }
 
+// GetIncident calls GetIncidentFunc.
+func (mock *RepositoryMock) GetIncident(ctx context.Context, id int) (*model.Incident, error) {
+	if mock.GetIncidentFunc == nil {
+		panic("RepositoryMock.GetIncidentFunc: method is nil but Repository.GetIncident was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		ID  int
+	}{
+		Ctx: ctx,
+		ID:  id,
+	}
+	mock.lockGetIncident.Lock()
+	mock.calls.GetIncident = append(mock.calls.GetIncident, callInfo)
+	mock.lockGetIncident.Unlock()
+	return mock.GetIncidentFunc(ctx, id)
+}
+
+// GetIncidentCalls gets all the calls that were made to GetIncident.
+// Check the length with:
+//
+//	len(mockedRepository.GetIncidentCalls())
+func (mock *RepositoryMock) GetIncidentCalls() []struct {
+	Ctx context.Context
+	ID  int
+} {
+	var calls []struct {
+		Ctx context.Context
+		ID  int
+	}
+	mock.lockGetIncident.RLock()
+	calls = mock.calls.GetIncident
+	mock.lockGetIncident.RUnlock()
+	return calls
+}
+
+// GetIncidentRequest calls GetIncidentRequestFunc.
+func (mock *RepositoryMock) GetIncidentRequest(ctx context.Context, id string) (*model.IncidentRequest, error) {
+	if mock.GetIncidentRequestFunc == nil {
+		panic("RepositoryMock.GetIncidentRequestFunc: method is nil but Repository.GetIncidentRequest was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		ID  string
+	}{
+		Ctx: ctx,
+		ID:  id,
+	}
+	mock.lockGetIncidentRequest.Lock()
+	mock.calls.GetIncidentRequest = append(mock.calls.GetIncidentRequest, callInfo)
+	mock.lockGetIncidentRequest.Unlock()
+	return mock.GetIncidentRequestFunc(ctx, id)
+}
+
+// GetIncidentRequestCalls gets all the calls that were made to GetIncidentRequest.
+// Check the length with:
+//
+//	len(mockedRepository.GetIncidentRequestCalls())
+func (mock *RepositoryMock) GetIncidentRequestCalls() []struct {
+	Ctx context.Context
+	ID  string
+} {
+	var calls []struct {
+		Ctx context.Context
+		ID  string
+	}
+	mock.lockGetIncidentRequest.RLock()
+	calls = mock.calls.GetIncidentRequest
+	mock.lockGetIncidentRequest.RUnlock()
+	return calls
+}
+
 // GetMessage calls GetMessageFunc.
 func (mock *RepositoryMock) GetMessage(ctx context.Context, id string) (*model.Message, error) {
 	if mock.GetMessageFunc == nil {
@@ -266,6 +456,38 @@ func (mock *RepositoryMock) GetMessageCalls() []struct {
 	mock.lockGetMessage.RLock()
 	calls = mock.calls.GetMessage
 	mock.lockGetMessage.RUnlock()
+	return calls
+}
+
+// GetNextIncidentNumber calls GetNextIncidentNumberFunc.
+func (mock *RepositoryMock) GetNextIncidentNumber(ctx context.Context) (int, error) {
+	if mock.GetNextIncidentNumberFunc == nil {
+		panic("RepositoryMock.GetNextIncidentNumberFunc: method is nil but Repository.GetNextIncidentNumber was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	mock.lockGetNextIncidentNumber.Lock()
+	mock.calls.GetNextIncidentNumber = append(mock.calls.GetNextIncidentNumber, callInfo)
+	mock.lockGetNextIncidentNumber.Unlock()
+	return mock.GetNextIncidentNumberFunc(ctx)
+}
+
+// GetNextIncidentNumberCalls gets all the calls that were made to GetNextIncidentNumber.
+// Check the length with:
+//
+//	len(mockedRepository.GetNextIncidentNumberCalls())
+func (mock *RepositoryMock) GetNextIncidentNumberCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	mock.lockGetNextIncidentNumber.RLock()
+	calls = mock.calls.GetNextIncidentNumber
+	mock.lockGetNextIncidentNumber.RUnlock()
 	return calls
 }
 
@@ -414,6 +636,78 @@ func (mock *RepositoryMock) ListMessagesCalls() []struct {
 	mock.lockListMessages.RLock()
 	calls = mock.calls.ListMessages
 	mock.lockListMessages.RUnlock()
+	return calls
+}
+
+// PutIncident calls PutIncidentFunc.
+func (mock *RepositoryMock) PutIncident(ctx context.Context, incident *model.Incident) error {
+	if mock.PutIncidentFunc == nil {
+		panic("RepositoryMock.PutIncidentFunc: method is nil but Repository.PutIncident was just called")
+	}
+	callInfo := struct {
+		Ctx      context.Context
+		Incident *model.Incident
+	}{
+		Ctx:      ctx,
+		Incident: incident,
+	}
+	mock.lockPutIncident.Lock()
+	mock.calls.PutIncident = append(mock.calls.PutIncident, callInfo)
+	mock.lockPutIncident.Unlock()
+	return mock.PutIncidentFunc(ctx, incident)
+}
+
+// PutIncidentCalls gets all the calls that were made to PutIncident.
+// Check the length with:
+//
+//	len(mockedRepository.PutIncidentCalls())
+func (mock *RepositoryMock) PutIncidentCalls() []struct {
+	Ctx      context.Context
+	Incident *model.Incident
+} {
+	var calls []struct {
+		Ctx      context.Context
+		Incident *model.Incident
+	}
+	mock.lockPutIncident.RLock()
+	calls = mock.calls.PutIncident
+	mock.lockPutIncident.RUnlock()
+	return calls
+}
+
+// SaveIncidentRequest calls SaveIncidentRequestFunc.
+func (mock *RepositoryMock) SaveIncidentRequest(ctx context.Context, request *model.IncidentRequest) error {
+	if mock.SaveIncidentRequestFunc == nil {
+		panic("RepositoryMock.SaveIncidentRequestFunc: method is nil but Repository.SaveIncidentRequest was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		Request *model.IncidentRequest
+	}{
+		Ctx:     ctx,
+		Request: request,
+	}
+	mock.lockSaveIncidentRequest.Lock()
+	mock.calls.SaveIncidentRequest = append(mock.calls.SaveIncidentRequest, callInfo)
+	mock.lockSaveIncidentRequest.Unlock()
+	return mock.SaveIncidentRequestFunc(ctx, request)
+}
+
+// SaveIncidentRequestCalls gets all the calls that were made to SaveIncidentRequest.
+// Check the length with:
+//
+//	len(mockedRepository.SaveIncidentRequestCalls())
+func (mock *RepositoryMock) SaveIncidentRequestCalls() []struct {
+	Ctx     context.Context
+	Request *model.IncidentRequest
+} {
+	var calls []struct {
+		Ctx     context.Context
+		Request *model.IncidentRequest
+	}
+	mock.lockSaveIncidentRequest.RLock()
+	calls = mock.calls.SaveIncidentRequest
+	mock.lockSaveIncidentRequest.RUnlock()
 	return calls
 }
 

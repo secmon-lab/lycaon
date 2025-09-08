@@ -1,4 +1,4 @@
-package usecase
+package interfaces
 
 import (
 	"context"
@@ -7,8 +7,14 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
-// SlackMessageUseCase defines the interface for Slack message processing
-type SlackMessageUseCase interface {
+// IncidentCommand represents the result of parsing an incident command
+type IncidentCommand struct {
+	IsIncidentTrigger bool
+	Title             string
+}
+
+// SlackMessage defines the interface for Slack message processing
+type SlackMessage interface {
 	// ProcessMessage processes an incoming Slack message
 	ProcessMessage(ctx context.Context, event *slackevents.MessageEvent) error
 
@@ -17,6 +23,12 @@ type SlackMessageUseCase interface {
 
 	// SaveAndRespond saves a message and generates a response
 	SaveAndRespond(ctx context.Context, event *slackevents.MessageEvent) (string, error)
+
+	// ParseIncidentCommand parses a Slack message to check if it's an incident trigger and extract title
+	ParseIncidentCommand(ctx context.Context, message *model.Message) IncidentCommand
+
+	// SendIncidentMessage sends an incident creation prompt message
+	SendIncidentMessage(ctx context.Context, channelID, messageTS, title string) error
 }
 
 // OAuthConfig represents OAuth configuration
@@ -34,8 +46,8 @@ type OAuthURL struct {
 	TeamID string
 }
 
-// AuthUseCase defines the interface for authentication operations
-type AuthUseCase interface {
+// Auth defines the interface for authentication operations
+type Auth interface {
 	// GenerateOAuthURL generates Slack OAuth URL with team ID from API
 	GenerateOAuthURL(ctx context.Context, config OAuthConfig) (*OAuthURL, error)
 
@@ -53,4 +65,15 @@ type AuthUseCase interface {
 
 	// GetUserFromSession gets user information from a session
 	GetUserFromSession(ctx context.Context, sessionID string) (*model.User, error)
+}
+
+// Incident defines the interface for incident management
+type Incident interface {
+	CreateIncident(ctx context.Context, title, originChannelID, originChannelName, createdBy string) (*model.Incident, error)
+	GetIncident(ctx context.Context, id int) (*model.Incident, error)
+	// CreateIncidentFromInteraction handles the complete incident creation flow from a Slack interaction
+	CreateIncidentFromInteraction(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
+	// HandleCreateIncidentAction handles the create incident button click action
+	// This includes retrieving the request, creating the incident, and cleaning up
+	HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error)
 }

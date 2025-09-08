@@ -18,14 +18,14 @@ import (
 	"github.com/slack-go/slack"
 )
 
-// Auth implements AuthUseCase with repository-based storage
+// Auth implements Auth interface with repository-based storage
 type Auth struct {
 	repo        interfaces.Repository
 	slackConfig *config.SlackConfig
 }
 
 // NewAuth creates a new Auth use case
-func NewAuth(ctx context.Context, repo interfaces.Repository, slackConfig *config.SlackConfig) AuthUseCase {
+func NewAuth(ctx context.Context, repo interfaces.Repository, slackConfig *config.SlackConfig) *Auth {
 	return &Auth{
 		repo:        repo,
 		slackConfig: slackConfig,
@@ -33,7 +33,7 @@ func NewAuth(ctx context.Context, repo interfaces.Repository, slackConfig *confi
 }
 
 // GenerateOAuthURL generates Slack OAuth URL with team ID from API
-func (a *Auth) GenerateOAuthURL(ctx context.Context, config OAuthConfig) (*OAuthURL, error) {
+func (a *Auth) GenerateOAuthURL(ctx context.Context, config interfaces.OAuthConfig) (*interfaces.OAuthURL, error) {
 	logger := ctxlog.From(ctx)
 
 	if !a.slackConfig.IsOAuthConfigured() {
@@ -90,7 +90,7 @@ func (a *Auth) GenerateOAuthURL(ctx context.Context, config OAuthConfig) (*OAuth
 		"hasTeam", teamID != "",
 	)
 
-	return &OAuthURL{
+	return &interfaces.OAuthURL{
 		URL:    oauthURL.String(),
 		State:  config.State,
 		TeamID: teamID,

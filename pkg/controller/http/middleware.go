@@ -7,16 +7,17 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/m-mizutani/ctxlog"
-	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 )
 
 // Middleware provides common HTTP middleware
 type Middleware struct {
-	authUC usecase.AuthUseCase
+	authUC interfaces.Auth
 }
 
 // NewMiddleware creates a new middleware instance
-func NewMiddleware(ctx context.Context, authUC usecase.AuthUseCase) *Middleware {
+func NewMiddleware(ctx context.Context, authUC interfaces.Auth) *Middleware {
 	return &Middleware{
 		authUC: authUC,
 	}
@@ -68,7 +69,13 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Add user info to request context (could be enhanced with context values)
+		// Update auth context with user info
+		authCtx := model.GetOrCreateAuthContext(r.Context())
+		authCtx.UserID = session.UserID
+		authCtx.SessionID = session.ID
+		ctx := model.WithAuthContext(r.Context(), authCtx)
+		r = r.WithContext(ctx)
+
 		logger := ctxlog.From(r.Context())
 		logger.Debug("Authenticated request",
 			"userID", session.UserID,
@@ -105,6 +112,22 @@ func LoggingMiddleware(ctx context.Context) func(next http.Handler) http.Handler
 				"duration", time.Since(start),
 				"remote", r.RemoteAddr,
 			)
+		})
+	}
+}
+
+// AuthContextMiddleware creates middleware that initializes AuthContext from request
+func AuthContextMiddleware() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Create auth context
+			authCtx := model.NewAuthContext()
+
+			// Add auth context to request context
+			ctx := model.WithAuthContext(r.Context(), authCtx)
+			r = r.WithContext(ctx)
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }

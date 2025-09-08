@@ -12,18 +12,24 @@ import (
 
 // Memory implements Repository interface with in-memory storage
 type Memory struct {
-	mu       sync.RWMutex
-	messages map[string]*model.Message
-	users    map[string]*model.User
-	sessions map[string]*model.Session
+	mu               sync.RWMutex
+	messages         map[string]*model.Message
+	users            map[string]*model.User
+	sessions         map[string]*model.Session
+	incidents        map[int]*model.Incident
+	incidentRequests map[string]*model.IncidentRequest
+	incidentCounter  int
 }
 
 // NewMemory creates a new memory repository
 func NewMemory() interfaces.Repository {
 	return &Memory{
-		messages: make(map[string]*model.Message),
-		users:    make(map[string]*model.User),
-		sessions: make(map[string]*model.Session),
+		messages:         make(map[string]*model.Message),
+		users:            make(map[string]*model.User),
+		sessions:         make(map[string]*model.Session),
+		incidents:        make(map[int]*model.Incident),
+		incidentRequests: make(map[string]*model.IncidentRequest),
+		incidentCounter:  0,
 	}
 }
 
@@ -210,6 +216,53 @@ func (m *Memory) Close() error {
 	return nil
 }
 
+// PutIncident saves an incident to memory
+func (m *Memory) PutIncident(ctx context.Context, incident *model.Incident) error {
+	if incident == nil {
+		return goerr.New("incident is nil")
+	}
+	if incident.ID <= 0 {
+		return goerr.New("incident ID must be positive")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Deep copy to prevent external modifications
+	incidentCopy := *incident
+	m.incidents[incident.ID] = &incidentCopy
+
+	return nil
+}
+
+// GetIncident retrieves an incident by ID
+func (m *Memory) GetIncident(ctx context.Context, id int) (*model.Incident, error) {
+	if id <= 0 {
+		return nil, goerr.New("incident ID must be positive")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incident, exists := m.incidents[id]
+	if !exists {
+		return nil, goerr.New("incident not found")
+	}
+
+	// Return a copy to prevent external modifications
+	incidentCopy := *incident
+	return &incidentCopy, nil
+}
+
+// GetNextIncidentNumber returns the next available incident number
+func (m *Memory) GetNextIncidentNumber(ctx context.Context) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.incidentCounter++
+	return m.incidentCounter, nil
+}
+
 // Clear clears all data (useful for testing)
 func (m *Memory) Clear() {
 	m.mu.Lock()
@@ -217,6 +270,64 @@ func (m *Memory) Clear() {
 	m.messages = make(map[string]*model.Message)
 	m.users = make(map[string]*model.User)
 	m.sessions = make(map[string]*model.Session)
+	m.incidents = make(map[int]*model.Incident)
+	m.incidentRequests = make(map[string]*model.IncidentRequest)
+	m.incidentCounter = 0
+}
+
+// SaveIncidentRequest saves an incident request to memory
+func (m *Memory) SaveIncidentRequest(ctx context.Context, request *model.IncidentRequest) error {
+	if request == nil {
+		return goerr.New("incident request is nil")
+	}
+	if request.ID == "" {
+		return goerr.New("incident request ID is empty")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.incidentRequests[request.ID] = request
+	return nil
+}
+
+// GetIncidentRequest retrieves an incident request from memory
+func (m *Memory) GetIncidentRequest(ctx context.Context, id string) (*model.IncidentRequest, error) {
+	if id == "" {
+		return nil, goerr.New("incident request ID is empty")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	request, exists := m.incidentRequests[id]
+	if !exists {
+		return nil, goerr.New("incident request not found")
+	}
+
+	// Check if expired
+	if request.IsExpired() {
+		return nil, goerr.New("incident request has expired")
+	}
+
+	return request, nil
+}
+
+// DeleteIncidentRequest deletes an incident request from memory
+func (m *Memory) DeleteIncidentRequest(ctx context.Context, id string) error {
+	if id == "" {
+		return goerr.New("incident request ID is empty")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.incidentRequests[id]; !exists {
+		return goerr.New("incident request not found")
+	}
+
+	delete(m.incidentRequests, id)
+	return nil
 }
 
 // Count returns the number of messages (useful for testing)

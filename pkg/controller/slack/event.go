@@ -5,17 +5,18 @@ import (
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
-	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/slack-go/slack/slackevents"
 )
 
 // EventHandler handles Slack events
 type EventHandler struct {
-	messageUC usecase.SlackMessageUseCase
+	messageUC interfaces.SlackMessage
 }
 
 // NewEventHandler creates a new event handler
-func NewEventHandler(ctx context.Context, messageUC usecase.SlackMessageUseCase) *EventHandler {
+func NewEventHandler(ctx context.Context, messageUC interfaces.SlackMessage) *EventHandler {
 	return &EventHandler{
 		messageUC: messageUC,
 	}
@@ -78,16 +79,39 @@ func (h *EventHandler) handleMessageEvent(ctx context.Context, event *slackevent
 		"ts", event.TimeStamp,
 	)
 
-	// Process the message
-	response, err := h.messageUC.SaveAndRespond(ctx, event)
-	if err != nil {
-		return goerr.Wrap(err, "failed to process message")
+	// Save the message first
+	if err := h.messageUC.ProcessMessage(ctx, event); err != nil {
+		return goerr.Wrap(err, "failed to save message")
 	}
 
-	ctxlog.From(ctx).Info("Message processed successfully",
-		"user", event.User,
-		"response", response,
-	)
+	// Convert to domain model for incident trigger check
+	message := &model.Message{
+		ID:        event.ClientMsgID,
+		UserID:    event.User,
+		ChannelID: event.Channel,
+		Text:      event.Text,
+		EventTS:   event.TimeStamp,
+	}
+
+	// Check if message triggers incident creation and extract title in one call
+	cmd := h.messageUC.ParseIncidentCommand(ctx, message)
+	if cmd.IsIncidentTrigger {
+		ctxlog.From(ctx).Info("Incident trigger detected",
+			"user", event.User,
+			"channel", event.Channel,
+			"text", event.Text,
+			"title", cmd.Title,
+		)
+
+		// Send incident creation prompt with title
+		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title); err != nil {
+			ctxlog.From(ctx).Error("Failed to send incident prompt",
+				"error", err,
+				"channel", event.Channel,
+			)
+			// Don't fail the whole operation if prompt sending fails
+		}
+	}
 
 	return nil
 }

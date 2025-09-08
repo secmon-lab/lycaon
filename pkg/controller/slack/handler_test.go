@@ -35,9 +35,11 @@ func TestSlackHandlerChallenge(t *testing.T) {
 		OAuthToken:    "test-token",
 	}
 	repo := repository.NewMemory()
-	messageUC := usecase.NewSlackMessage(ctx, repo, nil, nil)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	gt.NoError(t, err)
+	incidentUC := usecase.NewIncident(repo, nil)
 
-	handler := slack.NewHandler(ctx, slackConfig, messageUC)
+	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 
 	// Create challenge request with type field
 	challenge := map[string]any{
@@ -78,9 +80,11 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 		OAuthToken:    "test-token",
 	}
 	repo := repository.NewMemory()
-	messageUC := usecase.NewSlackMessage(ctx, repo, nil, nil)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	gt.NoError(t, err)
+	incidentUC := usecase.NewIncident(repo, nil)
 
-	handler := slack.NewHandler(ctx, slackConfig, messageUC)
+	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 
 	// Create request with invalid signature
 	body := []byte(`{"type":"event_callback","event":{"type":"message","text":"test"}}`)
@@ -106,9 +110,11 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
-	messageUC := usecase.NewSlackMessage(ctx, repo, nil, nil)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	gt.NoError(t, err)
+	incidentUC := usecase.NewIncident(repo, nil)
 
-	handler := slack.NewHandler(ctx, slackConfig, messageUC)
+	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 
 	// Create request with valid JSON body
 	body := []byte(`{"type":"event_callback","event":{"type":"message","text":"test"}}`)
