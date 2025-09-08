@@ -158,3 +158,66 @@ func TestMessageHistoryService_ThreadLimitBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestMessageHistoryService_MessageOrdering(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Channel messages should be returned in chronological order", func(t *testing.T) {
+		// Create mock client that returns messages in reverse chronological order (newest first)
+		mockClient := &mockSlackClient{
+			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+				return &slack.GetConversationHistoryResponse{
+					Messages: []slack.Message{
+						{Msg: slack.Msg{Timestamp: "1234567890.000003", Text: "Newest message"}},
+						{Msg: slack.Msg{Timestamp: "1234567890.000002", Text: "Middle message"}},
+						{Msg: slack.Msg{Timestamp: "1234567890.000001", Text: "Oldest message"}},
+					},
+				}, nil
+			},
+		}
+
+		service := slackSvc.NewMessageHistoryService(mockClient)
+
+		opts := slackSvc.MessageHistoryOptions{
+			ChannelID: "C123456789",
+		}
+
+		messages, err := service.GetMessages(ctx, opts)
+		gt.NoError(t, err)
+		gt.Equal(t, len(messages), 3)
+
+		// Verify messages are in chronological order (oldest first)
+		gt.Equal(t, messages[0].Text, "Oldest message")
+		gt.Equal(t, messages[1].Text, "Middle message")
+		gt.Equal(t, messages[2].Text, "Newest message")
+	})
+
+	t.Run("Thread messages should remain in chronological order", func(t *testing.T) {
+		// Create mock client that returns thread messages in chronological order (oldest first)
+		mockClient := &mockSlackClient{
+			GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
+				return []slack.Message{
+					{Msg: slack.Msg{Timestamp: "1234567890.000001", Text: "First reply"}},
+					{Msg: slack.Msg{Timestamp: "1234567890.000002", Text: "Second reply"}},
+					{Msg: slack.Msg{Timestamp: "1234567890.000003", Text: "Third reply"}},
+				}, false, false, nil
+			},
+		}
+
+		service := slackSvc.NewMessageHistoryService(mockClient)
+
+		opts := slackSvc.MessageHistoryOptions{
+			ChannelID: "C123456789",
+			ThreadTS:  "1234567890.000000",
+		}
+
+		messages, err := service.GetMessages(ctx, opts)
+		gt.NoError(t, err)
+		gt.Equal(t, len(messages), 3)
+
+		// Verify messages remain in chronological order (oldest first)
+		gt.Equal(t, messages[0].Text, "First reply")
+		gt.Equal(t, messages[1].Text, "Second reply")
+		gt.Equal(t, messages[2].Text, "Third reply")
+	})
+}

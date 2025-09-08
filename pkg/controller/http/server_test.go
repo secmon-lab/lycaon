@@ -81,7 +81,6 @@ func TestServerHealthCheck(t *testing.T) {
 		authUC,
 		messageUC,
 		incidentUC,
-		false,
 		"",
 	)
 	gt.NoError(t, err)
@@ -121,7 +120,6 @@ func TestServerFallbackHome(t *testing.T) {
 		authUC,
 		messageUC,
 		incidentUC,
-		false, // Production mode to trigger fallback
 		"",
 	)
 	gt.NoError(t, err)

@@ -36,6 +36,7 @@ func NewMessageHistoryService(slackClient interfaces.SlackClient) *MessageHistor
 }
 
 // GetMessages retrieves messages from Slack based on the provided options
+// Returns messages in chronological order (oldest first) for consistency
 func (s *MessageHistoryService) GetMessages(ctx context.Context, opts MessageHistoryOptions) ([]slack.Message, error) {
 	if opts.ChannelID == "" {
 		return nil, goerr.New("channel ID is required")
@@ -56,6 +57,7 @@ func (s *MessageHistoryService) GetMessages(ctx context.Context, opts MessageHis
 }
 
 // getThreadMessages retrieves messages from a specific thread
+// Returns messages in chronological order (oldest first)
 func (s *MessageHistoryService) getThreadMessages(ctx context.Context, opts MessageHistoryOptions) ([]slack.Message, error) {
 	params := &slack.GetConversationRepliesParameters{
 		ChannelID: opts.ChannelID,
@@ -75,6 +77,7 @@ func (s *MessageHistoryService) getThreadMessages(ctx context.Context, opts Mess
 }
 
 // getChannelMessages retrieves messages from a channel (non-thread messages)
+// Slack API returns newest first, but this method reverses them to return oldest first
 func (s *MessageHistoryService) getChannelMessages(ctx context.Context, opts MessageHistoryOptions) ([]slack.Message, error) {
 	params := &slack.GetConversationHistoryParameters{
 		ChannelID: opts.ChannelID,
@@ -100,6 +103,12 @@ func (s *MessageHistoryService) getChannelMessages(ctx context.Context, opts Mes
 		if msg.ThreadTimestamp == "" || msg.ThreadTimestamp == msg.Timestamp {
 			nonThreadMessages = append(nonThreadMessages, msg)
 		}
+	}
+
+	// Reverse slice to be in chronological order (oldest first)
+	// This ensures consistency with getThreadMessages which returns oldest first
+	for i, j := 0, len(nonThreadMessages)-1; i < j; i, j = i+1, j-1 {
+		nonThreadMessages[i], nonThreadMessages[j] = nonThreadMessages[j], nonThreadMessages[i]
 	}
 
 	return nonThreadMessages, nil

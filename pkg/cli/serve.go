@@ -103,7 +103,6 @@ func cmdServe() *cli.Command {
 				authUC,
 				messageUC,
 				incidentUC,
-				false, // DevMode removed
 				serverCfg.FrontendURL,
 			)
 			if err != nil {
