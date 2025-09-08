@@ -8,7 +8,7 @@ import (
 
 // FS embeds the frontend build artifacts
 //
-//go:embed dist
+//go:embed all:dist
 var FS embed.FS
 
 // GetHTTPFS returns the embedded frontend filesystem for HTTP serving

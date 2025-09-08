@@ -1,0 +1,77 @@
+name: Unit test
+
+on:
+  push:
+
+jobs:
+  testing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout upstream repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # Explicitly restore Go module cache (supplement when using go-version-file)
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # Cache frontend build
+      - name: Cache frontend dist
+        uses: actions/cache@v4
+        with:
+          path: frontend/dist
+          key: ${{ runner.os }}-frontend-dist-${{ hashFiles('frontend/package-lock.json', 'frontend/src/**', 'frontend/index.html', 'frontend/vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-dist-
+
+      # Build frontend if not cached
+      - name: Build frontend
+        run: |
+          if [ ! -d "frontend/dist" ] || [ ! -f "frontend/dist/index.html" ]; then
+            echo "Building frontend..."
+            cd frontend
+            npm ci
+            npm run build
+          else
+            echo "Using cached frontend build"
+          fi
+
+      # Generate mock code if needed
+      - name: Generate code
+        run: |
+          if grep -r "go:generate.*moq" ./pkg 2>/dev/null; then
+            echo "Installing moq and generating mocks..."
+            go install github.com/matryer/moq@latest
+            go generate ./...
+          else
+            echo "No mock generation needed"
+          fi
+
+      # Run tests
+      - name: Run tests
+        run: go test ./...
+
+      # Build binary to ensure it compiles
+      - name: Build binary
+        run: go build -o lycaon .

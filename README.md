@@ -4,6 +4,11 @@
   <img src="./docs/images/logo_v0.png" height="128" />
 </p>
 
+[![Unit test](https://github.com/secmon-lab/lycaon/actions/workflows/test.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/test.yml)
+[![Lint](https://github.com/secmon-lab/lycaon/actions/workflows/lint.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/lint.yml)
+[![Gosec](https://github.com/secmon-lab/lycaon/actions/workflows/gosec.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/gosec.yml)
+[![Trivy](https://github.com/secmon-lab/lycaon/actions/workflows/trivy.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/trivy.yml)
+
 Slack-based Incident Management Service
 
 ## Overview

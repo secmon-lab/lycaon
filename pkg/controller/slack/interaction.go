@@ -119,12 +119,14 @@ func (h *InteractionHandler) handleBlockActions(ctx context.Context, interaction
 						errorMessage = "Failed to create incident. The request may have expired."
 					}
 					errorBlocks := h.blockBuilder.BuildErrorBlocks(errorMessage)
-					h.slackService.PostEphemeral(
+					if _, err := h.slackService.PostEphemeral(
 						asyncCtx,
 						interaction.Channel.ID,
 						interaction.User.ID,
 						slack.MsgOptionBlocks(errorBlocks...),
-					)
+					); err != nil {
+						ctxlog.From(asyncCtx).Error("Failed to post error message", "error", err)
+					}
 					return goerr.Wrap(err, "failed to handle incident creation")
 				}
 

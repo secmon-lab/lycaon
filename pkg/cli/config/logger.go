@@ -42,7 +42,7 @@ func (l *Logger) Configure() (*slog.Logger, error) {
 	level := logging.ParseLogLevel(l.Level)
 
 	// Parse format option
-	format := logging.FormatAuto
+	var format logging.Format
 	switch l.Format {
 	case "console":
 		format = logging.FormatConsole

@@ -245,9 +245,11 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"message": "logged out successfully",
-	})
+	}); err != nil {
+		ctxlog.From(r.Context()).Error("Failed to encode logout response", "error", err)
+	}
 }
 
 // HandleUserMe returns current user information
@@ -268,7 +270,9 @@ func (h *AuthHandler) HandleUserMe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		ctxlog.From(r.Context()).Error("Failed to encode user response", "error", err)
+	}
 }
 
 // getRedirectURI constructs the redirect URI
@@ -276,3 +280,4 @@ func (h *AuthHandler) getRedirectURI(r *http.Request) string {
 	baseURL := GetFrontendURL(r, h.frontendURL)
 	return baseURL + "/api/auth/callback"
 }
+
