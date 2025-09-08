@@ -11,6 +11,7 @@ import (
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
+	"github.com/m-mizutani/gollem"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
@@ -56,11 +57,14 @@ func cmdServe() *cli.Command {
 			}
 			defer repo.Close()
 
-			// Create LLM client using config
+			// Create LLM client using config (Note: currently using interfaces.LLMClient, gollem integration pending)
 			llmClient := geminiCfg.ConfigureOptional(ctx, logger)
 			if closer, ok := llmClient.(interface{ Close() error }); ok && closer != nil {
 				defer closer.Close()
 			}
+			
+			// TODO: Replace with gollem client configuration
+			var gollemClient gollem.LLMClient
 
 			// Get Slack token from config
 			slackToken := ""
@@ -83,7 +87,7 @@ func cmdServe() *cli.Command {
 
 			// Create use cases
 			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
-			messageUC, err := usecase.NewSlackMessage(ctx, repo, llmClient, nil, slackClient, "")
+			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient)
 			if err != nil {
 				return goerr.Wrap(err, "failed to create message use case")
 			}

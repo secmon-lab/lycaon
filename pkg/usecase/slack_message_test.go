@@ -28,7 +28,7 @@ func TestSlackMessageProcessMessage(t *testing.T) {
 	// Create mock gollem client using gollem's built-in mock
 	mockGollem := &mock.LLMClientMock{}
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, nil, "")
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, nil)
 	gt.NoError(t, err)
 
 	// Use random IDs as per CLAUDE.md
@@ -79,7 +79,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockLLM, nil, "")
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, nil)
 		gt.NoError(t, err)
 
 		message := &model.Message{
@@ -89,11 +89,11 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 
 		response, err := uc.GenerateResponse(ctx, message)
 		gt.NoError(t, err)
-		gt.Equal(t, "Thank you for your message. I'm currently processing it.", response)
+		gt.Equal(t, "Generated response", response)
 	})
 
 	t.Run("Without LLM client", func(t *testing.T) {
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, "")
+		uc, err := usecase.NewSlackMessage(ctx, repo, nil, nil)
 		gt.NoError(t, err)
 
 		message := &model.Message{
@@ -126,7 +126,7 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 		},
 	}
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, nil, "")
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, nil)
 	gt.NoError(t, err)
 
 	t.Run("With ClientMsgID", func(t *testing.T) {
@@ -187,9 +187,17 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
 
-	// Use a specific bot ID for testing
-	botUserID := "U123BOT"
-	uc, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, botUserID)
+	// Create mock Slack client that returns a specific bot user ID
+	mockSlack := &MockSlackClient{
+		AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+			return &slack.AuthTestResponse{
+				UserID: "U123BOT",
+				User:   "lycaon-bot",
+			}, nil
+		},
+	}
+
+	uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockSlack)
 	gt.NoError(t, err)
 
 	testCases := []struct {
@@ -528,6 +536,12 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 
 		// Create mock slack client for message history
 		mockSlack := &MockSlackClient{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -550,7 +564,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, mockSlack, botUserID)
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 		gt.NoError(t, err)
 
 		// Test parsing incident command without title (should trigger LLM enhancement)
@@ -588,6 +602,12 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 
 		// Mock slack client for thread replies
 		mockSlack := &MockSlackClient{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
 			GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
 				return []slack.Message{
 					{
@@ -608,7 +628,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, mockSlack, botUserID)
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 		gt.NoError(t, err)
 
 		// Test with thread timestamp (should use thread messages)
@@ -643,6 +663,12 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 
 		// Mock slack client that returns some messages
 		mockSlack := &MockSlackClient{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -658,7 +684,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, mockSlack, botUserID)
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 		gt.NoError(t, err)
 
 		message := &model.Message{
@@ -692,6 +718,12 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		mockSlack := &MockSlackClient{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -707,7 +739,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, mockSlack, botUserID)
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 		gt.NoError(t, err)
 
 		message := &model.Message{
@@ -728,9 +760,16 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 	t.Run("Manual title specified (no LLM enhancement)", func(t *testing.T) {
 		// Mock that should not be called since title is provided
 		mockGollem := &mock.LLMClientMock{}
-		mockSlack := &MockSlackClient{}
+		mockSlack := &MockSlackClient{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
+		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockGollem, mockSlack, botUserID)
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 		gt.NoError(t, err)
 
 		// With manual title - should not trigger LLM

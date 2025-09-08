@@ -21,7 +21,6 @@ import (
 // SlackMessage implements SlackMessage interface
 type SlackMessage struct {
 	repo           interfaces.Repository
-	llmClient      interfaces.LLMClient
 	gollemClient   gollem.LLMClient
 	slackClient    interfaces.SlackClient
 	blockBuilder   *slackSvc.BlockBuilder
@@ -34,24 +33,20 @@ type SlackMessage struct {
 func NewSlackMessage(
 	ctx context.Context,
 	repo interfaces.Repository,
-	llmClient interfaces.LLMClient,
 	gollemClient gollem.LLMClient,
 	slackClient interfaces.SlackClient,
-	botUserID string, // Optional: if empty, will try to retrieve from Slack API
 ) (*SlackMessage, error) {
 	s := &SlackMessage{
 		repo:           repo,
-		llmClient:      llmClient,
 		gollemClient:   gollemClient,
 		slackClient:    slackClient,
 		blockBuilder:   slackSvc.NewBlockBuilder(),
-		botUserID:      botUserID,
 		messageHistory: slackSvc.NewMessageHistoryService(slackClient),
 		llmService:     llmSvc.NewLLMService(gollemClient),
 	}
 
-	// Get bot user ID if not provided and client is available
-	if botUserID == "" && slackClient != nil {
+	// Always get bot user ID from Slack API if client is available
+	if slackClient != nil {
 		authResp, err := slackClient.AuthTestContext(ctx)
 		if err != nil {
 			return nil, goerr.Wrap(err, "failed to authenticate with Slack")
@@ -61,6 +56,8 @@ func NewSlackMessage(
 			"botUserID", s.botUserID,
 			"botName", authResp.User,
 		)
+	} else {
+		ctxlog.From(ctx).Debug("Slack client not provided, bot user ID not available")
 	}
 
 	return s, nil
@@ -95,7 +92,7 @@ func (s *SlackMessage) GenerateResponse(ctx context.Context, message *model.Mess
 		return "", goerr.New("message is nil")
 	}
 
-	if s.llmClient == nil {
+	if s.gollemClient == nil {
 		// If LLM client is not configured, return a default response
 		return "Thank you for your message. I'm currently processing it.", nil
 	}
@@ -108,8 +105,19 @@ func (s *SlackMessage) GenerateResponse(ctx context.Context, message *model.Mess
 		message.Text,
 	)
 
-	// Generate response using LLM
-	response, err := s.llmClient.GenerateResponse(ctx, prompt)
+	// Create session for LLM generation
+	session, err := s.gollemClient.NewSession(ctx)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to create LLM session",
+			"error", err,
+			"messageID", message.ID,
+		)
+		// Return a fallback response on error
+		return "I understand your message. Let me help you with that.", nil
+	}
+
+	// Generate response using gollem
+	response, err := session.GenerateContent(ctx, gollem.Text(prompt))
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to generate LLM response",
 			"error", err,
@@ -119,7 +127,12 @@ func (s *SlackMessage) GenerateResponse(ctx context.Context, message *model.Mess
 		return "I understand your message. Let me help you with that.", nil
 	}
 
-	return response, nil
+	if len(response.Texts) == 0 || response.Texts[0] == "" {
+		// Return fallback response if no content generated
+		return "I understand your message. Let me help you with that.", nil
+	}
+
+	return response.Texts[0], nil
 }
 
 // SaveAndRespond saves a message and optionally generates a response

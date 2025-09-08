@@ -26,7 +26,7 @@ func TestServerHealthCheck(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, "")
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil)
 	gt.NoError(t, err)
 	incidentUC := usecase.NewIncident(repo, nil)
 
@@ -65,7 +65,7 @@ func TestServerFallbackHome(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, "")
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil)
 	gt.NoError(t, err)
 	incidentUC := usecase.NewIncident(repo, nil)
 
