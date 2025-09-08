@@ -9,6 +9,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -194,13 +195,13 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 	}
 
 	// Create an incident request and save it (with empty description for now)
-	request := model.NewIncidentRequest(channelID, messageTS, title, "", requestedBy)
+	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, "", types.SlackUserID(requestedBy))
 	if err := s.repo.SaveIncidentRequest(ctx, request); err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}
 
 	// Build incident prompt blocks with the request ID
-	blocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID, title)
+	blocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title)
 
 	// Send message with blocks
 	_, _, err := s.slackClient.PostMessage(
@@ -228,12 +229,12 @@ func (s *SlackMessage) eventToMessage(event *slackevents.MessageEvent) *model.Me
 	}
 
 	return &model.Message{
-		ID:        messageID,
-		UserID:    event.User,
+		ID:        types.MessageID(messageID),
+		UserID:    types.SlackUserID(event.User),
 		UserName:  event.Username,
-		ChannelID: event.Channel,
+		ChannelID: types.ChannelID(event.Channel),
 		Text:      event.Text,
-		ThreadTS:  event.ThreadTimeStamp,
-		EventTS:   event.TimeStamp,
+		ThreadTS:  types.ThreadTS(event.ThreadTimeStamp),
+		EventTS:   types.EventTS(event.TimeStamp),
 	}
 }

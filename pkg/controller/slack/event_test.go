@@ -208,24 +208,19 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 func TestEventHandlerIncidentTrigger(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Detect incident trigger", func(t *testing.T) {
+	t.Run("Regular message does not trigger incident", func(t *testing.T) {
 		var incidentMessageSent bool
-		var sentChannelID, sentMessageTS string
 
 		mockUC := &MockSlackMessageUseCase{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
 				return nil
 			},
 			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
-				if message.Text == "inc something happened" {
-					return interfaces.IncidentCommand{IsIncidentTrigger: true, Title: "something happened"}
-				}
-				return interfaces.IncidentCommand{IsIncidentTrigger: false, Title: ""}
+				// This shouldn't be called for regular messages anymore
+				return interfaces.IncidentCommand{IsIncidentTrigger: true, Title: "something happened"}
 			},
 			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title string) error {
 				incidentMessageSent = true
-				sentChannelID = channelID
-				sentMessageTS = messageTS
 				return nil
 			},
 		}
@@ -247,9 +242,8 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 
 		err := handler.HandleEvent(ctx, event)
 		gt.NoError(t, err)
-		gt.True(t, incidentMessageSent)
-		gt.Equal(t, "C12345", sentChannelID)
-		gt.Equal(t, "1234567890.123456", sentMessageTS)
+		// Incident should NOT be triggered from regular message events
+		gt.False(t, incidentMessageSent)
 	})
 
 	t.Run("No trigger for normal message", func(t *testing.T) {

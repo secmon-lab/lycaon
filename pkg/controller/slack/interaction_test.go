@@ -10,18 +10,19 @@ import (
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/controller/slack"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	slackgo "github.com/slack-go/slack"
 )
 
 // MockIncidentUseCase mocks the IncidentUseCase interface
 type MockIncidentUseCase struct {
-	CreateIncidentFunc                func(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error)
-	GetIncidentFunc                   func(ctx context.Context, id int) (*model.Incident, error)
-	CreateIncidentFromInteractionFunc func(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
-	HandleCreateIncidentActionFunc    func(ctx context.Context, requestID, userID string) (*model.Incident, error)
+	CreateIncidentFunc                  func(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error)
+	GetIncidentFunc                     func(ctx context.Context, id int) (*model.Incident, error)
+	CreateIncidentFromInteractionFunc   func(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
+	HandleCreateIncidentActionFunc      func(ctx context.Context, requestID, userID string) (*model.Incident, error)
 	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error)
-	GetIncidentRequestFunc            func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
-	HandleEditIncidentActionFunc      func(ctx context.Context, requestID, userID, triggerID string) error
+	GetIncidentRequestFunc              func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
+	HandleEditIncidentActionFunc        func(ctx context.Context, requestID, userID, triggerID string) error
 	HandleCreateIncidentActionAsyncFunc func(ctx context.Context, requestID, userID, channelID string)
 }
 
@@ -38,9 +39,9 @@ func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, title, descrip
 	return &model.Incident{
 		ID:              1,
 		Title:           title,
-		ChannelName:     channelName,
-		OriginChannelID: originChannelID,
-		CreatedBy:       createdBy,
+		ChannelName:     types.ChannelName(channelName),
+		OriginChannelID: types.ChannelID(originChannelID),
+		CreatedBy:       types.SlackUserID(createdBy),
 	}, nil
 }
 
@@ -68,12 +69,12 @@ func (m *MockIncidentUseCase) HandleCreateIncidentAction(ctx context.Context, re
 	// Default implementation
 	return &model.Incident{
 		ID:                1,
-		ChannelID:         "C-INC-001",
-		ChannelName:       "inc-1",
+		ChannelID:         types.ChannelID("C-INC-001"),
+		ChannelName:       types.ChannelName("inc-1"),
 		Title:             "Test Incident",
-		OriginChannelID:   "C67890",
-		OriginChannelName: "general",
-		CreatedBy:         userID,
+		OriginChannelID:   types.ChannelID("C67890"),
+		OriginChannelName: types.ChannelName("general"),
+		CreatedBy:         types.SlackUserID(userID),
 	}, nil
 }
 
@@ -81,17 +82,17 @@ func (m *MockIncidentUseCase) HandleCreateIncidentWithDetails(ctx context.Contex
 	if m.HandleCreateIncidentWithDetailsFunc != nil {
 		return m.HandleCreateIncidentWithDetailsFunc(ctx, requestID, title, description, userID)
 	}
-	
+
 	// Default implementation
 	return &model.Incident{
 		ID:                1,
-		ChannelID:         "C-INC-001",
-		ChannelName:       "inc-1",
+		ChannelID:         types.ChannelID("C-INC-001"),
+		ChannelName:       types.ChannelName("inc-1"),
 		Title:             title,
 		Description:       description,
-		OriginChannelID:   "C67890",
-		OriginChannelName: "general",
-		CreatedBy:         userID,
+		OriginChannelID:   types.ChannelID("C67890"),
+		OriginChannelName: types.ChannelName("general"),
+		CreatedBy:         types.SlackUserID(userID),
 	}, nil
 }
 
@@ -99,11 +100,11 @@ func (m *MockIncidentUseCase) GetIncidentRequest(ctx context.Context, requestID 
 	if m.GetIncidentRequestFunc != nil {
 		return m.GetIncidentRequestFunc(ctx, requestID)
 	}
-	
+
 	// Default implementation
 	return &model.IncidentRequest{
-		ID:        requestID,
-		ChannelID: "C67890",
+		ID:        types.IncidentRequestID(requestID),
+		ChannelID: types.ChannelID("C67890"),
 		Title:     "Test Incident",
 	}, nil
 }
@@ -112,7 +113,7 @@ func (m *MockIncidentUseCase) HandleEditIncidentAction(ctx context.Context, requ
 	if m.HandleEditIncidentActionFunc != nil {
 		return m.HandleEditIncidentActionFunc(ctx, requestID, userID, triggerID)
 	}
-	
+
 	// Default implementation - just return nil
 	return nil
 }
@@ -122,7 +123,7 @@ func (m *MockIncidentUseCase) HandleCreateIncidentActionAsync(ctx context.Contex
 		m.HandleCreateIncidentActionAsyncFunc(ctx, requestID, userID, channelID)
 		return
 	}
-	
+
 	// Default implementation - just return
 }
 
@@ -146,12 +147,12 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 			HandleCreateIncidentActionAsyncFunc: func(ctx context.Context, requestID, userID, channelID string) {
 				createdIncident = &model.Incident{
 					ID:                1,
-					ChannelID:         "C-INC-001",
-					ChannelName:       "inc-1",
+					ChannelID:         types.ChannelID("C-INC-001"),
+					ChannelName:       types.ChannelName("inc-1"),
 					Title:             "Test Incident",
-					OriginChannelID:   "C67890",
-					OriginChannelName: "general",
-					CreatedBy:         userID,
+					OriginChannelID:   types.ChannelID("C67890"),
+					OriginChannelName: types.ChannelName("general"),
+					CreatedBy:         types.SlackUserID(userID),
 				}
 				created <- true
 			},
@@ -363,8 +364,8 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewSubmission,
 			View: slackgo.View{
-				ID:         "view_123",
-				CallbackID: "incident_creation_modal",
+				ID:              "view_123",
+				CallbackID:      "incident_creation_modal",
 				PrivateMetadata: "test-request-id-123", // Add request ID in private metadata
 				State: &slackgo.ViewState{
 					Values: map[string]map[string]slackgo.BlockAction{
@@ -407,8 +408,8 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewSubmission,
 			View: slackgo.View{
-				ID:         "view_123",
-				CallbackID: "incident_creation_modal",
+				ID:              "view_123",
+				CallbackID:      "incident_creation_modal",
 				PrivateMetadata: "test-request-id-123",
 				State: &slackgo.ViewState{
 					Values: map[string]map[string]slackgo.BlockAction{

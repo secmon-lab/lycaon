@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/slack-go/slack"
@@ -17,6 +18,7 @@ type MockSlackClient struct {
 	CreateConversationFunc              func(params slack.CreateConversationParams) (*slack.Channel, error)
 	InviteUsersToConversationFunc       func(channelID string, users ...string) (*slack.Channel, error)
 	PostMessageFunc                     func(channelID string, options ...slack.MsgOption) (string, string, error)
+	UpdateMessageFunc                   func(channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error)
 	AuthTestContextFunc                 func(ctx context.Context) (*slack.AuthTestResponse, error)
 	GetConversationInfoFunc             func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error)
 	SetPurposeOfConversationContextFunc func(ctx context.Context, channelID, purpose string) (*slack.Channel, error)
@@ -49,6 +51,13 @@ func (m *MockSlackClient) PostMessage(ctx context.Context, channelID string, opt
 		return m.PostMessageFunc(channelID, options...)
 	}
 	return "channel", "timestamp", nil
+}
+
+func (m *MockSlackClient) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
+	if m.UpdateMessageFunc != nil {
+		return m.UpdateMessageFunc(channelID, timestamp, options...)
+	}
+	return channelID, timestamp, "updated text", nil
 }
 
 func (m *MockSlackClient) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) {
@@ -171,7 +180,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		gt.NoError(t, err)
 
 		// Retrieve the incident
-		retrieved, err := uc.GetIncident(ctx, created.ID)
+		retrieved, err := uc.GetIncident(ctx, created.ID.Int())
 		gt.NoError(t, err)
 		gt.Equal(t, created.ID, retrieved.ID)
 		gt.Equal(t, created.ChannelName, retrieved.ChannelName)
@@ -198,7 +207,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 	t.Run("Repository error handling", func(t *testing.T) {
 		// Create mock repository
 		mockRepo := &mocks.RepositoryMock{
-			GetNextIncidentNumberFunc: func(ctx context.Context) (int, error) {
+			GetNextIncidentNumberFunc: func(ctx context.Context) (types.IncidentID, error) {
 				return 0, goerr.New("database error")
 			},
 		}

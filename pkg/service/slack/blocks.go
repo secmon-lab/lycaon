@@ -45,7 +45,7 @@ func (b *BlockBuilder) BuildIncidentPromptBlocks(requestID, title string) []slac
 					false,
 					false,
 				),
-			).WithStyle(slack.StyleDanger),
+			).WithStyle(slack.StylePrimary),
 			slack.NewButtonBlockElement(
 				"edit_incident",
 				requestID, // Pass request ID as value
@@ -55,7 +55,7 @@ func (b *BlockBuilder) BuildIncidentPromptBlocks(requestID, title string) []slac
 					false,
 					false,
 				),
-			).WithStyle(slack.StylePrimary),
+			), // No style = default/secondary appearance
 		),
 	}
 }
@@ -106,7 +106,7 @@ func (b *BlockBuilder) BuildIncidentChannelWelcomeBlocks(incidentID int, originC
 			nil,
 		),
 	}
-	
+
 	// Add description if provided
 	if description != "" {
 		blocks = append(blocks, slack.NewSectionBlock(
@@ -120,7 +120,7 @@ func (b *BlockBuilder) BuildIncidentChannelWelcomeBlocks(incidentID int, originC
 			nil,
 		))
 	}
-	
+
 	blocks = append(blocks,
 		slack.NewDividerBlock(),
 		slack.NewSectionBlock(
@@ -134,7 +134,7 @@ func (b *BlockBuilder) BuildIncidentChannelWelcomeBlocks(incidentID int, originC
 			nil,
 		),
 	)
-	
+
 	return blocks
 }
 
@@ -176,13 +176,13 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title string) slack.Mod
 			"title_input",
 		),
 	)
-	
+
 	// Set initial value if title is provided
 	if title != "" {
 		titleInput := titleBlock.Element.(*slack.PlainTextInputBlockElement)
 		titleInput.InitialValue = title
 	}
-	
+
 	// Description input block
 	descriptionBlock := slack.NewInputBlock(
 		"description_block",
@@ -207,11 +207,11 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title string) slack.Mod
 	descriptionInput := descriptionBlock.Element.(*slack.PlainTextInputBlockElement)
 	descriptionInput.Multiline = true
 	descriptionBlock.Optional = true
-	
+
 	return slack.ModalViewRequest{
 		Type:            slack.ViewType("modal"),
 		Title:           slack.NewTextBlockObject(slack.PlainTextType, "Create Incident", false, false),
-		Submit:          slack.NewTextBlockObject(slack.PlainTextType, "Create Incident", false, false),
+		Submit:          slack.NewTextBlockObject(slack.PlainTextType, "Declare", false, false),
 		Close:           slack.NewTextBlockObject(slack.PlainTextType, "Cancel", false, false),
 		CallbackID:      "incident_creation_modal",
 		PrivateMetadata: requestID, // Store request ID in private metadata
@@ -221,5 +221,28 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title string) slack.Mod
 				descriptionBlock,
 			},
 		},
+	}
+}
+
+// BuildIncidentPromptUsedBlocks builds blocks for incident prompt after it has been used (buttons disabled)
+func (b *BlockBuilder) BuildIncidentPromptUsedBlocks(title string) []slack.Block {
+	var promptText string
+	if title != "" {
+		promptText = fmt.Sprintf("✅ Incident declared for: *%s*", title)
+	} else {
+		promptText = "✅ Incident declared"
+	}
+
+	return []slack.Block{
+		slack.NewSectionBlock(
+			slack.NewTextBlockObject(
+				slack.MarkdownType,
+				promptText,
+				false,
+				false,
+			),
+			nil,
+			nil,
+		),
 	}
 }

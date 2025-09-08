@@ -12,6 +12,7 @@ import (
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 )
 
@@ -23,10 +24,10 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 		now := time.Now()
 		msg := &model.Message{
-			ID:        fmt.Sprintf("msg-%d", now.UnixNano()),
-			UserID:    fmt.Sprintf("user-%d", now.UnixNano()),
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", now.UnixNano())),
+			UserID:    types.SlackUserID(fmt.Sprintf("user-%d", now.UnixNano())),
 			UserName:  "Test User",
-			ChannelID: fmt.Sprintf("channel-%d", now.UnixNano()),
+			ChannelID: types.ChannelID(fmt.Sprintf("channel-%d", now.UnixNano())),
 			Text:      "Test message",
 			Timestamp: now,
 		}
@@ -51,10 +52,10 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 		now := time.Now()
 		msg := &model.Message{
-			ID:        fmt.Sprintf("msg-%d", now.UnixNano()),
-			UserID:    fmt.Sprintf("user-%d", now.UnixNano()),
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", now.UnixNano())),
+			UserID:    types.SlackUserID(fmt.Sprintf("user-%d", now.UnixNano())),
 			UserName:  "Test User 2",
-			ChannelID: fmt.Sprintf("channel-%d", now.UnixNano()),
+			ChannelID: types.ChannelID(fmt.Sprintf("channel-%d", now.UnixNano())),
 			Text:      "Another test message",
 			Timestamp: now,
 		}
@@ -81,7 +82,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		ctx := context.Background()
 		// Use a random ID that doesn't exist
-		nonExistentID := fmt.Sprintf("msg-non-existent-%d", time.Now().UnixNano())
+		nonExistentID := types.MessageID(fmt.Sprintf("msg-non-existent-%d", time.Now().UnixNano()))
 		_, err := repo.GetMessage(ctx, nonExistentID)
 		gt.Error(t, err)
 	})
@@ -92,15 +93,15 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		ctx := context.Background()
 		// Use unique channel ID with timestamp to avoid conflicts
-		channelID := fmt.Sprintf("channel-list-%d", time.Now().UnixNano())
+		channelID := types.ChannelID(fmt.Sprintf("channel-list-%d", time.Now().UnixNano()))
 
 		// Save multiple messages with unique IDs
 		savedMessages := []*model.Message{}
 		baseTime := time.Now()
-		userID := fmt.Sprintf("user-%d", baseTime.UnixNano())
+		userID := types.SlackUserID(fmt.Sprintf("user-%d", baseTime.UnixNano()))
 
 		for i := 0; i < 5; i++ {
-			msgID := fmt.Sprintf("msg-list-%d-%d", baseTime.UnixNano(), i)
+			msgID := types.MessageID(fmt.Sprintf("msg-list-%d-%d", baseTime.UnixNano(), i))
 			msg := &model.Message{
 				ID:        msgID,
 				UserID:    userID,
@@ -142,7 +143,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		ctx := context.Background()
 		// Use a unique channel ID that has no messages
-		emptyChannelID := fmt.Sprintf("empty-channel-%d", time.Now().UnixNano())
+		emptyChannelID := types.ChannelID(fmt.Sprintf("empty-channel-%d", time.Now().UnixNano()))
 		messages, err := repo.ListMessages(ctx, emptyChannelID, 10)
 		gt.NoError(t, err)
 		gt.Equal(t, 0, len(messages))
@@ -155,8 +156,8 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 		now := time.Now()
 		user := &model.User{
-			ID:          fmt.Sprintf("user-%d", now.UnixNano()),
-			SlackUserID: fmt.Sprintf("U%d", now.UnixNano()),
+			ID:          types.UserID(fmt.Sprintf("user-%d", now.UnixNano())),
+			SlackUserID: types.SlackUserID(fmt.Sprintf("U%d", now.UnixNano())),
 			Name:        "Test User",
 			Email:       fmt.Sprintf("test-%d@example.com", now.UnixNano()),
 			CreatedAt:   now,
@@ -193,8 +194,8 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		ctx := context.Background()
 		// Use random IDs that don't exist
-		nonExistentID := fmt.Sprintf("user-non-existent-%d", time.Now().UnixNano())
-		nonExistentSlackID := fmt.Sprintf("U-non-existent-%d", time.Now().UnixNano())
+		nonExistentID := types.UserID(fmt.Sprintf("user-non-existent-%d", time.Now().UnixNano()))
+		nonExistentSlackID := types.SlackUserID(fmt.Sprintf("U-non-existent-%d", time.Now().UnixNano()))
 
 		_, err := repo.GetUser(ctx, nonExistentID)
 		gt.Error(t, err)
@@ -210,9 +211,9 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 		now := time.Now()
 		session := &model.Session{
-			ID:        fmt.Sprintf("session-%d", now.UnixNano()),
-			UserID:    fmt.Sprintf("user-%d", now.UnixNano()),
-			Secret:    fmt.Sprintf("secret-hash-%d", now.UnixNano()),
+			ID:        types.SessionID(fmt.Sprintf("session-%d", now.UnixNano())),
+			UserID:    types.UserID(fmt.Sprintf("user-%d", now.UnixNano())),
+			Secret:    types.SessionSecret(fmt.Sprintf("secret-hash-%d", now.UnixNano())),
 			ExpiresAt: now.Add(24 * time.Hour),
 			CreatedAt: now,
 		}
@@ -239,9 +240,9 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 		now := time.Now()
 		session := &model.Session{
-			ID:        fmt.Sprintf("session-del-%d", now.UnixNano()),
-			UserID:    fmt.Sprintf("user-del-%d", now.UnixNano()),
-			Secret:    fmt.Sprintf("secret-hash-del-%d", now.UnixNano()),
+			ID:        types.SessionID(fmt.Sprintf("session-del-%d", now.UnixNano())),
+			UserID:    types.UserID(fmt.Sprintf("user-del-%d", now.UnixNano())),
+			Secret:    types.SessionSecret(fmt.Sprintf("secret-hash-del-%d", now.UnixNano())),
 			ExpiresAt: now.Add(24 * time.Hour),
 			CreatedAt: now,
 		}
@@ -264,7 +265,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		gt.Error(t, err)
 
 		// Try to delete non-existent session with random ID
-		nonExistentID := fmt.Sprintf("session-non-existent-%d", time.Now().UnixNano())
+		nonExistentID := types.SessionID(fmt.Sprintf("session-non-existent-%d", time.Now().UnixNano()))
 		err = repo.DeleteSession(ctx, nonExistentID)
 		gt.Error(t, err)
 	})
@@ -284,11 +285,11 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		// Create incident
 		incident := &model.Incident{
 			ID:                incidentNum,
-			ChannelID:         fmt.Sprintf("C-INC-%d", now.UnixNano()),
-			ChannelName:       fmt.Sprintf("inc-%03d", incidentNum),
-			OriginChannelID:   fmt.Sprintf("C-ORIGIN-%d", now.UnixNano()),
-			OriginChannelName: "general",
-			CreatedBy:         fmt.Sprintf("U-CREATOR-%d", now.UnixNano()),
+			ChannelID:         types.ChannelID(fmt.Sprintf("C-INC-%d", now.UnixNano())),
+			ChannelName:       types.ChannelName(fmt.Sprintf("inc-%03d", incidentNum)),
+			OriginChannelID:   types.ChannelID(fmt.Sprintf("C-ORIGIN-%d", now.UnixNano())),
+			OriginChannelName: types.ChannelName("general"),
+			CreatedBy:         types.SlackUserID(fmt.Sprintf("U-CREATOR-%d", now.UnixNano())),
 			CreatedAt:         now,
 		}
 
@@ -323,12 +324,12 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		// Get second number - should be incremented
 		num2, err := repo.GetNextIncidentNumber(ctx)
 		gt.NoError(t, err)
-		gt.Equal(t, num1+1, num2)
+		gt.Equal(t, types.IncidentID(int(num1)+1), num2)
 
 		// Get third number - should be incremented again
 		num3, err := repo.GetNextIncidentNumber(ctx)
 		gt.NoError(t, err)
-		gt.Equal(t, num2+1, num3)
+		gt.Equal(t, types.IncidentID(int(num2)+1), num3)
 	})
 
 	t.Run("ConcurrentIncidentNumberGeneration", func(t *testing.T) {
@@ -337,7 +338,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		ctx := context.Background()
 		numGoroutines := 10
-		results := make(chan int, numGoroutines)
+		results := make(chan types.IncidentID, numGoroutines)
 		errors := make(chan error, numGoroutines)
 
 		// Launch multiple goroutines to get incident numbers concurrently
@@ -353,7 +354,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		}
 
 		// Collect results
-		numbers := make(map[int]bool)
+		numbers := make(map[types.IncidentID]bool)
 		for i := 0; i < numGoroutines; i++ {
 			select {
 			case err := <-errors:
@@ -377,7 +378,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 
 		// Try to get non-existent incident
-		_, err := repo.GetIncident(ctx, 999999)
+		_, err := repo.GetIncident(ctx, types.IncidentID(999999))
 		gt.Error(t, err)
 		gt.S(t, err.Error()).Contains("not found")
 	})

@@ -5,22 +5,22 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // Session represents an authenticated user session
 type Session struct {
-	ID        string    `json:"id"`      // session_id
-	Secret    string    `json:"-"`       // session_secret (hidden from JSON)
-	UserID    string    `json:"user_id"` // Associated user ID
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ID        types.SessionID     `json:"id"`      // session_id
+	Secret    types.SessionSecret `json:"-"`       // session_secret (hidden from JSON)
+	UserID    types.UserID        `json:"user_id"` // Associated user ID
+	CreatedAt time.Time           `json:"created_at"`
+	ExpiresAt time.Time           `json:"expires_at"`
 }
 
 // NewSession creates a new Session with UUID v7 ID and random Secret
-func NewSession(userID string, duration time.Duration) (*Session, error) {
-	// Generate UUID v7 for session ID (time-ordered)
-	sessionID, err := uuid.NewV7()
+func NewSession(userID types.UserID, duration time.Duration) (*Session, error) {
+	// Generate session ID using types constructor
+	sessionID, err := types.NewSessionID()
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +33,8 @@ func NewSession(userID string, duration time.Duration) (*Session, error) {
 
 	now := time.Now()
 	return &Session{
-		ID:        sessionID.String(),
-		Secret:    sessionSecret,
+		ID:        sessionID,
+		Secret:    types.SessionSecret(sessionSecret),
 		UserID:    userID,
 		CreatedAt: now,
 		ExpiresAt: now.Add(duration),

@@ -110,7 +110,7 @@ func (h *InteractionHandler) handleBlockActions(ctx context.Context, interaction
 
 			// Return immediately to acknowledge the interaction
 			// The actual processing happens in the background
-		
+
 		case "edit_incident":
 			ctxlog.From(ctx).Info("Edit incident action triggered",
 				"user", interaction.User.ID,
@@ -190,14 +190,14 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 			"user", interaction.User.ID,
 			"team", interaction.Team.ID,
 		)
-		
+
 		// Extract request ID from private metadata
 		requestID := interaction.View.PrivateMetadata
 		if requestID == "" {
 			ctxlog.From(ctx).Error("Empty request ID in private metadata")
 			return goerr.New("empty request ID")
 		}
-		
+
 		// Extract title from the modal (required)
 		var titleValue string
 		if titleBlock, ok := interaction.View.State.Values["title_block"]; ok {
@@ -205,7 +205,7 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 				titleValue = titleInput.Value
 			}
 		}
-		
+
 		// Extract description from the modal (optional)
 		var descriptionValue string
 		if descBlock, ok := interaction.View.State.Values["description_block"]; ok {
@@ -213,19 +213,19 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 				descriptionValue = descInput.Value
 			}
 		}
-		
+
 		// Validate required title field
 		if titleValue == "" {
 			ctxlog.From(ctx).Error("Title is required for incident creation")
 			return goerr.New("incident title is required")
 		}
-		
+
 		ctxlog.From(ctx).Info("Processing incident creation with details",
 			"requestID", requestID,
 			"title", titleValue,
 			"hasDescription", descriptionValue != "",
 		)
-		
+
 		// Process incident creation asynchronously
 		backgroundCtx := async.NewBackgroundContext(ctx)
 		async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
@@ -247,7 +247,7 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 				// The modal will close, but the error is logged
 				return goerr.Wrap(err, "failed to create incident from modal")
 			}
-			
+
 			ctxlog.From(asyncCtx).Info("Incident created successfully from modal",
 				"incidentID", incident.ID,
 				"channelName", incident.ChannelName,

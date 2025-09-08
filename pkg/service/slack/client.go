@@ -34,6 +34,11 @@ func (a *ClientAdapter) PostMessage(ctx context.Context, channelID string, optio
 	return a.service.PostMessage(ctx, channelID, options...)
 }
 
+// UpdateMessage implements interfaces.SlackClient
+func (a *ClientAdapter) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
+	return a.service.UpdateMessage(ctx, channelID, timestamp, options...)
+}
+
 // AuthTestContext implements interfaces.SlackClient
 func (a *ClientAdapter) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) {
 	return a.service.AuthTestContext(ctx)

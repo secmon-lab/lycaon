@@ -90,7 +90,7 @@ func TestAuthHandlerLogout(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
 	req.AddCookie(&http.Cookie{
 		Name:  "session_id",
-		Value: session.ID,
+		Value: session.ID.String(),
 	})
 	w := httptest.NewRecorder()
 
@@ -142,7 +142,7 @@ func TestAuthHandlerUserMe(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/user/me", nil)
 		req.AddCookie(&http.Cookie{
 			Name:  "session_id",
-			Value: session.ID,
+			Value: session.ID.String(),
 		})
 		w := httptest.NewRecorder()
 

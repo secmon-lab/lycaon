@@ -8,27 +8,28 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // Memory implements Repository interface with in-memory storage
 type Memory struct {
 	mu               sync.RWMutex
-	messages         map[string]*model.Message
-	users            map[string]*model.User
-	sessions         map[string]*model.Session
-	incidents        map[int]*model.Incident
-	incidentRequests map[string]*model.IncidentRequest
-	incidentCounter  int
+	messages         map[types.MessageID]*model.Message
+	users            map[types.UserID]*model.User
+	sessions         map[types.SessionID]*model.Session
+	incidents        map[types.IncidentID]*model.Incident
+	incidentRequests map[types.IncidentRequestID]*model.IncidentRequest
+	incidentCounter  types.IncidentID
 }
 
 // NewMemory creates a new memory repository
 func NewMemory() interfaces.Repository {
 	return &Memory{
-		messages:         make(map[string]*model.Message),
-		users:            make(map[string]*model.User),
-		sessions:         make(map[string]*model.Session),
-		incidents:        make(map[int]*model.Incident),
-		incidentRequests: make(map[string]*model.IncidentRequest),
+		messages:         make(map[types.MessageID]*model.Message),
+		users:            make(map[types.UserID]*model.User),
+		sessions:         make(map[types.SessionID]*model.Session),
+		incidents:        make(map[types.IncidentID]*model.Incident),
+		incidentRequests: make(map[types.IncidentRequestID]*model.IncidentRequest),
 		incidentCounter:  0,
 	}
 }
@@ -50,7 +51,7 @@ func (m *Memory) SaveMessage(ctx context.Context, message *model.Message) error 
 }
 
 // GetMessage retrieves a message by ID
-func (m *Memory) GetMessage(ctx context.Context, id string) (*model.Message, error) {
+func (m *Memory) GetMessage(ctx context.Context, id types.MessageID) (*model.Message, error) {
 	if id == "" {
 		return nil, goerr.New("message ID is empty")
 	}
@@ -69,7 +70,7 @@ func (m *Memory) GetMessage(ctx context.Context, id string) (*model.Message, err
 }
 
 // ListMessages lists messages for a channel
-func (m *Memory) ListMessages(ctx context.Context, channelID string, limit int) ([]*model.Message, error) {
+func (m *Memory) ListMessages(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error) {
 	if channelID == "" {
 		return nil, goerr.New("channel ID is empty")
 	}
@@ -118,7 +119,7 @@ func (m *Memory) SaveUser(ctx context.Context, user *model.User) error {
 }
 
 // GetUser retrieves a user by ID
-func (m *Memory) GetUser(ctx context.Context, id string) (*model.User, error) {
+func (m *Memory) GetUser(ctx context.Context, id types.UserID) (*model.User, error) {
 	if id == "" {
 		return nil, goerr.New("user ID is empty")
 	}
@@ -137,7 +138,7 @@ func (m *Memory) GetUser(ctx context.Context, id string) (*model.User, error) {
 }
 
 // GetUserBySlackID retrieves a user by Slack ID
-func (m *Memory) GetUserBySlackID(ctx context.Context, slackUserID string) (*model.User, error) {
+func (m *Memory) GetUserBySlackID(ctx context.Context, slackUserID types.SlackUserID) (*model.User, error) {
 	if slackUserID == "" {
 		return nil, goerr.New("slack user ID is empty")
 	}
@@ -176,7 +177,7 @@ func (m *Memory) SaveSession(ctx context.Context, session *model.Session) error 
 }
 
 // GetSession retrieves a session by ID
-func (m *Memory) GetSession(ctx context.Context, id string) (*model.Session, error) {
+func (m *Memory) GetSession(ctx context.Context, id types.SessionID) (*model.Session, error) {
 	if id == "" {
 		return nil, goerr.New("session ID is empty")
 	}
@@ -195,7 +196,7 @@ func (m *Memory) GetSession(ctx context.Context, id string) (*model.Session, err
 }
 
 // DeleteSession deletes a session from memory
-func (m *Memory) DeleteSession(ctx context.Context, id string) error {
+func (m *Memory) DeleteSession(ctx context.Context, id types.SessionID) error {
 	if id == "" {
 		return goerr.New("session ID is empty")
 	}
@@ -236,7 +237,7 @@ func (m *Memory) PutIncident(ctx context.Context, incident *model.Incident) erro
 }
 
 // GetIncident retrieves an incident by ID
-func (m *Memory) GetIncident(ctx context.Context, id int) (*model.Incident, error) {
+func (m *Memory) GetIncident(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -255,7 +256,7 @@ func (m *Memory) GetIncident(ctx context.Context, id int) (*model.Incident, erro
 }
 
 // GetNextIncidentNumber returns the next available incident number
-func (m *Memory) GetNextIncidentNumber(ctx context.Context) (int, error) {
+func (m *Memory) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -267,11 +268,11 @@ func (m *Memory) GetNextIncidentNumber(ctx context.Context) (int, error) {
 func (m *Memory) Clear() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.messages = make(map[string]*model.Message)
-	m.users = make(map[string]*model.User)
-	m.sessions = make(map[string]*model.Session)
-	m.incidents = make(map[int]*model.Incident)
-	m.incidentRequests = make(map[string]*model.IncidentRequest)
+	m.messages = make(map[types.MessageID]*model.Message)
+	m.users = make(map[types.UserID]*model.User)
+	m.sessions = make(map[types.SessionID]*model.Session)
+	m.incidents = make(map[types.IncidentID]*model.Incident)
+	m.incidentRequests = make(map[types.IncidentRequestID]*model.IncidentRequest)
 	m.incidentCounter = 0
 }
 
@@ -292,7 +293,7 @@ func (m *Memory) SaveIncidentRequest(ctx context.Context, request *model.Inciden
 }
 
 // GetIncidentRequest retrieves an incident request from memory
-func (m *Memory) GetIncidentRequest(ctx context.Context, id string) (*model.IncidentRequest, error) {
+func (m *Memory) GetIncidentRequest(ctx context.Context, id types.IncidentRequestID) (*model.IncidentRequest, error) {
 	if id == "" {
 		return nil, goerr.New("incident request ID is empty")
 	}
@@ -305,16 +306,11 @@ func (m *Memory) GetIncidentRequest(ctx context.Context, id string) (*model.Inci
 		return nil, goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to get incident request")
 	}
 
-	// Check if expired
-	if request.IsExpired() {
-		return nil, goerr.Wrap(model.ErrIncidentRequestExpired, "incident request expired")
-	}
-
 	return request, nil
 }
 
 // DeleteIncidentRequest deletes an incident request from memory
-func (m *Memory) DeleteIncidentRequest(ctx context.Context, id string) error {
+func (m *Memory) DeleteIncidentRequest(ctx context.Context, id types.IncidentRequestID) error {
 	if id == "" {
 		return goerr.New("incident request ID is empty")
 	}

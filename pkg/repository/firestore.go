@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	"cloud.google.com/go/firestore"
@@ -10,6 +9,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -83,7 +83,7 @@ func (f *Firestore) SaveMessage(ctx context.Context, message *model.Message) err
 		return goerr.New("message ID is empty")
 	}
 
-	_, err := f.client.Collection(messagesCollection).Doc(message.ID).Set(ctx, message)
+	_, err := f.client.Collection(messagesCollection).Doc(message.ID.String()).Set(ctx, message)
 	if err != nil {
 		return goerr.Wrap(err, "failed to save message to firestore")
 	}
@@ -92,12 +92,12 @@ func (f *Firestore) SaveMessage(ctx context.Context, message *model.Message) err
 }
 
 // GetMessage retrieves a message by ID
-func (f *Firestore) GetMessage(ctx context.Context, id string) (*model.Message, error) {
+func (f *Firestore) GetMessage(ctx context.Context, id types.MessageID) (*model.Message, error) {
 	if id == "" {
 		return nil, goerr.New("message ID is empty")
 	}
 
-	doc, err := f.client.Collection(messagesCollection).Doc(id).Get(ctx)
+	doc, err := f.client.Collection(messagesCollection).Doc(id.String()).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, goerr.New("message not found")
@@ -114,7 +114,7 @@ func (f *Firestore) GetMessage(ctx context.Context, id string) (*model.Message, 
 }
 
 // ListMessages lists messages for a channel
-func (f *Firestore) ListMessages(ctx context.Context, channelID string, limit int) ([]*model.Message, error) {
+func (f *Firestore) ListMessages(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error) {
 	if channelID == "" {
 		return nil, goerr.New("channel ID is empty")
 	}
@@ -123,7 +123,7 @@ func (f *Firestore) ListMessages(ctx context.Context, channelID string, limit in
 	// We'll sort in memory instead
 	// Note: Field names in Firestore match Go struct field names (e.g., ChannelID not channel_id)
 	query := f.client.Collection(messagesCollection).
-		Where("ChannelID", "==", channelID)
+		Where("ChannelID", "==", channelID.String())
 
 	iter := query.Documents(ctx)
 	defer iter.Stop()
@@ -168,7 +168,7 @@ func (f *Firestore) SaveUser(ctx context.Context, user *model.User) error {
 		return goerr.New("user ID is empty")
 	}
 
-	_, err := f.client.Collection(usersCollection).Doc(user.ID).Set(ctx, user)
+	_, err := f.client.Collection(usersCollection).Doc(user.ID.String()).Set(ctx, user)
 	if err != nil {
 		return goerr.Wrap(err, "failed to save user to firestore")
 	}
@@ -177,12 +177,12 @@ func (f *Firestore) SaveUser(ctx context.Context, user *model.User) error {
 }
 
 // GetUser retrieves a user by ID
-func (f *Firestore) GetUser(ctx context.Context, id string) (*model.User, error) {
+func (f *Firestore) GetUser(ctx context.Context, id types.UserID) (*model.User, error) {
 	if id == "" {
 		return nil, goerr.New("user ID is empty")
 	}
 
-	doc, err := f.client.Collection(usersCollection).Doc(id).Get(ctx)
+	doc, err := f.client.Collection(usersCollection).Doc(id.String()).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, goerr.New("user not found")
@@ -199,13 +199,13 @@ func (f *Firestore) GetUser(ctx context.Context, id string) (*model.User, error)
 }
 
 // GetUserBySlackID retrieves a user by Slack ID
-func (f *Firestore) GetUserBySlackID(ctx context.Context, slackUserID string) (*model.User, error) {
+func (f *Firestore) GetUserBySlackID(ctx context.Context, slackUserID types.SlackUserID) (*model.User, error) {
 	if slackUserID == "" {
 		return nil, goerr.New("slack user ID is empty")
 	}
 
 	iter := f.client.Collection(usersCollection).
-		Where("SlackUserID", "==", slackUserID).
+		Where("SlackUserID", "==", slackUserID.String()).
 		Limit(1).
 		Documents(ctx)
 	defer iter.Stop()
@@ -235,7 +235,7 @@ func (f *Firestore) SaveSession(ctx context.Context, session *model.Session) err
 		return goerr.New("session ID is empty")
 	}
 
-	_, err := f.client.Collection(sessionsCollection).Doc(session.ID).Set(ctx, session)
+	_, err := f.client.Collection(sessionsCollection).Doc(session.ID.String()).Set(ctx, session)
 	if err != nil {
 		return goerr.Wrap(err, "failed to save session to firestore")
 	}
@@ -244,12 +244,12 @@ func (f *Firestore) SaveSession(ctx context.Context, session *model.Session) err
 }
 
 // GetSession retrieves a session by ID
-func (f *Firestore) GetSession(ctx context.Context, id string) (*model.Session, error) {
+func (f *Firestore) GetSession(ctx context.Context, id types.SessionID) (*model.Session, error) {
 	if id == "" {
 		return nil, goerr.New("session ID is empty")
 	}
 
-	doc, err := f.client.Collection(sessionsCollection).Doc(id).Get(ctx)
+	doc, err := f.client.Collection(sessionsCollection).Doc(id.String()).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, goerr.New("session not found")
@@ -266,13 +266,13 @@ func (f *Firestore) GetSession(ctx context.Context, id string) (*model.Session, 
 }
 
 // DeleteSession deletes a session from Firestore
-func (f *Firestore) DeleteSession(ctx context.Context, id string) error {
+func (f *Firestore) DeleteSession(ctx context.Context, id types.SessionID) error {
 	if id == "" {
 		return goerr.New("session ID is empty")
 	}
 
 	// Check if session exists before deletion
-	doc := f.client.Collection(sessionsCollection).Doc(id)
+	doc := f.client.Collection(sessionsCollection).Doc(id.String())
 	_, err := doc.Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -300,7 +300,7 @@ func (f *Firestore) PutIncident(ctx context.Context, incident *model.Incident) e
 	}
 
 	// Convert ID to string for document ID
-	docID := fmt.Sprintf("%d", incident.ID)
+	docID := incident.ID.String()
 	_, err := f.client.Collection(incidentsCollection).Doc(docID).Set(ctx, incident)
 	if err != nil {
 		return goerr.Wrap(err, "failed to save incident to firestore")
@@ -310,13 +310,13 @@ func (f *Firestore) PutIncident(ctx context.Context, incident *model.Incident) e
 }
 
 // GetIncident retrieves an incident by ID
-func (f *Firestore) GetIncident(ctx context.Context, id int) (*model.Incident, error) {
+func (f *Firestore) GetIncident(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
 
 	// Convert ID to string for document ID
-	docID := fmt.Sprintf("%d", id)
+	docID := id.String()
 	doc, err := f.client.Collection(incidentsCollection).Doc(docID).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -334,10 +334,10 @@ func (f *Firestore) GetIncident(ctx context.Context, id int) (*model.Incident, e
 }
 
 // GetNextIncidentNumber returns the next available incident number using atomic increment
-func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (int, error) {
+func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	counterDoc := f.client.Collection(countersCollection).Doc(incidentCounterDocID)
 
-	var nextNumber int
+	var nextNumber types.IncidentID
 	err := f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(counterDoc)
 		if err != nil {
@@ -345,7 +345,7 @@ func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (int, error) {
 				// Initialize counter if it doesn't exist
 				nextNumber = 1
 				return tx.Set(counterDoc, map[string]any{
-					fieldCurrentNumber: nextNumber,
+					fieldCurrentNumber: int(nextNumber),
 				})
 			}
 			return goerr.Wrap(err, "failed to get counter document")
@@ -360,16 +360,16 @@ func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (int, error) {
 		// Handle both int and int64 types
 		switch v := currentNumber.(type) {
 		case int64:
-			nextNumber = int(v) + 1
+			nextNumber = types.IncidentID(v) + 1
 		case int:
-			nextNumber = v + 1
+			nextNumber = types.IncidentID(v) + 1
 		default:
 			return goerr.New("unexpected type for current_number")
 		}
 
 		// Update counter
 		return tx.Update(counterDoc, []firestore.Update{
-			{Path: fieldCurrentNumber, Value: nextNumber},
+			{Path: fieldCurrentNumber, Value: int(nextNumber)},
 		})
 	})
 
@@ -389,7 +389,7 @@ func (f *Firestore) SaveIncidentRequest(ctx context.Context, request *model.Inci
 		return goerr.New("incident request ID is empty")
 	}
 
-	_, err := f.client.Collection(incidentRequestsCollection).Doc(request.ID).Set(ctx, request)
+	_, err := f.client.Collection(incidentRequestsCollection).Doc(request.ID.String()).Set(ctx, request)
 	if err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}
@@ -398,12 +398,12 @@ func (f *Firestore) SaveIncidentRequest(ctx context.Context, request *model.Inci
 }
 
 // GetIncidentRequest retrieves an incident request from Firestore
-func (f *Firestore) GetIncidentRequest(ctx context.Context, id string) (*model.IncidentRequest, error) {
+func (f *Firestore) GetIncidentRequest(ctx context.Context, id types.IncidentRequestID) (*model.IncidentRequest, error) {
 	if id == "" {
 		return nil, goerr.New("incident request ID is empty")
 	}
 
-	doc, err := f.client.Collection(incidentRequestsCollection).Doc(id).Get(ctx)
+	doc, err := f.client.Collection(incidentRequestsCollection).Doc(id.String()).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to get incident request")
@@ -416,21 +416,16 @@ func (f *Firestore) GetIncidentRequest(ctx context.Context, id string) (*model.I
 		return nil, goerr.Wrap(err, "failed to decode incident request")
 	}
 
-	// Check if expired
-	if request.IsExpired() {
-		return nil, goerr.Wrap(model.ErrIncidentRequestExpired, "incident request expired")
-	}
-
 	return &request, nil
 }
 
 // DeleteIncidentRequest deletes an incident request from Firestore
-func (f *Firestore) DeleteIncidentRequest(ctx context.Context, id string) error {
+func (f *Firestore) DeleteIncidentRequest(ctx context.Context, id types.IncidentRequestID) error {
 	if id == "" {
 		return goerr.New("incident request ID is empty")
 	}
 
-	_, err := f.client.Collection(incidentRequestsCollection).Doc(id).Delete(ctx)
+	_, err := f.client.Collection(incidentRequestsCollection).Doc(id.String()).Delete(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to delete incident request")
