@@ -10,6 +10,11 @@ import (
 	"github.com/slack-go/slack"
 )
 
+const (
+	// maxMessageLimit is the maximum number of messages that can be retrieved from Slack API
+	maxMessageLimit = 256
+)
+
 // MessageHistoryService handles retrieving message history from Slack
 type MessageHistoryService struct {
 	slackClient interfaces.SlackClient
@@ -19,7 +24,7 @@ type MessageHistoryService struct {
 type MessageHistoryOptions struct {
 	ChannelID  string     // Required: Channel ID to retrieve messages from
 	ThreadTS   string     // Optional: Thread timestamp for thread messages
-	Limit      int        // Maximum number of messages to retrieve (max 256)
+	Limit      int        // Maximum number of messages to retrieve (max maxMessageLimit)
 	OldestTime *time.Time // Optional: Oldest time to retrieve messages from
 }
 
@@ -37,8 +42,8 @@ func (s *MessageHistoryService) GetMessages(ctx context.Context, opts MessageHis
 	}
 
 	// Validate and set default limit
-	if opts.Limit <= 0 || opts.Limit > 256 {
-		opts.Limit = 256
+	if opts.Limit <= 0 || opts.Limit > maxMessageLimit {
+		opts.Limit = maxMessageLimit
 	}
 
 	if opts.ThreadTS != "" {

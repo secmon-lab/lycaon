@@ -6,7 +6,6 @@ import (
 	"embed"
 	"encoding/json"
 	"strconv"
-	"strings"
 	"text/template"
 	"time"
 
@@ -157,20 +156,13 @@ func (s *LLMService) renderIncidentSummaryTemplate(data *IncidentSummaryTemplate
 // parseSlackTimestamp parses Slack timestamp format (Unix timestamp with microseconds)
 func parseSlackTimestamp(timestamp string) (time.Time, error) {
 	// Slack timestamps are in format "1234567890.123456"
-	parts := strings.Split(timestamp, ".")
-	if len(parts) != 2 {
-		return time.Time{}, goerr.New("invalid timestamp format",
-			goerr.V("timestamp", timestamp),
-		)
-	}
-
-	// Parse Unix timestamp (seconds part only)
-	unix, err := strconv.ParseInt(parts[0], 10, 64)
+	ts, err := strconv.ParseFloat(timestamp, 64)
 	if err != nil {
 		return time.Time{}, goerr.Wrap(err, "failed to parse timestamp",
 			goerr.V("timestamp", timestamp),
 		)
 	}
-
-	return time.Unix(unix, 0), nil
+	sec := int64(ts)
+	nsec := int64((ts - float64(sec)) * 1e9)
+	return time.Unix(sec, nsec), nil
 }

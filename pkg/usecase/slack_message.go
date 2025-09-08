@@ -18,6 +18,14 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
+const (
+	// channelHistoryDuration defines how far back to look for channel messages when analyzing incident context
+	channelHistoryDuration = 2 * time.Hour
+	
+	// maxMessageHistoryLimit is the maximum number of messages to retrieve for incident analysis
+	maxMessageHistoryLimit = 256
+)
+
 // SlackMessage implements SlackMessage interface
 type SlackMessage struct {
 	repo           interfaces.Repository
@@ -241,17 +249,17 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 		opts = slackSvc.MessageHistoryOptions{
 			ChannelID: channelID,
 			ThreadTS:  threadTS,
-			Limit:     256,
+			Limit:     maxMessageHistoryLimit,
 		}
 	} else {
 		// Channel message - get recent channel history
-		twoHoursAgo := time.Now().Add(-2 * time.Hour)
+		twoHoursAgo := time.Now().Add(-channelHistoryDuration)
 		ctxlog.From(ctx).Debug("Retrieving channel messages for incident analysis",
 			"channelID", channelID,
 			"oldestTime", twoHoursAgo)
 		opts = slackSvc.MessageHistoryOptions{
 			ChannelID:  channelID,
-			Limit:      256,
+			Limit:      maxMessageHistoryLimit,
 			OldestTime: &twoHoursAgo,
 		}
 	}
