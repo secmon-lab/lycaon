@@ -76,8 +76,13 @@ type Incident interface {
 	// HandleCreateIncidentAction handles the create incident button click action
 	// This includes retrieving the request, creating the incident, and cleaning up
 	HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error)
+	// HandleCreateIncidentActionAsync handles the create incident button click with async processing and error messaging
+	HandleCreateIncidentActionAsync(ctx context.Context, requestID, userID, channelID string)
 	// HandleCreateIncidentWithDetails handles the create incident with edited details from modal
 	HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error)
 	// GetIncidentRequest retrieves an incident request by ID
 	GetIncidentRequest(ctx context.Context, requestID string) (*model.IncidentRequest, error)
+	// HandleEditIncidentAction handles the edit incident button click action
+	// This includes retrieving the request, opening the modal, and error handling
+	HandleEditIncidentAction(ctx context.Context, requestID, userID, triggerID string) error
 }

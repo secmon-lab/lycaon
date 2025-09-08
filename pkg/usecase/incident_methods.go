@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
@@ -90,3 +91,82 @@ func (u *Incident) GetIncidentRequest(ctx context.Context, requestID string) (*m
 
 	return request, nil
 }
+
+// HandleEditIncidentAction handles the edit incident button click action
+func (u *Incident) HandleEditIncidentAction(ctx context.Context, requestID, userID, triggerID string) error {
+	// Get the incident request to retrieve the title
+	request, err := u.GetIncidentRequest(ctx, requestID)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to get incident request for edit",
+			"error", err,
+			"requestID", requestID,
+			"userID", userID,
+		)
+		
+		// Send error message to user (we don't have channel info on error, so just return the error)
+		if errors.Is(err, model.ErrIncidentRequestNotFound) || errors.Is(err, model.ErrIncidentRequestExpired) {
+			return goerr.Wrap(err, "failed to open edit dialog - request may have expired")
+		}
+		return goerr.Wrap(err, "failed to retrieve incident request for editing")
+	}
+
+	// Build the edit modal with the existing title pre-filled
+	modal := u.blockBuilder.BuildIncidentEditModal(requestID, request.Title)
+	
+	// Open the modal
+	_, err = u.slackClient.OpenView(ctx, triggerID, modal)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to open edit modal",
+			"error", err,
+			"requestID", requestID,
+			"userID", userID,
+		)
+		return goerr.Wrap(err, "failed to open incident edit modal")
+	}
+
+	ctxlog.From(ctx).Info("Edit modal opened successfully",
+		"requestID", requestID,
+		"userID", userID,
+		"title", request.Title,
+	)
+	
+	return nil
+}
+
+// HandleCreateIncidentActionAsync handles the create incident button click with async processing and error messaging
+func (u *Incident) HandleCreateIncidentActionAsync(ctx context.Context, requestID, userID, channelID string) {
+	// Process incident creation
+	incident, err := u.HandleCreateIncidentAction(ctx, requestID, userID)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to handle incident creation",
+			"error", err,
+			"user", userID,
+			"requestID", requestID,
+		)
+
+		// Send error message to user
+		errorMessage := "Failed to create incident. Please try again."
+		// Check if error is due to expired or not found request
+		if errors.Is(err, model.ErrIncidentRequestNotFound) || errors.Is(err, model.ErrIncidentRequestExpired) {
+			errorMessage = "Failed to create incident. The request may have expired."
+		}
+		
+		// Build error blocks and send message
+		errorBlocks := u.blockBuilder.BuildErrorBlocks(errorMessage)
+		if _, _, msgErr := u.slackClient.PostMessage(
+			ctx,
+			channelID,
+			slack.MsgOptionBlocks(errorBlocks...),
+		); msgErr != nil {
+			ctxlog.From(ctx).Error("Failed to post error message", "error", msgErr)
+		}
+		return
+	}
+
+	ctxlog.From(ctx).Info("Incident created successfully",
+		"incidentID", incident.ID,
+		"channelName", incident.ChannelName,
+		"createdBy", userID,
+	)
+}
+

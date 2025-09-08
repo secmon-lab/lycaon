@@ -14,4 +14,5 @@ type SlackClient interface {
 	AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error)
 	GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error)
 	SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error)
+	OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error)
 }

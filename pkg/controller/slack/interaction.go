@@ -3,12 +3,10 @@ package slack
 import (
 	"context"
 	"encoding/json"
-	"errors"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
-	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/utils/async"
 	"github.com/slack-go/slack"
@@ -100,41 +98,12 @@ func (h *InteractionHandler) handleBlockActions(ctx context.Context, interaction
 			// Process incident creation asynchronously with preserved context
 			backgroundCtx := async.NewBackgroundContext(ctx)
 			async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
-				// Call the single usecase method that handles everything
-				incident, err := h.incidentUC.HandleCreateIncidentAction(
+				// Call the single usecase method that handles everything including error messaging
+				h.incidentUC.HandleCreateIncidentActionAsync(
 					asyncCtx,
 					requestID,
-					interaction.User.ID, // Use the actual user who clicked the button
-				)
-				if err != nil {
-					ctxlog.From(asyncCtx).Error("Failed to handle incident creation",
-						"error", err,
-						"user", interaction.User.ID,
-						"requestID", requestID,
-					)
-
-					// Send error message
-					errorMessage := "Failed to create incident. Please try again."
-					// Check if error is due to expired or not found request
-					if errors.Is(err, model.ErrIncidentRequestNotFound) || errors.Is(err, model.ErrIncidentRequestExpired) {
-						errorMessage = "Failed to create incident. The request may have expired."
-					}
-					errorBlocks := h.blockBuilder.BuildErrorBlocks(errorMessage)
-					if _, err := h.slackService.PostEphemeral(
-						asyncCtx,
-						interaction.Channel.ID,
-						interaction.User.ID,
-						slack.MsgOptionBlocks(errorBlocks...),
-					); err != nil {
-						ctxlog.From(asyncCtx).Error("Failed to post error message", "error", err)
-					}
-					return goerr.Wrap(err, "failed to handle incident creation")
-				}
-
-				ctxlog.From(asyncCtx).Info("Incident created successfully",
-					"incidentID", incident.ID,
-					"channelName", incident.ChannelName,
-					"createdBy", interaction.User.ID,
+					interaction.User.ID,
+					interaction.Channel.ID,
 				)
 				return nil
 			})
@@ -156,44 +125,16 @@ func (h *InteractionHandler) handleBlockActions(ctx context.Context, interaction
 				return goerr.New("empty request ID")
 			}
 
-			// Get the incident request to retrieve the title
-			request, err := h.incidentUC.GetIncidentRequest(ctx, requestID)
+			// Call the single usecase method that handles the entire edit flow
+			err := h.incidentUC.HandleEditIncidentAction(ctx, requestID, interaction.User.ID, interaction.TriggerID)
 			if err != nil {
-				ctxlog.From(ctx).Error("Failed to get incident request",
+				ctxlog.From(ctx).Error("Failed to handle edit incident action",
 					"error", err,
 					"requestID", requestID,
+					"user", interaction.User.ID,
 				)
-				
-				// Send error message
-				errorMessage := "Failed to open edit dialog. The request may have expired."
-				errorBlocks := h.blockBuilder.BuildErrorBlocks(errorMessage)
-				if _, err := h.slackService.PostEphemeral(
-					ctx,
-					interaction.Channel.ID,
-					interaction.User.ID,
-					slack.MsgOptionBlocks(errorBlocks...),
-				); err != nil {
-					ctxlog.From(ctx).Error("Failed to post error message", "error", err)
-				}
-				return goerr.Wrap(err, "failed to get incident request")
+				return goerr.Wrap(err, "failed to handle edit incident action")
 			}
-
-			// Build the modal view
-			modalView := h.blockBuilder.BuildIncidentEditModal(requestID, request.Title)
-
-			// Open the modal
-			if _, err := h.slackService.OpenView(interaction.TriggerID, modalView); err != nil {
-				ctxlog.From(ctx).Error("Failed to open modal",
-					"error", err,
-					"triggerID", interaction.TriggerID,
-				)
-				return goerr.Wrap(err, "failed to open modal")
-			}
-
-			ctxlog.From(ctx).Info("Modal opened successfully",
-				"triggerID", interaction.TriggerID,
-				"requestID", requestID,
-			)
 
 		case "acknowledge":
 			ctxlog.From(ctx).Info("Acknowledge action triggered")
@@ -257,15 +198,26 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 			return goerr.New("empty request ID")
 		}
 		
-		// Extract title from the modal
-		titleValue := interaction.View.State.Values["title_block"]["title_input"].Value
+		// Extract title from the modal (required)
+		var titleValue string
+		if titleBlock, ok := interaction.View.State.Values["title_block"]; ok {
+			if titleInput, ok := titleBlock["title_input"]; ok {
+				titleValue = titleInput.Value
+			}
+		}
 		
 		// Extract description from the modal (optional)
-		descriptionValue := ""
+		var descriptionValue string
 		if descBlock, ok := interaction.View.State.Values["description_block"]; ok {
 			if descInput, ok := descBlock["description_input"]; ok {
 				descriptionValue = descInput.Value
 			}
+		}
+		
+		// Validate required title field
+		if titleValue == "" {
+			ctxlog.From(ctx).Error("Title is required for incident creation")
+			return goerr.New("incident title is required")
 		}
 		
 		ctxlog.From(ctx).Info("Processing incident creation with details",

@@ -83,25 +83,37 @@ LYCAON_GEMINI_MODEL=gemini-1.5-flash
 LYCAON_LOG_LEVEL=info
 ```
 
-## Critical Implementation Rules
+## Implementation Rules
 
 ### Testing
-- Test files MUST match source file names: `foo.go` → `foo_test.go`
+- Test files must match source file names: `foo.go` → `foo_test.go`
 - Use memory repository for repository tests, not mocks
 - LLM mocks: use gollem's built-in mock implementation
 
 ### Repository Layer
 - Firestore stores only Slack messages (no user data, no sessions)
 - Memory implementation must match Firestore interface exactly
-- **CRITICAL**: NEVER use firestore tags on struct fields (`firestore:"fieldname"`). They cause bugs and must be avoided completely
-- **CRITICAL**: Do NOT use json tags on struct fields unless explicitly required for JSON output. Only add json tags when there's a clear requirement to output JSON
+- Never use firestore tags on struct fields (`firestore:"fieldname"`). They cause bugs and must be avoided completely
+- Do not use json tags on struct fields unless explicitly required for JSON output. Only add json tags when there's a clear requirement to output JSON
 
 ### Configuration
-- Do NOT create unified Config struct
+- Do not create unified Config struct
 - Handle each config (Server, Slack, Firestore, etc.) individually in serve command
-- **CRITICAL**: ALL CLI options and environment variables MUST be handled through `github.com/urfave/cli/v3`
-- **PROHIBITED**: Never use `os.Getenv()` directly except in tests. All environment variable access must go through cli/v3 flags
+- All CLI options and environment variables must be handled through `github.com/urfave/cli/v3`
+- Never use `os.Getenv()` directly except in tests. All environment variable access must go through cli/v3 flags
 - Use cli/v3 flag definitions with `EnvVars` field for environment variable support
+
+### Controller Layer Responsibilities
+- Controllers must only route requests and call ONE usecase method per flow
+- Controllers must not contain business logic, error formatting, or UI building
+- All business logic, data validation, and error handling must be in usecase layer
+- Controllers should only:
+  1. Parse/validate request format (JSON, etc.)
+  2. Extract parameters from request
+  3. Call exactly ONE usecase method
+  4. Return the result
+- Example violation: Controller getting data, building UI blocks, handling errors separately
+- Example correct: Controller calls `usecase.HandleCreateIncident()` and returns result
 
 ### Slack Integration
 - Always verify Slack signatures (X-Slack-Signature)
@@ -129,16 +141,16 @@ CI/CD workflows in `.github/workflows/`:
 
 ### Error Handling
 
-- **CRITICAL**: NEVER compare errors using string matching (e.g., `strings.Contains(err.Error(), "some message")`)
-- **REQUIRED**: Define sentinel errors as package variables using `goerr.New()`
+- Never compare errors using string matching (e.g., `strings.Contains(err.Error(), "some message")`)
+- Define sentinel errors as package variables using `goerr.New()`
   ```go
   var ErrNotFound = goerr.New("not found")
   ```
-- **REQUIRED**: Always wrap sentinel errors when returning them to preserve stack trace
+- Always wrap sentinel errors when returning them to preserve stack trace
   ```go
   return goerr.Wrap(model.ErrNotFound, "failed to get resource")
   ```
-- **REQUIRED**: Use `errors.Is()` to check for specific errors
+- Use `errors.Is()` to check for specific errors
   ```go
   if errors.Is(err, model.ErrNotFound) {
       // handle not found case
@@ -173,9 +185,9 @@ All comment and character literal in source code must be in English
 
 - Test files should have `package {name}_test`. Do not use same package name
 - Test file name convention is: `xyz.go` → `xyz_test.go`. Other test file names (e.g., `xyz_e2e_test.go`) are not allowed.
-- **Repository Tests Best Practices**:
+- Repository Tests Best Practices:
   - Always use random IDs (e.g., using `time.Now().UnixNano()`) to avoid test conflicts
-  - NEVER use hardcoded IDs like "msg-001", "user-001" as they cause test failures when running in parallel
+  - Never use hardcoded IDs like "msg-001", "user-001" as they cause test failures when running in parallel
   - Always verify ALL fields of returned values, not just checking for nil/existence
   - Compare expected values properly - don't just check if something exists, verify it matches what was saved
   - For timestamp comparisons, use tolerance (e.g., `< time.Second`) to account for storage precision

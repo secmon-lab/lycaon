@@ -48,3 +48,8 @@ func (a *ClientAdapter) GetConversationInfo(ctx context.Context, channelID strin
 func (a *ClientAdapter) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
 	return a.service.SetPurposeOfConversationContext(ctx, channelID, purpose)
 }
+
+// OpenView implements interfaces.SlackClient
+func (a *ClientAdapter) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
+	return a.service.OpenView(ctx, triggerID, view)
+}

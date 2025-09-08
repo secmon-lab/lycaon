@@ -21,6 +21,8 @@ type MockIncidentUseCase struct {
 	HandleCreateIncidentActionFunc    func(ctx context.Context, requestID, userID string) (*model.Incident, error)
 	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error)
 	GetIncidentRequestFunc            func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
+	HandleEditIncidentActionFunc      func(ctx context.Context, requestID, userID, triggerID string) error
+	HandleCreateIncidentActionAsyncFunc func(ctx context.Context, requestID, userID, channelID string)
 }
 
 func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
@@ -106,6 +108,24 @@ func (m *MockIncidentUseCase) GetIncidentRequest(ctx context.Context, requestID 
 	}, nil
 }
 
+func (m *MockIncidentUseCase) HandleEditIncidentAction(ctx context.Context, requestID, userID, triggerID string) error {
+	if m.HandleEditIncidentActionFunc != nil {
+		return m.HandleEditIncidentActionFunc(ctx, requestID, userID, triggerID)
+	}
+	
+	// Default implementation - just return nil
+	return nil
+}
+
+func (m *MockIncidentUseCase) HandleCreateIncidentActionAsync(ctx context.Context, requestID, userID, channelID string) {
+	if m.HandleCreateIncidentActionAsyncFunc != nil {
+		m.HandleCreateIncidentActionAsyncFunc(ctx, requestID, userID, channelID)
+		return
+	}
+	
+	// Default implementation - just return
+}
+
 func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	ctx := context.Background()
 
@@ -123,7 +143,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		var createdIncident *model.Incident
 		created := make(chan bool, 1)
 		mockUC := &MockIncidentUseCase{
-			HandleCreateIncidentActionFunc: func(ctx context.Context, requestID, userID string) (*model.Incident, error) {
+			HandleCreateIncidentActionAsyncFunc: func(ctx context.Context, requestID, userID, channelID string) {
 				createdIncident = &model.Incident{
 					ID:                1,
 					ChannelID:         "C-INC-001",
@@ -134,7 +154,6 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 					CreatedBy:         userID,
 				}
 				created <- true
-				return createdIncident, nil
 			},
 		}
 
@@ -228,9 +247,9 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	t.Run("Handle incident creation failure", func(t *testing.T) {
 		failed := make(chan bool, 1)
 		mockUC := &MockIncidentUseCase{
-			HandleCreateIncidentActionFunc: func(ctx context.Context, requestID, userID string) (*model.Incident, error) {
+			HandleCreateIncidentActionAsyncFunc: func(ctx context.Context, requestID, userID, channelID string) {
 				failed <- true
-				return nil, goerr.New("failed to create incident")
+				// In real implementation, this would handle the error internally
 			},
 		}
 
@@ -349,14 +368,14 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 				PrivateMetadata: "test-request-id-123", // Add request ID in private metadata
 				State: &slackgo.ViewState{
 					Values: map[string]map[string]slackgo.BlockAction{
-						"title_input": {
-							"title": slackgo.BlockAction{
+						"title_block": {
+							"title_input": slackgo.BlockAction{
 								Type:  "plain_text_input",
 								Value: "Test Incident",
 							},
 						},
-						"description_input": {
-							"description": slackgo.BlockAction{
+						"description_block": {
+							"description_input": slackgo.BlockAction{
 								Type:  "plain_text_input",
 								Value: "Test Description",
 							},
@@ -379,6 +398,40 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		// Should handle view submission without error
 		err = handler.HandleInteraction(ctx, payload)
 		gt.NoError(t, err)
+	})
+
+	t.Run("Handle view submission with missing fields", func(t *testing.T) {
+		mockUC := &MockIncidentUseCase{}
+		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+
+		interaction := slackgo.InteractionCallback{
+			Type: slackgo.InteractionTypeViewSubmission,
+			View: slackgo.View{
+				ID:         "view_123",
+				CallbackID: "incident_creation_modal",
+				PrivateMetadata: "test-request-id-123",
+				State: &slackgo.ViewState{
+					Values: map[string]map[string]slackgo.BlockAction{
+						// Missing title_block and description_block entirely
+					},
+				},
+			},
+			User: slackgo.User{
+				ID:   "U12345",
+				Name: "testuser",
+			},
+			Team: slackgo.Team{
+				ID: "T12345",
+			},
+		}
+
+		payload, err := json.Marshal(interaction)
+		gt.NoError(t, err)
+
+		// Should handle missing fields gracefully and return error for empty title
+		err = handler.HandleInteraction(ctx, payload)
+		gt.Error(t, err)
+		gt.S(t, err.Error()).Contains("incident title is required")
 	})
 
 	t.Run("Handle view closed", func(t *testing.T) {

@@ -20,6 +20,7 @@ type MockSlackClient struct {
 	AuthTestContextFunc                 func(ctx context.Context) (*slack.AuthTestResponse, error)
 	GetConversationInfoFunc             func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error)
 	SetPurposeOfConversationContextFunc func(ctx context.Context, channelID, purpose string) (*slack.Channel, error)
+	OpenViewFunc                        func(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error)
 }
 
 func (m *MockSlackClient) CreateConversation(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
@@ -88,6 +89,13 @@ func (m *MockSlackClient) SetPurposeOfConversationContext(ctx context.Context, c
 			},
 		},
 	}, nil
+}
+
+func (m *MockSlackClient) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
+	if m.OpenViewFunc != nil {
+		return m.OpenViewFunc(ctx, triggerID, view)
+	}
+	return &slack.ViewResponse{}, nil
 }
 
 func TestIncidentUseCaseCreateIncident(t *testing.T) {
