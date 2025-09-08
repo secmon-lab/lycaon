@@ -122,17 +122,19 @@ func NewServer(
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status":  "healthy",
 		"service": "lycaon",
-	})
+	}); err != nil {
+		ctxlog.From(r.Context()).Error("Failed to encode health response", "error", err)
+	}
 }
 
 // handleFallbackHome handles the root path when frontend is not available
 func handleFallbackHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`<!DOCTYPE html>
+	if _, err := w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head>
     <title>Lycaon</title>
@@ -175,7 +177,9 @@ func handleFallbackHome(w http.ResponseWriter, r *http.Request) {
         <p><a href="/api/auth/login">Sign in with Slack</a></p>
     </div>
 </body>
-</html>`))
+</html>`)); err != nil {
+		ctxlog.From(r.Context()).Error("Failed to write fallback home page", "error", err)
+	}
 }
 
 // writeError writes an error response
@@ -190,7 +194,10 @@ func writeError(w http.ResponseWriter, err error, status int) {
 		message = err.Error()
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
-	})
+	}); err != nil {
+		// Can't get context here, so use background context
+		ctxlog.From(context.Background()).Error("Failed to encode error response", "error", err)
+	}
 }

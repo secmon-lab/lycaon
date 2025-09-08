@@ -252,9 +252,11 @@ func (h *Handler) writeError(w http.ResponseWriter, ctx context.Context, err err
 	// Log error with context
 	ctxlog.From(ctx).Debug("Writing error response", "status", status, "error", message)
 
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
-	})
+	}); err != nil {
+		ctxlog.From(ctx).Error("Failed to encode error response", "error", err)
+	}
 }
 
 // abs returns the absolute value of an int64
