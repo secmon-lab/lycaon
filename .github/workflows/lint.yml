@@ -2,12 +2,6 @@ name: Lint
 
 on:
   push:
-    paths:
-      - 'pkg/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.golangci.yml'
-      - '*.go'
 
 jobs:
   golangci:

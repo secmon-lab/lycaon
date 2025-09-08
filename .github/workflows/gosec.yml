@@ -2,11 +2,6 @@ name: Gosec
 
 on:
   push:
-    paths:
-      - 'pkg/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '*.go'
 
 jobs:
   tests:

@@ -2,14 +2,6 @@ name: Unit test
 
 on:
   push:
-    paths:
-      - 'pkg/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'Taskfile.yml'
-      - 'frontend/**'
-      - '.github/workflows/test.yml'
-      - '*.go'
 
 jobs:
   testing:
