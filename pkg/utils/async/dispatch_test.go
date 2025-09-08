@@ -190,8 +190,6 @@ func TestContextPreservation(t *testing.T) {
 		}
 	})
 
-
-
 	t.Run("Each dispatch preserves its own AuthContext", func(t *testing.T) {
 		var wg sync.WaitGroup
 		results := make(map[string]string)
@@ -207,10 +205,10 @@ func TestContextPreservation(t *testing.T) {
 			localID := authCtx.UserID // Capture for closure
 			async.Dispatch(ctx, func(ctx context.Context) error {
 				defer wg.Done()
-				
+
 				// Simulate some work
 				time.Sleep(10 * time.Millisecond)
-				
+
 				preservedAuthCtx, _ := model.GetAuthContext(ctx)
 				mu.Lock()
 				if preservedAuthCtx != nil {
@@ -219,7 +217,7 @@ func TestContextPreservation(t *testing.T) {
 					results[localID] = ""
 				}
 				mu.Unlock()
-				
+
 				return nil
 			})
 		}
@@ -242,4 +240,3 @@ func TestContextPreservation(t *testing.T) {
 		}
 	})
 }
-

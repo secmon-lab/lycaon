@@ -22,7 +22,7 @@ func GetFrontendURL(r *http.Request, configuredURL string) string {
 	// Determine host from headers
 	// Priority: Alt-Used (Cloud Run) > X-Forwarded-Host > Host
 	host := r.Host
-	
+
 	// Check for Cloud Run's Alt-Used header first
 	if altUsed := r.Header.Get("Alt-Used"); altUsed != "" {
 		host = altUsed

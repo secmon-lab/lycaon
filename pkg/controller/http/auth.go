@@ -280,4 +280,3 @@ func (h *AuthHandler) getRedirectURI(r *http.Request) string {
 	baseURL := GetFrontendURL(r, h.frontendURL)
 	return baseURL + "/api/auth/callback"
 }
-

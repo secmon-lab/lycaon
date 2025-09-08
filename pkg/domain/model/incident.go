@@ -65,14 +65,14 @@ func formatIncidentChannelName(id int, title string) string {
 	}
 
 	fullName := fmt.Sprintf("%s-%s", baseChannelName, sanitized)
-	
+
 	// Slack channel names must be 80 characters or less
 	if len(fullName) > 80 {
 		fullName = fullName[:80]
 		// Ensure the truncated name doesn't end with a hyphen
 		fullName = strings.TrimRight(fullName, "-")
 	}
-	
+
 	return fullName
 }
 

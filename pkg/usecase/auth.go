@@ -354,6 +354,7 @@ func (a *Auth) getOpenIDConfiguration(ctx context.Context) (*OpenIDConfiguration
 
 // decodeIDToken decodes and verifies the ID token using Slack's public keys
 func (a *Auth) decodeIDToken(ctx context.Context, idToken string) (*SlackIDToken, error) {
+	logger := ctxlog.From(ctx)
 	// Get OpenID Connect configuration to find JWKS URI
 	config, err := a.getOpenIDConfiguration(ctx)
 	if err != nil {
@@ -366,9 +367,19 @@ func (a *Auth) decodeIDToken(ctx context.Context, idToken string) (*SlackIDToken
 		return nil, goerr.Wrap(err, "failed to fetch Slack's public keys", goerr.V("jwks_uri", config.JWKSURI))
 	}
 
-	// Parse and verify the JWT token
-	token, err := jwt.Parse([]byte(idToken), jwt.WithKeySet(keySet), jwt.WithValidate(true), jwt.WithAudience(a.slackConfig.ClientID))
+	// Parse and verify the JWT token with clock skew tolerance
+	clockFunc := jwt.ClockFunc(func() time.Time { return time.Now() })
+	token, err := jwt.Parse([]byte(idToken),
+		jwt.WithKeySet(keySet),
+		jwt.WithValidate(true),
+		jwt.WithAudience(a.slackConfig.ClientID),
+		jwt.WithClock(clockFunc),
+		jwt.WithAcceptableSkew(5*time.Minute))
 	if err != nil {
+		logger.Error("JWT token validation failed",
+			"error", err,
+			"audience", a.slackConfig.ClientID,
+			"clock_skew_tolerance", "5m")
 		return nil, goerr.Wrap(err, "failed to parse or verify JWT token")
 	}
 

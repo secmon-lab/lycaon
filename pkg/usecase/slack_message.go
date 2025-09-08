@@ -159,10 +159,10 @@ func parseIncidentCommand(message *model.Message, botUserID string) interfaces.I
 
 	// Build the bot mention pattern
 	botMention := fmt.Sprintf("<@%s>", botUserID)
-	
+
 	// Split message into tokens (words)
 	parts := strings.Fields(message.Text)
-	
+
 	// Look for bot mention followed by "inc" command
 	for i, part := range parts {
 		if part == botMention {
