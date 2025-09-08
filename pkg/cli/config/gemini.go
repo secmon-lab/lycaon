@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gollem"
 	"github.com/m-mizutani/gollem/llm/gemini"
@@ -68,7 +69,8 @@ func (g *Gemini) Configure(ctx context.Context) (gollem.LLMClient, error) {
 }
 
 // ConfigureOptional creates a Gemini LLM client if configured, returns nil if not
-func (g *Gemini) ConfigureOptional(ctx context.Context, logger *slog.Logger) gollem.LLMClient {
+func (g *Gemini) ConfigureOptional(ctx context.Context) gollem.LLMClient {
+	logger := ctxlog.From(ctx)
 	if !g.IsConfigured() {
 		logger.Info("Gemini not configured")
 		return nil

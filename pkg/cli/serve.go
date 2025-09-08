@@ -13,8 +13,6 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
-	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
-	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/urfave/cli/v3"
 )
@@ -57,7 +55,7 @@ func cmdServe() *cli.Command {
 			defer repo.Close()
 
 			// Create gollem LLM client using Gemini configuration
-			gollemClient := geminiCfg.ConfigureOptional(ctx, logger)
+			gollemClient := geminiCfg.ConfigureOptional(ctx)
 			if gollemClient == nil {
 				return goerr.New("LLM client configuration is required. Please configure Gemini settings")
 			}
@@ -65,18 +63,10 @@ func cmdServe() *cli.Command {
 				defer closer.Close()
 			}
 
-			// Get Slack token from config
-			slackToken := ""
-			if slackCfg.OAuthToken != "" {
-				slackToken = slackCfg.OAuthToken
-			}
-
-			// Create Slack client
-			var slackClient interfaces.SlackClient
-			if slackToken != "" {
-				slackClient = slackSvc.New(slackToken)
-			} else {
-				return goerr.New("Slack client configuration is required. Please provide LYCAON_SLACK_OAUTH_TOKEN")
+			// Create Slack client using config
+			slackClient, err := slackCfg.Configure(ctx)
+			if err != nil {
+				return err
 			}
 
 			// Debug log Slack configuration
