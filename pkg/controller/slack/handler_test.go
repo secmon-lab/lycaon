@@ -22,102 +22,24 @@ import (
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/controller/slack"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	slackgo "github.com/slack-go/slack"
 )
 
-// MockSlackClient for controller tests - simplified version of the one in incident tests
-type MockSlackClient struct {
-	CreateConversationFunc              func(params slackgo.CreateConversationParams) (*slackgo.Channel, error)
-	InviteUsersToConversationFunc       func(channelID string, users ...string) (*slackgo.Channel, error)
-	PostMessageFunc                     func(channelID string, options ...slackgo.MsgOption) (string, string, error)
-	UpdateMessageFunc                   func(channelID, timestamp string, options ...slackgo.MsgOption) (string, string, string, error)
-	AuthTestContextFunc                 func(ctx context.Context) (*slackgo.AuthTestResponse, error)
-	GetConversationInfoFunc             func(ctx context.Context, channelID string, includeLocale bool) (*slackgo.Channel, error)
-	SetPurposeOfConversationContextFunc func(ctx context.Context, channelID, purpose string) (*slackgo.Channel, error)
-	OpenViewFunc                        func(ctx context.Context, triggerID string, view slackgo.ModalViewRequest) (*slackgo.ViewResponse, error)
-	GetConversationHistoryContextFunc   func(ctx context.Context, params *slackgo.GetConversationHistoryParameters) (*slackgo.GetConversationHistoryResponse, error)
-	GetConversationRepliesContextFunc   func(ctx context.Context, params *slackgo.GetConversationRepliesParameters) ([]slackgo.Message, bool, bool, error)
-}
-
-func (m *MockSlackClient) CreateConversation(ctx context.Context, params slackgo.CreateConversationParams) (*slackgo.Channel, error) {
-	if m.CreateConversationFunc != nil {
-		return m.CreateConversationFunc(params)
-	}
-	return &slackgo.Channel{}, nil
-}
-
-func (m *MockSlackClient) InviteUsersToConversation(ctx context.Context, channelID string, users ...string) (*slackgo.Channel, error) {
-	if m.InviteUsersToConversationFunc != nil {
-		return m.InviteUsersToConversationFunc(channelID, users...)
-	}
-	return &slackgo.Channel{}, nil
-}
-
-func (m *MockSlackClient) PostMessage(ctx context.Context, channelID string, options ...slackgo.MsgOption) (string, string, error) {
-	if m.PostMessageFunc != nil {
-		return m.PostMessageFunc(channelID, options...)
-	}
-	return "", "", nil
-}
-
-func (m *MockSlackClient) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slackgo.MsgOption) (string, string, string, error) {
-	if m.UpdateMessageFunc != nil {
-		return m.UpdateMessageFunc(channelID, timestamp, options...)
-	}
-	return "", "", "", nil
-}
-
-func (m *MockSlackClient) AuthTestContext(ctx context.Context) (*slackgo.AuthTestResponse, error) {
-	if m.AuthTestContextFunc != nil {
-		return m.AuthTestContextFunc(ctx)
-	}
-	return &slackgo.AuthTestResponse{
-		UserID: "U_TEST_BOT",
-		User:   "test-bot",
-	}, nil
-}
-
-func (m *MockSlackClient) GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slackgo.Channel, error) {
-	if m.GetConversationInfoFunc != nil {
-		return m.GetConversationInfoFunc(ctx, channelID, includeLocale)
-	}
-	return &slackgo.Channel{}, nil
-}
-
-func (m *MockSlackClient) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slackgo.Channel, error) {
-	if m.SetPurposeOfConversationContextFunc != nil {
-		return m.SetPurposeOfConversationContextFunc(ctx, channelID, purpose)
-	}
-	return &slackgo.Channel{}, nil
-}
-
-func (m *MockSlackClient) OpenView(ctx context.Context, triggerID string, view slackgo.ModalViewRequest) (*slackgo.ViewResponse, error) {
-	if m.OpenViewFunc != nil {
-		return m.OpenViewFunc(ctx, triggerID, view)
-	}
-	return &slackgo.ViewResponse{}, nil
-}
-
-func (m *MockSlackClient) GetConversationHistoryContext(ctx context.Context, params *slackgo.GetConversationHistoryParameters) (*slackgo.GetConversationHistoryResponse, error) {
-	if m.GetConversationHistoryContextFunc != nil {
-		return m.GetConversationHistoryContextFunc(ctx, params)
-	}
-	return &slackgo.GetConversationHistoryResponse{}, nil
-}
-
-func (m *MockSlackClient) GetConversationRepliesContext(ctx context.Context, params *slackgo.GetConversationRepliesParameters) ([]slackgo.Message, bool, bool, error) {
-	if m.GetConversationRepliesContextFunc != nil {
-		return m.GetConversationRepliesContextFunc(ctx, params)
-	}
-	return []slackgo.Message{}, false, false, nil
-}
 
 // Helper function to create mock clients for controller tests
-func createMockClientsForController() (gollem.LLMClient, *MockSlackClient) {
+func createMockClientsForController() (gollem.LLMClient, *mocks.SlackClientMock) {
 	mockLLM := &mock.LLMClientMock{}
-	mockSlack := &MockSlackClient{}
+	mockSlack := &mocks.SlackClientMock{
+		AuthTestContextFunc: func(ctx context.Context) (*slackgo.AuthTestResponse, error) {
+			return &slackgo.AuthTestResponse{
+				UserID: "U_TEST_BOT",
+				User:   "test-bot",
+			}, nil
+		},
+	}
 	return mockLLM, mockSlack
 }
 

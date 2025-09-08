@@ -2,9 +2,7 @@ package usecase_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
@@ -15,117 +13,6 @@ import (
 	"github.com/slack-go/slack"
 )
 
-// MockSlackClient mocks the Slack client for testing
-type MockSlackClient struct {
-	CreateConversationFunc              func(params slack.CreateConversationParams) (*slack.Channel, error)
-	InviteUsersToConversationFunc       func(channelID string, users ...string) (*slack.Channel, error)
-	PostMessageFunc                     func(channelID string, options ...slack.MsgOption) (string, string, error)
-	UpdateMessageFunc                   func(channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error)
-	AuthTestContextFunc                 func(ctx context.Context) (*slack.AuthTestResponse, error)
-	GetConversationInfoFunc             func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error)
-	SetPurposeOfConversationContextFunc func(ctx context.Context, channelID, purpose string) (*slack.Channel, error)
-	OpenViewFunc                        func(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error)
-	GetConversationHistoryContextFunc   func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error)
-	GetConversationRepliesContextFunc   func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error)
-}
-
-func (m *MockSlackClient) CreateConversation(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-	if m.CreateConversationFunc != nil {
-		return m.CreateConversationFunc(params)
-	}
-	return &slack.Channel{
-		GroupConversation: slack.GroupConversation{
-			Conversation: slack.Conversation{
-				ID: "C-NEW-INCIDENT",
-			},
-			Name: params.ChannelName,
-		},
-	}, nil
-}
-
-func (m *MockSlackClient) InviteUsersToConversation(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-	if m.InviteUsersToConversationFunc != nil {
-		return m.InviteUsersToConversationFunc(channelID, users...)
-	}
-	return &slack.Channel{}, nil
-}
-
-func (m *MockSlackClient) PostMessage(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-	if m.PostMessageFunc != nil {
-		return m.PostMessageFunc(channelID, options...)
-	}
-	return "channel", "timestamp", nil
-}
-
-func (m *MockSlackClient) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
-	if m.UpdateMessageFunc != nil {
-		return m.UpdateMessageFunc(channelID, timestamp, options...)
-	}
-	return channelID, timestamp, "updated text", nil
-}
-
-func (m *MockSlackClient) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) {
-	if m.AuthTestContextFunc != nil {
-		return m.AuthTestContextFunc(ctx)
-	}
-	// Use random IDs to avoid test conflicts as per CLAUDE.md
-	timestamp := time.Now().UnixNano()
-	return &slack.AuthTestResponse{
-		UserID: fmt.Sprintf("U%d", timestamp%1000000),
-		User:   fmt.Sprintf("bot-%d", timestamp%1000000),
-	}, nil
-}
-
-func (m *MockSlackClient) GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
-	if m.GetConversationInfoFunc != nil {
-		return m.GetConversationInfoFunc(ctx, channelID, includeLocale)
-	}
-	return &slack.Channel{
-		GroupConversation: slack.GroupConversation{
-			Conversation: slack.Conversation{
-				ID: channelID,
-			},
-			Name: "test-channel",
-		},
-	}, nil
-}
-
-func (m *MockSlackClient) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-	if m.SetPurposeOfConversationContextFunc != nil {
-		return m.SetPurposeOfConversationContextFunc(ctx, channelID, purpose)
-	}
-	return &slack.Channel{
-		GroupConversation: slack.GroupConversation{
-			Conversation: slack.Conversation{
-				ID: channelID,
-			},
-			Purpose: slack.Purpose{
-				Value: purpose,
-			},
-		},
-	}, nil
-}
-
-func (m *MockSlackClient) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
-	if m.OpenViewFunc != nil {
-		return m.OpenViewFunc(ctx, triggerID, view)
-	}
-	return &slack.ViewResponse{}, nil
-}
-
-func (m *MockSlackClient) GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
-	if m.GetConversationHistoryContextFunc != nil {
-		return m.GetConversationHistoryContextFunc(ctx, params)
-	}
-	return &slack.GetConversationHistoryResponse{}, nil
-}
-
-func (m *MockSlackClient) GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
-	if m.GetConversationRepliesContextFunc != nil {
-		return m.GetConversationRepliesContextFunc(ctx, params)
-	}
-	return []slack.Message{}, false, false, nil
-}
 
 func TestIncidentUseCaseCreateIncident(t *testing.T) {
 	ctx := context.Background()
@@ -134,8 +21,37 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		// Use memory repository for testing
 		repo := repository.NewMemory()
 
-		// Create mock Slack client
-		mockSlack := &MockSlackClient{}
+		// Create mock Slack client with default behavior
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-NEW-INCIDENT",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: channelID,
+						},
+						Purpose: slack.Purpose{
+							Value: purpose,
+						},
+					},
+				}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
 
 		// Create use case with mock
 		uc := usecase.NewIncident(repo, mockSlack)
@@ -171,7 +87,36 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 	t.Run("Multiple incidents get sequential IDs", func(t *testing.T) {
 		repo := repository.NewMemory()
-		mockSlack := &MockSlackClient{}
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-NEW-INCIDENT",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: channelID,
+						},
+						Purpose: slack.Purpose{
+							Value: purpose,
+						},
+					},
+				}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
 		uc := usecase.NewIncident(repo, mockSlack)
 
 		// Create first incident
@@ -192,7 +137,36 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 	t.Run("GetIncident retrieves correct incident", func(t *testing.T) {
 		repo := repository.NewMemory()
-		mockSlack := &MockSlackClient{}
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-NEW-INCIDENT",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: channelID,
+						},
+						Purpose: slack.Purpose{
+							Value: purpose,
+						},
+					},
+				}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
 		uc := usecase.NewIncident(repo, mockSlack)
 
 		// Create an incident
@@ -210,7 +184,36 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 	t.Run("GetIncident returns error for non-existent ID", func(t *testing.T) {
 		repo := repository.NewMemory()
-		mockSlack := &MockSlackClient{}
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-NEW-INCIDENT",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: channelID,
+						},
+						Purpose: slack.Purpose{
+							Value: purpose,
+						},
+					},
+				}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
 		uc := usecase.NewIncident(repo, mockSlack)
 
 		// Try to get non-existent incident
@@ -232,7 +235,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 			},
 		}
 
-		mockSlack := &MockSlackClient{}
+		mockSlack := &mocks.SlackClientMock{}
 		uc := usecase.NewIncident(mockRepo, mockSlack)
 
 		// Try to create incident - should fail due to repository error

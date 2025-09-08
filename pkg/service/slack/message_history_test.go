@@ -5,55 +5,11 @@ import (
 	"testing"
 
 	"github.com/m-mizutani/gt"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/slack-go/slack"
 )
 
-// mockSlackClient mocks the Slack client for testing
-type mockSlackClient struct {
-	GetConversationHistoryContextFunc func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error)
-	GetConversationRepliesContextFunc func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error)
-}
-
-func (m *mockSlackClient) GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
-	if m.GetConversationHistoryContextFunc != nil {
-		return m.GetConversationHistoryContextFunc(ctx, params)
-	}
-	return &slack.GetConversationHistoryResponse{Messages: []slack.Message{}}, nil
-}
-
-func (m *mockSlackClient) GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
-	if m.GetConversationRepliesContextFunc != nil {
-		return m.GetConversationRepliesContextFunc(ctx, params)
-	}
-	return []slack.Message{}, false, false, nil
-}
-
-// Implement other required interface methods as no-ops for this test
-func (m *mockSlackClient) CreateConversation(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-	return nil, nil
-}
-func (m *mockSlackClient) InviteUsersToConversation(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-	return nil, nil
-}
-func (m *mockSlackClient) PostMessage(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-	return "", "", nil
-}
-func (m *mockSlackClient) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
-	return "", "", "", nil
-}
-func (m *mockSlackClient) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) {
-	return nil, nil
-}
-func (m *mockSlackClient) GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
-	return nil, nil
-}
-func (m *mockSlackClient) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-	return nil, nil
-}
-func (m *mockSlackClient) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
-	return nil, nil
-}
 
 func TestMessageHistoryService_New(t *testing.T) {
 	// Test service creation
@@ -92,7 +48,7 @@ func TestMessageHistoryService_LimitBounds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock client to capture the actual limit passed to Slack API
 			var capturedLimit int
-			mockClient := &mockSlackClient{
+			mockClient := &mocks.SlackClientMock{
 				GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 					capturedLimit = params.Limit
 					return &slack.GetConversationHistoryResponse{
@@ -134,7 +90,7 @@ func TestMessageHistoryService_ThreadLimitBounds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock client to capture the limit for thread messages
 			var capturedLimit int
-			mockClient := &mockSlackClient{
+			mockClient := &mocks.SlackClientMock{
 				GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
 					capturedLimit = params.Limit
 					return []slack.Message{}, false, false, nil
@@ -164,7 +120,7 @@ func TestMessageHistoryService_MessageOrdering(t *testing.T) {
 
 	t.Run("Channel messages should be returned in chronological order", func(t *testing.T) {
 		// Create mock client that returns messages in reverse chronological order (newest first)
-		mockClient := &mockSlackClient{
+		mockClient := &mocks.SlackClientMock{
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -194,7 +150,7 @@ func TestMessageHistoryService_MessageOrdering(t *testing.T) {
 
 	t.Run("Thread messages should remain in chronological order", func(t *testing.T) {
 		// Create mock client that returns thread messages in chronological order (oldest first)
-		mockClient := &mockSlackClient{
+		mockClient := &mocks.SlackClientMock{
 			GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
 				return []slack.Message{
 					{Msg: slack.Msg{Timestamp: "1234567890.000001", Text: "First reply"}},

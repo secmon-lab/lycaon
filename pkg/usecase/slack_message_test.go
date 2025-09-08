@@ -12,6 +12,7 @@ import (
 	"github.com/m-mizutani/gollem"
 	"github.com/m-mizutani/gollem/mock"
 	"github.com/m-mizutani/gt"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
@@ -21,12 +22,12 @@ import (
 )
 
 // Helper function to create default mock clients for testing
-func createMockClients() (gollem.LLMClient, *MockSlackClient) {
+func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
 	// Create default mock LLM client
 	mockLLM := &mock.LLMClientMock{}
 
 	// Create default mock Slack client with a test bot user
-	mockSlack := &MockSlackClient{
+	mockSlack := &mocks.SlackClientMock{
 		AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 			return &slack.AuthTestResponse{
 				UserID: "U_TEST_BOT",
@@ -220,7 +221,7 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 	repo := repository.NewMemory()
 
 	// Create mock Slack client that returns a specific bot user ID
-	mockSlack := &MockSlackClient{
+	mockSlack := &mocks.SlackClientMock{
 		AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 			return &slack.AuthTestResponse{
 				UserID: "U123BOT",
@@ -570,7 +571,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		// Create mock slack client for message history
-		mockSlack := &MockSlackClient{
+		mockSlack := &mocks.SlackClientMock{
 			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 				return &slack.AuthTestResponse{
 					UserID: botUserID,
@@ -636,7 +637,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		// Mock slack client for thread replies
-		mockSlack := &MockSlackClient{
+		mockSlack := &mocks.SlackClientMock{
 			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 				return &slack.AuthTestResponse{
 					UserID: botUserID,
@@ -697,7 +698,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		// Mock slack client that returns some messages
-		mockSlack := &MockSlackClient{
+		mockSlack := &mocks.SlackClientMock{
 			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 				return &slack.AuthTestResponse{
 					UserID: botUserID,
@@ -752,7 +753,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		mockSlack := &MockSlackClient{
+		mockSlack := &mocks.SlackClientMock{
 			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 				return &slack.AuthTestResponse{
 					UserID: botUserID,
@@ -795,7 +796,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 	t.Run("Manual title specified (no LLM enhancement)", func(t *testing.T) {
 		// Mock that should not be called since title is provided
 		mockGollem := &mock.LLMClientMock{}
-		mockSlack := &MockSlackClient{
+		mockSlack := &mocks.SlackClientMock{
 			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 				return &slack.AuthTestResponse{
 					UserID: botUserID,

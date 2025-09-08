@@ -1,5 +1,7 @@
 package interfaces
 
+//go:generate moq -out mocks/slack_mock.go -pkg mocks . SlackClient
+
 import (
 	"context"
 
