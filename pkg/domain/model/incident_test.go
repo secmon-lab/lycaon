@@ -125,6 +125,9 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 		{"Title with multiple spaces", 1, "   multiple   spaces   ", "inc-1-multiple-spaces"},
 		{"Title with unicode", 1, "データベースエラー", "inc-1-データベースエラー"},
 		{"Mixed case title", 1, "Database OutAge", "inc-1-database-outage"},
+		// Test 80-character limit with different ID lengths
+		{"Large ID with long title", 10000, "this-is-a-very-long-title-that-should-be-truncated-to-fit-within-eighty-chars", "inc-10000-this-is-a-very-long-title-that-should-be-truncated-to-fit-within-eight"},
+		{"Very large ID with title", 999999, "database-outage-critical-priority-affecting-all-users-worldwide", "inc-999999-database-outage-critical-priority-affecting-all-users-worldwide"},
 	}
 
 	for _, tc := range testCases {
@@ -139,6 +142,8 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 			gt.NoError(t, err)
 			gt.Equal(t, tc.expectedName, incident.ChannelName)
 			gt.Equal(t, tc.title, incident.Title)
+			// Ensure channel name never exceeds 80 characters
+			gt.True(t, len(incident.ChannelName) <= 80)
 		})
 	}
 }
@@ -208,9 +213,9 @@ func TestSanitizeForSlackChannelName(t *testing.T) {
 		{"Only hyphens", "---", ""},
 		{"Only underscores", "___", "___"},
 
-		// Length testing (72 bytes max for title part)
-		{"Max length", "this-is-a-very-long-title-that-should-fit-within-the-limit-exactly", "this-is-a-very-long-title-that-should-fit-within-the-limit-exactly"},
-		{"Over max length", "this-is-a-very-long-title-that-exceeds-the-maximum-allowed-length-and-should-be-truncated", "this-is-a-very-long-title-that-exceeds-the-maximum-allowed-length-and-sh"},
+		// No length truncation in sanitize function anymore - handled in formatIncidentChannelName
+		{"Long title", "this-is-a-very-long-title-that-should-fit-within-the-limit-exactly", "this-is-a-very-long-title-that-should-fit-within-the-limit-exactly"},
+		{"Very long title", "this-is-a-very-long-title-that-exceeds-the-maximum-allowed-length-and-should-be-truncated", "this-is-a-very-long-title-that-exceeds-the-maximum-allowed-length-and-should-be-truncated"},
 
 		// Complex real-world examples
 		{"Database outage", "Database Outage", "database-outage"},
@@ -244,11 +249,8 @@ func TestSanitizeForSlackChannelName(t *testing.T) {
 			result := model.SanitizeForSlackChannelName(tc.input)
 			gt.Equal(t, tc.expected, result)
 
-			// Verify Slack channel name constraints
+			// Verify Slack channel name constraints (excluding length which is now handled elsewhere)
 			if result != "" {
-				// Must be 72 bytes or less (for title part)
-				gt.True(t, len(result) <= 72)
-
 				// Must not start or end with hyphens
 				gt.True(t, result[0] != '-')
 				gt.True(t, result[len(result)-1] != '-')

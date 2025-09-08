@@ -64,13 +64,21 @@ func formatIncidentChannelName(id int, title string) string {
 		return baseChannelName
 	}
 
-	return fmt.Sprintf("%s-%s", baseChannelName, sanitized)
+	fullName := fmt.Sprintf("%s-%s", baseChannelName, sanitized)
+	
+	// Slack channel names must be 80 characters or less
+	if len(fullName) > 80 {
+		fullName = fullName[:80]
+		// Ensure the truncated name doesn't end with a hyphen
+		fullName = strings.TrimRight(fullName, "-")
+	}
+	
+	return fullName
 }
 
 // sanitizeForSlackChannelName converts text to be compatible with Slack channel names
-// Names must be lowercase, without spaces or periods, and can't be longer than 80 characters
+// Names must be lowercase, without spaces or periods
 // Symbols are replaced with hyphens, multibyte characters are preserved
-// Length limit is interpreted as 80 bytes (safe side)
 func sanitizeForSlackChannelName(text string) string {
 	if text == "" {
 		return ""
@@ -107,16 +115,6 @@ func sanitizeForSlackChannelName(text string) string {
 
 	// Remove leading/trailing hyphens
 	text = strings.Trim(text, "-")
-
-	// Limit length (80 bytes total, "inc-XXX-" is 8 bytes, so 72 bytes left for title)
-	maxTitleBytes := 72
-	if len(text) > maxTitleBytes {
-		// Truncate at byte boundary, not character boundary for safety
-		text = text[:maxTitleBytes]
-	}
-
-	// Remove trailing hyphens again after truncation
-	text = strings.TrimRight(text, "-")
 
 	return text
 }
