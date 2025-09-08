@@ -20,15 +20,33 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
+// Helper function to create default mock clients for testing
+func createMockClients() (gollem.LLMClient, *MockSlackClient) {
+	// Create default mock LLM client
+	mockLLM := &mock.LLMClientMock{}
+
+	// Create default mock Slack client with a test bot user
+	mockSlack := &MockSlackClient{
+		AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+			return &slack.AuthTestResponse{
+				UserID: "U_TEST_BOT",
+				User:   "test-bot",
+			}, nil
+		},
+	}
+
+	return mockLLM, mockSlack
+}
+
 func TestSlackMessageProcessMessage(t *testing.T) {
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	// Create mock gollem client using gollem's built-in mock
-	mockGollem := &mock.LLMClientMock{}
+	// Create mock clients
+	mockGollem, mockSlack := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, nil)
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 	gt.NoError(t, err)
 
 	// Use random IDs as per CLAUDE.md
@@ -79,7 +97,10 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, nil)
+		// Create mock clients
+		_, mockSlack := createMockClients()
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
 		gt.NoError(t, err)
 
 		message := &model.Message{
@@ -92,8 +113,16 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		gt.Equal(t, "Generated response", response)
 	})
 
-	t.Run("Without LLM client", func(t *testing.T) {
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, nil)
+	t.Run("With LLM error fallback", func(t *testing.T) {
+		// Test what happens when LLM generation fails - should get a fallback response
+		mockLLM := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				return nil, fmt.Errorf("LLM service unavailable")
+			},
+		}
+		_, mockSlack := createMockClients()
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
 		gt.NoError(t, err)
 
 		message := &model.Message{
@@ -103,7 +132,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 
 		response, err := uc.GenerateResponse(ctx, message)
 		gt.NoError(t, err)
-		gt.Equal(t, "Thank you for your message. I'm currently processing it.", response)
+		gt.Equal(t, "I understand your message. Let me help you with that.", response)
 	})
 }
 
@@ -126,7 +155,10 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 		},
 	}
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, nil)
+	// Create mock slack client
+	_, mockSlack := createMockClients()
+
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 	gt.NoError(t, err)
 
 	t.Run("With ClientMsgID", func(t *testing.T) {
@@ -197,7 +229,10 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 		},
 	}
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, nil, mockSlack)
+	// Create mock LLM client
+	mockGollem, _ := createMockClients()
+
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
 	gt.NoError(t, err)
 
 	testCases := []struct {

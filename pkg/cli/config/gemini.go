@@ -198,7 +198,7 @@ func (s *vertexSession) GenerateStream(ctx context.Context, inputs ...gollem.Inp
 	// For now, implement as non-streaming
 	// Could be enhanced to use Vertex AI's streaming API
 	ch := make(chan *gollem.Response, 1)
-	
+
 	go func() {
 		defer close(ch)
 		resp, err := s.GenerateContent(ctx, inputs...)
@@ -208,7 +208,7 @@ func (s *vertexSession) GenerateStream(ctx context.Context, inputs ...gollem.Inp
 		}
 		ch <- resp
 	}()
-	
+
 	return ch, nil
 }
 

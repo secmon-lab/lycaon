@@ -58,6 +58,9 @@ func cmdServe() *cli.Command {
 
 			// Create gollem LLM client using Gemini configuration
 			gollemClient := geminiCfg.ConfigureOptional(ctx, logger)
+			if gollemClient == nil {
+				return goerr.New("LLM client configuration is required. Please configure Gemini settings")
+			}
 			if closer, ok := gollemClient.(interface{ Close() error }); ok && closer != nil {
 				defer closer.Close()
 			}
@@ -72,6 +75,8 @@ func cmdServe() *cli.Command {
 			var slackClient interfaces.SlackClient
 			if slackToken != "" {
 				slackClient = slackSvc.New(slackToken)
+			} else {
+				return goerr.New("Slack client configuration is required. Please provide LYCAON_SLACK_OAUTH_TOKEN")
 			}
 
 			// Debug log Slack configuration

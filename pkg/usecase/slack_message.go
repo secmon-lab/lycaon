@@ -21,7 +21,7 @@ import (
 const (
 	// channelHistoryDuration defines how far back to look for channel messages when analyzing incident context
 	channelHistoryDuration = 2 * time.Hour
-	
+
 	// maxMessageHistoryLimit is the maximum number of messages to retrieve for incident analysis
 	maxMessageHistoryLimit = 256
 )
@@ -38,12 +38,24 @@ type SlackMessage struct {
 }
 
 // NewSlackMessage creates a new SlackMessage use case
+// Both gollemClient and slackClient are required parameters
 func NewSlackMessage(
 	ctx context.Context,
 	repo interfaces.Repository,
 	gollemClient gollem.LLMClient,
 	slackClient interfaces.SlackClient,
 ) (*SlackMessage, error) {
+	// Validate required parameters
+	if repo == nil {
+		return nil, goerr.New("repository is required")
+	}
+	if gollemClient == nil {
+		return nil, goerr.New("LLM client is required")
+	}
+	if slackClient == nil {
+		return nil, goerr.New("Slack client is required")
+	}
+
 	s := &SlackMessage{
 		repo:           repo,
 		gollemClient:   gollemClient,
@@ -53,20 +65,16 @@ func NewSlackMessage(
 		llmService:     llmSvc.NewLLMService(gollemClient),
 	}
 
-	// Always get bot user ID from Slack API if client is available
-	if slackClient != nil {
-		authResp, err := slackClient.AuthTestContext(ctx)
-		if err != nil {
-			return nil, goerr.Wrap(err, "failed to authenticate with Slack")
-		}
-		s.botUserID = authResp.UserID
-		ctxlog.From(ctx).Info("Bot user ID retrieved",
-			"botUserID", s.botUserID,
-			"botName", authResp.User,
-		)
-	} else {
-		ctxlog.From(ctx).Debug("Slack client not provided, bot user ID not available")
+	// Get bot user ID from Slack API
+	authResp, err := slackClient.AuthTestContext(ctx)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to authenticate with Slack")
 	}
+	s.botUserID = authResp.UserID
+	ctxlog.From(ctx).Info("Bot user ID retrieved",
+		"botUserID", s.botUserID,
+		"botName", authResp.User,
+	)
 
 	return s, nil
 }
@@ -98,11 +106,6 @@ func (s *SlackMessage) ProcessMessage(ctx context.Context, event *slackevents.Me
 func (s *SlackMessage) GenerateResponse(ctx context.Context, message *model.Message) (string, error) {
 	if message == nil {
 		return "", goerr.New("message is nil")
-	}
-
-	if s.gollemClient == nil {
-		// If LLM client is not configured, return a default response
-		return "Thank you for your message. I'm currently processing it.", nil
 	}
 
 	// Create a prompt for the LLM
@@ -222,16 +225,10 @@ func (s *SlackMessage) ParseIncidentCommand(ctx context.Context, message *model.
 		return basicCommand
 	}
 
-	// No title provided - analyze message history with LLM if available
-	if s.gollemClient != nil {
-		ctxlog.From(ctx).Info("No title provided for incident command, analyzing message history")
-		enhancedCommand := s.enhanceIncidentCommandWithLLM(ctx, message, basicCommand)
-		return enhancedCommand
-	}
-
-	// LLM not available, return basic command without enhancement
-	ctxlog.From(ctx).Debug("LLM not available for incident enhancement, returning basic command")
-	return basicCommand
+	// No title provided - analyze message history with LLM
+	ctxlog.From(ctx).Info("No title provided for incident command, analyzing message history")
+	enhancedCommand := s.enhanceIncidentCommandWithLLM(ctx, message, basicCommand)
+	return enhancedCommand
 }
 
 // enhanceIncidentCommandWithLLM enhances an incident command by analyzing message history with LLM

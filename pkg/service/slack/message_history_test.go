@@ -30,14 +30,30 @@ func (m *mockSlackClient) GetConversationRepliesContext(ctx context.Context, par
 }
 
 // Implement other required interface methods as no-ops for this test
-func (m *mockSlackClient) CreateConversation(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) { return nil, nil }
-func (m *mockSlackClient) InviteUsersToConversation(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) { return nil, nil }
-func (m *mockSlackClient) PostMessage(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) { return "", "", nil }
-func (m *mockSlackClient) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) { return "", "", "", nil }
-func (m *mockSlackClient) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) { return nil, nil }
-func (m *mockSlackClient) GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) { return nil, nil }
-func (m *mockSlackClient) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error) { return nil, nil }
-func (m *mockSlackClient) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) { return nil, nil }
+func (m *mockSlackClient) CreateConversation(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+	return nil, nil
+}
+func (m *mockSlackClient) InviteUsersToConversation(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+	return nil, nil
+}
+func (m *mockSlackClient) PostMessage(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockSlackClient) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
+	return "", "", "", nil
+}
+func (m *mockSlackClient) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) {
+	return nil, nil
+}
+func (m *mockSlackClient) GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+	return nil, nil
+}
+func (m *mockSlackClient) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+	return nil, nil
+}
+func (m *mockSlackClient) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
+	return nil, nil
+}
 
 func TestMessageHistoryService_New(t *testing.T) {
 	// Test service creation
@@ -59,7 +75,7 @@ func TestMessageHistoryOptions_Validation(t *testing.T) {
 
 func TestMessageHistoryService_LimitBounds(t *testing.T) {
 	ctx := context.Background()
-	
+
 	testCases := []struct {
 		name          string
 		inputLimit    int
@@ -86,7 +102,7 @@ func TestMessageHistoryService_LimitBounds(t *testing.T) {
 			}
 
 			service := slackSvc.NewMessageHistoryService(mockClient)
-			
+
 			opts := slackSvc.MessageHistoryOptions{
 				ChannelID: "C123456789",
 				Limit:     tc.inputLimit,
@@ -95,7 +111,7 @@ func TestMessageHistoryService_LimitBounds(t *testing.T) {
 			// Call GetMessages to trigger the limit validation
 			_, err := service.GetMessages(ctx, opts)
 			gt.NoError(t, err)
-			
+
 			// Verify the correct limit was passed to the Slack API
 			gt.Equal(t, capturedLimit, tc.expectedLimit)
 		})
@@ -104,7 +120,7 @@ func TestMessageHistoryService_LimitBounds(t *testing.T) {
 
 func TestMessageHistoryService_ThreadLimitBounds(t *testing.T) {
 	ctx := context.Background()
-	
+
 	testCases := []struct {
 		name          string
 		inputLimit    int
@@ -126,7 +142,7 @@ func TestMessageHistoryService_ThreadLimitBounds(t *testing.T) {
 			}
 
 			service := slackSvc.NewMessageHistoryService(mockClient)
-			
+
 			opts := slackSvc.MessageHistoryOptions{
 				ChannelID: "C123456789",
 				ThreadTS:  "1234567890.123456", // This triggers thread message retrieval
@@ -136,7 +152,7 @@ func TestMessageHistoryService_ThreadLimitBounds(t *testing.T) {
 			// Call GetMessages to trigger the limit validation for thread messages
 			_, err := service.GetMessages(ctx, opts)
 			gt.NoError(t, err)
-			
+
 			// Verify the correct limit was passed to the Slack thread API
 			gt.Equal(t, capturedLimit, tc.expectedLimit)
 		})
