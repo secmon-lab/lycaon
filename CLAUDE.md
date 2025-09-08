@@ -127,6 +127,24 @@ CI/CD workflows in `.github/workflows/`:
 
 ## Restrictions and Rules
 
+### Error Handling
+
+- **CRITICAL**: NEVER compare errors using string matching (e.g., `strings.Contains(err.Error(), "some message")`)
+- **REQUIRED**: Define sentinel errors as package variables using `goerr.New()`
+  ```go
+  var ErrNotFound = goerr.New("not found")
+  ```
+- **REQUIRED**: Always wrap sentinel errors when returning them to preserve stack trace
+  ```go
+  return goerr.Wrap(model.ErrNotFound, "failed to get resource")
+  ```
+- **REQUIRED**: Use `errors.Is()` to check for specific errors
+  ```go
+  if errors.Is(err, model.ErrNotFound) {
+      // handle not found case
+  }
+  ```
+
 ### Directory
 
 - When you are mentioned about `tmp` directory, you SHOULD NOT see `/tmp`. You need to check `./tmp` directory from root of the repository.

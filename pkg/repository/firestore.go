@@ -320,7 +320,7 @@ func (f *Firestore) GetIncident(ctx context.Context, id int) (*model.Incident, e
 	doc, err := f.client.Collection(incidentsCollection).Doc(docID).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, goerr.New("incident not found")
+			return nil, goerr.Wrap(model.ErrIncidentNotFound, "failed to get incident")
 		}
 		return nil, goerr.Wrap(err, "failed to get incident from firestore")
 	}
@@ -406,7 +406,7 @@ func (f *Firestore) GetIncidentRequest(ctx context.Context, id string) (*model.I
 	doc, err := f.client.Collection(incidentRequestsCollection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, goerr.New("incident request not found")
+			return nil, goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to get incident request")
 		}
 		return nil, goerr.Wrap(err, "failed to get incident request")
 	}
@@ -418,7 +418,7 @@ func (f *Firestore) GetIncidentRequest(ctx context.Context, id string) (*model.I
 
 	// Check if expired
 	if request.IsExpired() {
-		return nil, goerr.New("incident request has expired")
+		return nil, goerr.Wrap(model.ErrIncidentRequestExpired, "incident request expired")
 	}
 
 	return &request, nil
@@ -433,7 +433,7 @@ func (f *Firestore) DeleteIncidentRequest(ctx context.Context, id string) error 
 	_, err := f.client.Collection(incidentRequestsCollection).Doc(id).Delete(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return goerr.New("incident request not found")
+			return goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to delete incident request")
 		}
 		return goerr.Wrap(err, "failed to delete incident request")
 	}

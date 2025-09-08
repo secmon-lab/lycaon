@@ -14,6 +14,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			1,
 			"database outage",
+			"test description",
 			"C12345",
 			"general",
 			"U67890",
@@ -33,6 +34,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			0,
 			"test",
+			"",
 			"C12345",
 			"general",
 			"U67890",
@@ -47,6 +49,7 @@ func TestNewIncident(t *testing.T) {
 			1,
 			"test",
 			"",
+			"",
 			"general",
 			"U67890",
 		)
@@ -59,6 +62,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			1,
 			"test",
+			"",
 			"C12345",
 			"",
 			"U67890",
@@ -72,6 +76,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			1,
 			"test",
+			"",
 			"C12345",
 			"general",
 			"",
@@ -99,6 +104,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 		t.Run(tc.expectedName, func(t *testing.T) {
 			incident, err := model.NewIncident(
 				tc.id,
+				"",
 				"",
 				"C12345",
 				"general",
@@ -135,6 +141,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 			incident, err := model.NewIncident(
 				tc.id,
 				tc.title,
+				"",
 				"C12345",
 				"general",
 				"U67890",

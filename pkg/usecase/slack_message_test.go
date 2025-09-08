@@ -134,7 +134,7 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 
 		response, err := uc.SaveAndRespond(ctx, event)
 		gt.NoError(t, err)
-		gt.Equal(t, "Here's help with your incident", response)
+		gt.Equal(t, "", response) // No response for general mentions
 
 		// Verify message was saved with ClientMsgID
 		saved, err := repo.GetMessage(ctx, "msg-test-002")
@@ -155,7 +155,7 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 
 		response, err := uc.SaveAndRespond(ctx, event)
 		gt.NoError(t, err)
-		gt.Equal(t, "Here's help with your incident", response)
+		gt.Equal(t, "", response) // No response for general mentions
 
 		// Verify message was saved with TimeStamp as ID
 		saved, err := repo.GetMessage(ctx, "9876543210.123456")

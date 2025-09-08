@@ -12,19 +12,21 @@ type IncidentRequest struct {
 	ChannelID   string    // Origin channel ID
 	MessageTS   string    // Message timestamp
 	Title       string    // Incident title
+	Description string    // Incident description (optional)
 	RequestedBy string    // User ID who requested
 	CreatedAt   time.Time // When the request was created
 	ExpiresAt   time.Time // When the request expires (e.g., 30 minutes)
 }
 
 // NewIncidentRequest creates a new incident request
-func NewIncidentRequest(channelID, messageTS, title, requestedBy string) *IncidentRequest {
+func NewIncidentRequest(channelID, messageTS, title, description, requestedBy string) *IncidentRequest {
 	now := time.Now()
 	return &IncidentRequest{
 		ID:          uuid.New().String(),
 		ChannelID:   channelID,
 		MessageTS:   messageTS,
 		Title:       title,
+		Description: description,
 		RequestedBy: requestedBy,
 		CreatedAt:   now,
 		ExpiresAt:   now.Add(30 * time.Minute), // Expire after 30 minutes

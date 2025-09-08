@@ -246,7 +246,7 @@ func (m *Memory) GetIncident(ctx context.Context, id int) (*model.Incident, erro
 
 	incident, exists := m.incidents[id]
 	if !exists {
-		return nil, goerr.New("incident not found")
+		return nil, goerr.Wrap(model.ErrIncidentNotFound, "failed to get incident")
 	}
 
 	// Return a copy to prevent external modifications
@@ -302,12 +302,12 @@ func (m *Memory) GetIncidentRequest(ctx context.Context, id string) (*model.Inci
 
 	request, exists := m.incidentRequests[id]
 	if !exists {
-		return nil, goerr.New("incident request not found")
+		return nil, goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to get incident request")
 	}
 
 	// Check if expired
 	if request.IsExpired() {
-		return nil, goerr.New("incident request has expired")
+		return nil, goerr.Wrap(model.ErrIncidentRequestExpired, "incident request expired")
 	}
 
 	return request, nil
@@ -323,7 +323,7 @@ func (m *Memory) DeleteIncidentRequest(ctx context.Context, id string) error {
 	defer m.mu.Unlock()
 
 	if _, exists := m.incidentRequests[id]; !exists {
-		return goerr.New("incident request not found")
+		return goerr.Wrap(model.ErrIncidentRequestNotFound, "failed to delete incident request")
 	}
 
 	delete(m.incidentRequests, id)

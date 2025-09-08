@@ -14,6 +14,7 @@ import (
 type Incident struct {
 	ID                int       // Incident serial number (e.g., 1, 2, 3)
 	Title             string    // Incident title (e.g., "database outage")
+	Description       string    // Incident description (optional)
 	ChannelID         string    // Dedicated incident channel ID
 	ChannelName       string    // Dedicated incident channel name (e.g., "inc-1-database-outage")
 	OriginChannelID   string    // Origin channel ID where incident was created
@@ -23,7 +24,7 @@ type Incident struct {
 }
 
 // NewIncident creates a new Incident instance
-func NewIncident(id int, title, originChannelID, originChannelName, createdBy string) (*Incident, error) {
+func NewIncident(id int, title, description, originChannelID, originChannelName, createdBy string) (*Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -42,6 +43,7 @@ func NewIncident(id int, title, originChannelID, originChannelName, createdBy st
 	return &Incident{
 		ID:                id,
 		Title:             title,
+		Description:       description,
 		ChannelName:       channelName,
 		OriginChannelID:   originChannelID,
 		OriginChannelName: originChannelName,

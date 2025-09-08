@@ -107,6 +107,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		incident, err := uc.CreateIncident(
 			ctx,
 			"database outage",
+			"",
 			"C-ORIGIN",
 			"general",
 			"U-CREATOR",
@@ -137,17 +138,17 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		uc := usecase.NewIncident(repo, mockSlack)
 
 		// Create first incident
-		incident1, _ := uc.CreateIncident(ctx, "api error", "C1", "channel1", "U1")
+		incident1, _ := uc.CreateIncident(ctx, "api error", "", "C1", "channel1", "U1")
 		gt.Equal(t, 1, incident1.ID)
 		gt.Equal(t, "inc-1-api-error", incident1.ChannelName)
 
 		// Create second incident
-		incident2, _ := uc.CreateIncident(ctx, "database down", "C2", "channel2", "U2")
+		incident2, _ := uc.CreateIncident(ctx, "database down", "", "C2", "channel2", "U2")
 		gt.Equal(t, 2, incident2.ID)
 		gt.Equal(t, "inc-2-database-down", incident2.ChannelName)
 
 		// Create third incident
-		incident3, _ := uc.CreateIncident(ctx, "", "C3", "channel3", "U3")
+		incident3, _ := uc.CreateIncident(ctx, "", "", "C3", "channel3", "U3")
 		gt.Equal(t, 3, incident3.ID)
 		gt.Equal(t, "inc-3", incident3.ChannelName)
 	})
@@ -158,7 +159,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		uc := usecase.NewIncident(repo, mockSlack)
 
 		// Create an incident
-		created, err := uc.CreateIncident(ctx, "test incident", "C-TEST", "test-channel", "U-TEST")
+		created, err := uc.CreateIncident(ctx, "test incident", "", "C-TEST", "test-channel", "U-TEST")
 		gt.NoError(t, err)
 
 		// Retrieve the incident
@@ -198,7 +199,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		uc := usecase.NewIncident(mockRepo, mockSlack)
 
 		// Try to create incident - should fail due to repository error
-		incident, err := uc.CreateIncident(ctx, "test", "C1", "channel1", "U1")
+		incident, err := uc.CreateIncident(ctx, "test", "", "C1", "channel1", "U1")
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
 		gt.S(t, err.Error()).Contains("failed to get next incident number")

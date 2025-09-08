@@ -28,7 +28,7 @@ func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient)
 }
 
 // CreateIncident creates a new incident
-func (u *Incident) CreateIncident(ctx context.Context, title, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
+func (u *Incident) CreateIncident(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
 	// Get next incident number
 	incidentNumber, err := u.repo.GetNextIncidentNumber(ctx)
 	if err != nil {
@@ -36,7 +36,7 @@ func (u *Incident) CreateIncident(ctx context.Context, title, originChannelID, o
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(incidentNumber, title, originChannelID, originChannelName, createdBy)
+	incident, err := model.NewIncident(incidentNumber, title, description, originChannelID, originChannelName, createdBy)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}
@@ -81,7 +81,7 @@ func (u *Incident) CreateIncident(ctx context.Context, title, originChannelID, o
 	}
 
 	// Post welcome message to the incident channel
-	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(incidentNumber, originChannelName, createdBy)
+	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(incidentNumber, originChannelName, createdBy, incident.Description)
 	_, _, err = u.slackClient.PostMessage(
 		ctx,
 		channel.ID,
@@ -130,8 +130,8 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 		}
 	}
 
-	// Create the incident
-	incident, err := u.CreateIncident(ctx, title, originChannelID, channelInfo.Name, userID)
+	// Create the incident (with empty description for backward compatibility)
+	incident, err := u.CreateIncident(ctx, title, "", originChannelID, channelInfo.Name, userID)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident")
 	}

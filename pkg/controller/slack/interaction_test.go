@@ -15,15 +15,17 @@ import (
 
 // MockIncidentUseCase mocks the IncidentUseCase interface
 type MockIncidentUseCase struct {
-	CreateIncidentFunc                func(ctx context.Context, title, originChannelID, originChannelName, createdBy string) (*model.Incident, error)
+	CreateIncidentFunc                func(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error)
 	GetIncidentFunc                   func(ctx context.Context, id int) (*model.Incident, error)
 	CreateIncidentFromInteractionFunc func(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
 	HandleCreateIncidentActionFunc    func(ctx context.Context, requestID, userID string) (*model.Incident, error)
+	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error)
+	GetIncidentRequestFunc            func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
 }
 
-func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, title, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
+func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
 	if m.CreateIncidentFunc != nil {
-		return m.CreateIncidentFunc(ctx, title, originChannelID, originChannelName, createdBy)
+		return m.CreateIncidentFunc(ctx, title, description, originChannelID, originChannelName, createdBy)
 	}
 
 	channelName := "inc-1"
@@ -53,7 +55,7 @@ func (m *MockIncidentUseCase) CreateIncidentFromInteraction(ctx context.Context,
 	}
 
 	// Default to calling CreateIncident with a dummy channel name
-	return m.CreateIncident(ctx, title, originChannelID, "general", userID)
+	return m.CreateIncident(ctx, title, "", originChannelID, "general", userID)
 }
 
 func (m *MockIncidentUseCase) HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error) {
@@ -70,6 +72,37 @@ func (m *MockIncidentUseCase) HandleCreateIncidentAction(ctx context.Context, re
 		OriginChannelID:   "C67890",
 		OriginChannelName: "general",
 		CreatedBy:         userID,
+	}, nil
+}
+
+func (m *MockIncidentUseCase) HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error) {
+	if m.HandleCreateIncidentWithDetailsFunc != nil {
+		return m.HandleCreateIncidentWithDetailsFunc(ctx, requestID, title, description, userID)
+	}
+	
+	// Default implementation
+	return &model.Incident{
+		ID:                1,
+		ChannelID:         "C-INC-001",
+		ChannelName:       "inc-1",
+		Title:             title,
+		Description:       description,
+		OriginChannelID:   "C67890",
+		OriginChannelName: "general",
+		CreatedBy:         userID,
+	}, nil
+}
+
+func (m *MockIncidentUseCase) GetIncidentRequest(ctx context.Context, requestID string) (*model.IncidentRequest, error) {
+	if m.GetIncidentRequestFunc != nil {
+		return m.GetIncidentRequestFunc(ctx, requestID)
+	}
+	
+	// Default implementation
+	return &model.IncidentRequest{
+		ID:        requestID,
+		ChannelID: "C67890",
+		Title:     "Test Incident",
 	}, nil
 }
 
@@ -313,6 +346,23 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 			View: slackgo.View{
 				ID:         "view_123",
 				CallbackID: "incident_creation_modal",
+				PrivateMetadata: "test-request-id-123", // Add request ID in private metadata
+				State: &slackgo.ViewState{
+					Values: map[string]map[string]slackgo.BlockAction{
+						"title_input": {
+							"title": slackgo.BlockAction{
+								Type:  "plain_text_input",
+								Value: "Test Incident",
+							},
+						},
+						"description_input": {
+							"description": slackgo.BlockAction{
+								Type:  "plain_text_input",
+								Value: "Test Description",
+							},
+						},
+					},
+				},
 			},
 			User: slackgo.User{
 				ID:   "U12345",
@@ -326,7 +376,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		payload, err := json.Marshal(interaction)
 		gt.NoError(t, err)
 
-		// Should handle view submission without error (even if not fully implemented)
+		// Should handle view submission without error
 		err = handler.HandleInteraction(ctx, payload)
 		gt.NoError(t, err)
 	})
