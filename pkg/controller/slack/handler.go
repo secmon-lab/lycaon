@@ -116,8 +116,9 @@ func (h *Handler) HandleEvent(w http.ResponseWriter, r *http.Request) {
 		// Acknowledge receipt immediately
 		w.WriteHeader(http.StatusOK)
 
-		// Process event asynchronously using dispatcher
-		async.Dispatch(r.Context(), func(ctx context.Context) error {
+		// Process event asynchronously with preserved context
+		backgroundCtx := async.NewBackgroundContext(r.Context())
+		async.Dispatch(backgroundCtx, func(ctx context.Context) error {
 			return h.eventHandler.HandleEvent(ctx, &eventsAPIEvent)
 		})
 		return
@@ -169,8 +170,9 @@ func (h *Handler) HandleInteraction(w http.ResponseWriter, r *http.Request) {
 	// Acknowledge receipt immediately
 	w.WriteHeader(http.StatusOK)
 
-	// Process interaction asynchronously using dispatcher
-	async.Dispatch(r.Context(), func(ctx context.Context) error {
+	// Process interaction asynchronously with preserved context
+	backgroundCtx := async.NewBackgroundContext(r.Context())
+	async.Dispatch(backgroundCtx, func(ctx context.Context) error {
 		return h.interactionHandler.HandleInteraction(ctx, []byte(payload))
 	})
 }

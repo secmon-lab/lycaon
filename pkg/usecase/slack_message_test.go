@@ -390,6 +390,84 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 			},
 			expected: true,
 		},
+		// Additional edge cases for token-based parsing
+		{
+			name: "Multiple bot mentions, inc after second",
+			message: &model.Message{
+				ID:   "msg-026",
+				Text: "Hey <@U123BOT> can you help? Later <@U123BOT> inc database issue",
+			},
+			expected: true, // Should find inc after second mention
+		},
+		{
+			name: "Bot mention with punctuation then inc",
+			message: &model.Message{
+				ID:   "msg-027",
+				Text: "<@U123BOT>, inc production issue",
+			},
+			expected: false, // Comma creates separate token
+		},
+		{
+			name: "Bot mention with newline before inc",
+			message: &model.Message{
+				ID:   "msg-028",
+				Text: "<@U123BOT>\ninc server down",
+			},
+			expected: true, // Newline is whitespace, tokens are adjacent
+		},
+		{
+			name: "Bot substring in user ID (edge case)",
+			message: &model.Message{
+				ID:   "msg-029",
+				Text: "<@U123BOTXXX> inc something",
+			},
+			expected: false, // Different user ID, not exact match
+		},
+		{
+			name: "Bot mention followed by inc in quotes",
+			message: &model.Message{
+				ID:   "msg-030",
+				Text: `<@U123BOT> "inc" the system`,
+			},
+			expected: false, // Quotes create separate token
+		},
+		// Title extraction test cases
+		{
+			name: "Bot mention inc with simple title",
+			message: &model.Message{
+				ID:   "msg-031",
+				Text: "<@U123BOT> inc database is down",
+			},
+			expected:      true,
+			expectedTitle: "database is down",
+		},
+		{
+			name: "Bot mention inc with multi-word title",
+			message: &model.Message{
+				ID:   "msg-032",
+				Text: "<@U123BOT> inc urgent production database connection timeout issue",
+			},
+			expected:      true,
+			expectedTitle: "urgent production database connection timeout issue",
+		},
+		{
+			name: "Bot mention inc with no title",
+			message: &model.Message{
+				ID:   "msg-033",
+				Text: "<@U123BOT> inc",
+			},
+			expected:      true,
+			expectedTitle: "",
+		},
+		{
+			name: "Multiple bot mentions, title after second inc",
+			message: &model.Message{
+				ID:   "msg-034",
+				Text: "First <@U123BOT> hello, then <@U123BOT> inc server crashed",
+			},
+			expected:      true,
+			expectedTitle: "server crashed",
+		},
 	}
 
 	for _, tc := range testCases {

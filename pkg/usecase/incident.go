@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
@@ -56,6 +57,11 @@ func (u *Incident) CreateIncident(ctx context.Context, title, originChannelID, o
 		_, err = u.slackClient.SetPurposeOfConversationContext(ctx, channel.ID, title)
 		if err != nil {
 			// Log error but don't fail - setting purpose is nice to have but not critical
+			ctxlog.From(ctx).Warn("Failed to set channel purpose",
+				"error", err,
+				"channelID", channel.ID,
+				"title", title,
+			)
 		}
 	}
 
@@ -67,7 +73,11 @@ func (u *Incident) CreateIncident(ctx context.Context, title, originChannelID, o
 	if err != nil {
 		// Log error but don't fail - user might already be in channel or invitation might fail for other reasons
 		// The incident is still created successfully
-		// Just log the error internally, do not fail the incident creation
+		ctxlog.From(ctx).Warn("Failed to invite user to incident channel",
+			"error", err,
+			"channelID", channel.ID,
+			"userID", createdBy,
+		)
 	}
 
 	// Post welcome message to the incident channel
@@ -79,6 +89,11 @@ func (u *Incident) CreateIncident(ctx context.Context, title, originChannelID, o
 	)
 	if err != nil {
 		// Log error but don't fail - welcome message is nice to have but not critical
+		ctxlog.From(ctx).Warn("Failed to post welcome message to incident channel",
+			"error", err,
+			"channelID", channel.ID,
+			"incidentNumber", incidentNumber,
+		)
 	}
 
 	// Save incident to repository
@@ -104,6 +119,10 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 	channelInfo, err := u.slackClient.GetConversationInfo(ctx, originChannelID, false)
 	if err != nil {
 		// If we can't get channel info, use channel ID as name
+		ctxlog.From(ctx).Warn("Failed to get conversation info, using channel ID as name",
+			"error", err,
+			"channelID", originChannelID,
+		)
 		channelInfo = &slack.Channel{
 			GroupConversation: slack.GroupConversation{
 				Name: originChannelID,
@@ -131,6 +150,11 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 	if err != nil {
 		// Log error but don't fail - message is nice to have but not critical
 		// The incident is already created successfully
+		ctxlog.From(ctx).Warn("Failed to post success message to original channel",
+			"error", err,
+			"channelID", originChannelID,
+			"incidentChannelID", incident.ChannelID,
+		)
 	}
 
 	return incident, nil
@@ -161,6 +185,10 @@ func (u *Incident) HandleCreateIncidentAction(ctx context.Context, requestID, us
 	if err := u.repo.DeleteIncidentRequest(ctx, requestID); err != nil {
 		// Log error but don't fail - the incident was created successfully
 		// Just log this as a warning since the request will expire anyway
+		ctxlog.From(ctx).Warn("Failed to delete incident request after creation",
+			"error", err,
+			"requestID", requestID,
+		)
 	}
 
 	return incident, nil

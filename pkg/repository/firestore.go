@@ -17,11 +17,12 @@ import (
 
 const (
 	// Collection names
-	messagesCollection  = "messages"
-	usersCollection     = "users"
-	sessionsCollection  = "sessions"
-	incidentsCollection = "incidents"
-	countersCollection  = "counters"
+	messagesCollection          = "messages"
+	usersCollection             = "users"
+	sessionsCollection          = "sessions"
+	incidentsCollection         = "incidents"
+	incidentRequestsCollection  = "incident_requests"
+	countersCollection          = "counters"
 
 	// Document IDs
 	incidentCounterDocID = "incident"
@@ -388,7 +389,7 @@ func (f *Firestore) SaveIncidentRequest(ctx context.Context, request *model.Inci
 		return goerr.New("incident request ID is empty")
 	}
 
-	_, err := f.client.Collection("incident_requests").Doc(request.ID).Set(ctx, request)
+	_, err := f.client.Collection(incidentRequestsCollection).Doc(request.ID).Set(ctx, request)
 	if err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}
@@ -402,7 +403,7 @@ func (f *Firestore) GetIncidentRequest(ctx context.Context, id string) (*model.I
 		return nil, goerr.New("incident request ID is empty")
 	}
 
-	doc, err := f.client.Collection("incident_requests").Doc(id).Get(ctx)
+	doc, err := f.client.Collection(incidentRequestsCollection).Doc(id).Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, goerr.New("incident request not found")
@@ -429,7 +430,7 @@ func (f *Firestore) DeleteIncidentRequest(ctx context.Context, id string) error 
 		return goerr.New("incident request ID is empty")
 	}
 
-	_, err := f.client.Collection("incident_requests").Doc(id).Delete(ctx)
+	_, err := f.client.Collection(incidentRequestsCollection).Doc(id).Delete(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return goerr.New("incident request not found")

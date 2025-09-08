@@ -153,54 +153,37 @@ func (s *SlackMessage) SaveAndRespond(ctx context.Context, event *slackevents.Me
 
 // parseIncidentCommand parses a Slack message to check if it's an incident trigger and extract title
 func parseIncidentCommand(message *model.Message, botUserID string) interfaces.IncidentCommand {
-	result := interfaces.IncidentCommand{
-		IsIncidentTrigger: false,
-		Title:             "",
-	}
-
 	if message == nil || message.Text == "" || botUserID == "" {
-		return result
+		return interfaces.IncidentCommand{IsIncidentTrigger: false}
 	}
-
-	originalText := strings.TrimSpace(message.Text)
 
 	// Build the bot mention pattern
 	botMention := fmt.Sprintf("<@%s>", botUserID)
-
-	// Find the bot mention in the text
-	index := strings.Index(originalText, botMention)
-	if index == -1 {
-		// Bot is not mentioned
-		return result
+	
+	// Split message into tokens (words)
+	parts := strings.Fields(message.Text)
+	
+	// Look for bot mention followed by "inc" command
+	for i, part := range parts {
+		if part == botMention {
+			// Check if 'inc' is the next token
+			if i+1 < len(parts) && strings.ToLower(parts[i+1]) == "inc" {
+				// Found valid inc command after bot mention
+				title := ""
+				if i+2 < len(parts) {
+					// Collect all remaining parts as the title
+					title = strings.Join(parts[i+2:], " ")
+				}
+				return interfaces.IncidentCommand{
+					IsIncidentTrigger: true,
+					Title:             strings.TrimSpace(title),
+				}
+			}
+		}
 	}
 
-	// Get the text after the bot mention
-	afterMention := originalText[index+len(botMention):]
-	afterMention = strings.TrimSpace(afterMention)
-
-	// Check if the text after mention starts with "inc" as a separate word
-	// Accept: "inc", "inc something", "INC issue"
-	// Reject: "incorrect", "income", "incognito"
-	lowerAfterMention := strings.ToLower(afterMention)
-
-	if lowerAfterMention == "inc" {
-		// Just "inc" command with no title
-		result.IsIncidentTrigger = true
-		result.Title = ""
-		return result
-	}
-
-	if strings.HasPrefix(lowerAfterMention, "inc ") {
-		// "inc " followed by title
-		result.IsIncidentTrigger = true
-		// Extract the title after "inc "
-		title := afterMention[4:] // Skip "inc " (4 characters)
-		result.Title = strings.TrimSpace(title)
-		return result
-	}
-
-	// Not an inc command
-	return result
+	// No valid inc command found
+	return interfaces.IncidentCommand{IsIncidentTrigger: false}
 }
 
 // ParseIncidentCommand parses a Slack message to check if it's an incident trigger and extract title

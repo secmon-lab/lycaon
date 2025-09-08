@@ -96,8 +96,9 @@ func (h *InteractionHandler) handleBlockActions(ctx context.Context, interaction
 			// This prevents the "This interaction failed" error
 			ctxlog.From(ctx).Info("Acknowledging incident creation request")
 
-			// Process incident creation asynchronously
-			async.Dispatch(ctx, func(asyncCtx context.Context) error {
+			// Process incident creation asynchronously with preserved context
+			backgroundCtx := async.NewBackgroundContext(ctx)
+			async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
 				// Call the single usecase method that handles everything
 				incident, err := h.incidentUC.HandleCreateIncidentAction(
 					asyncCtx,

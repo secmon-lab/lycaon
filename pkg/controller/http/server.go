@@ -47,6 +47,7 @@ func NewServer(
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(LoggingMiddleware(ctx))
+	router.Use(AuthContextMiddleware())
 	router.Use(middleware.Recoverer)
 
 	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
