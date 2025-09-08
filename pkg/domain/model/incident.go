@@ -8,22 +8,24 @@ import (
 	"unicode"
 
 	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // Incident represents an incident in the system
 type Incident struct {
-	ID                int       // Incident serial number (e.g., 1, 2, 3)
-	Title             string    // Incident title (e.g., "database outage")
-	ChannelID         string    // Dedicated incident channel ID
-	ChannelName       string    // Dedicated incident channel name (e.g., "inc-1-database-outage")
-	OriginChannelID   string    // Origin channel ID where incident was created
-	OriginChannelName string    // Origin channel name where incident was created
-	CreatedBy         string    // Slack user ID who created the incident
-	CreatedAt         time.Time // Creation timestamp
+	ID                types.IncidentID  // Incident serial number (e.g., 1, 2, 3)
+	Title             string            // Incident title (e.g., "database outage")
+	Description       string            // Incident description (optional)
+	ChannelID         types.ChannelID   // Dedicated incident channel ID
+	ChannelName       types.ChannelName // Dedicated incident channel name (e.g., "inc-1-database-outage")
+	OriginChannelID   types.ChannelID   // Origin channel ID where incident was created
+	OriginChannelName types.ChannelName // Origin channel name where incident was created
+	CreatedBy         types.SlackUserID // Slack user ID who created the incident
+	CreatedAt         time.Time         // Creation timestamp
 }
 
 // NewIncident creates a new Incident instance
-func NewIncident(id int, title, originChannelID, originChannelName, createdBy string) (*Incident, error) {
+func NewIncident(id types.IncidentID, title, description string, originChannelID types.ChannelID, originChannelName types.ChannelName, createdBy types.SlackUserID) (*Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -42,7 +44,8 @@ func NewIncident(id int, title, originChannelID, originChannelName, createdBy st
 	return &Incident{
 		ID:                id,
 		Title:             title,
-		ChannelName:       channelName,
+		Description:       description,
+		ChannelName:       types.ChannelName(channelName),
 		OriginChannelID:   originChannelID,
 		OriginChannelName: originChannelName,
 		CreatedBy:         createdBy,
@@ -51,7 +54,7 @@ func NewIncident(id int, title, originChannelID, originChannelName, createdBy st
 }
 
 // formatIncidentChannelName creates a Slack-compatible channel name from incident ID and title
-func formatIncidentChannelName(id int, title string) string {
+func formatIncidentChannelName(id types.IncidentID, title string) string {
 	baseChannelName := fmt.Sprintf("inc-%d", id)
 
 	if title == "" {

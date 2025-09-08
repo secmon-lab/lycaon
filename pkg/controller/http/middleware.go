@@ -71,8 +71,8 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 
 		// Update auth context with user info
 		authCtx := model.GetOrCreateAuthContext(r.Context())
-		authCtx.UserID = session.UserID
-		authCtx.SessionID = session.ID
+		authCtx.UserID = session.UserID.String()
+		authCtx.SessionID = session.ID.String()
 		ctx := model.WithAuthContext(r.Context(), authCtx)
 		r = r.WithContext(ctx)
 

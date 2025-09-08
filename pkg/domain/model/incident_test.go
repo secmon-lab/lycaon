@@ -7,16 +7,18 @@ import (
 
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 func TestNewIncident(t *testing.T) {
 	t.Run("Valid incident creation", func(t *testing.T) {
 		incident, err := model.NewIncident(
-			1,
+			types.IncidentID(1),
 			"database outage",
-			"C12345",
-			"general",
-			"U67890",
+			"test description",
+			types.ChannelID("C12345"),
+			types.ChannelName("general"),
+			types.SlackUserID("U67890"),
 		)
 		gt.NoError(t, err)
 		gt.Equal(t, 1, incident.ID)
@@ -33,6 +35,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			0,
 			"test",
+			"",
 			"C12345",
 			"general",
 			"U67890",
@@ -47,6 +50,7 @@ func TestNewIncident(t *testing.T) {
 			1,
 			"test",
 			"",
+			"",
 			"general",
 			"U67890",
 		)
@@ -59,6 +63,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			1,
 			"test",
+			"",
 			"C12345",
 			"",
 			"U67890",
@@ -72,6 +77,7 @@ func TestNewIncident(t *testing.T) {
 		incident, err := model.NewIncident(
 			1,
 			"test",
+			"",
 			"C12345",
 			"general",
 			"",
@@ -98,14 +104,15 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.expectedName, func(t *testing.T) {
 			incident, err := model.NewIncident(
-				tc.id,
+				types.IncidentID(tc.id),
 				"",
-				"C12345",
-				"general",
-				"U67890",
+				"",
+				types.ChannelID("C12345"),
+				types.ChannelName("general"),
+				types.SlackUserID("U67890"),
 			)
 			gt.NoError(t, err)
-			gt.Equal(t, tc.expectedName, incident.ChannelName)
+			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)
 		})
 	}
 }
@@ -133,17 +140,18 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			incident, err := model.NewIncident(
-				tc.id,
+				types.IncidentID(tc.id),
 				tc.title,
-				"C12345",
-				"general",
-				"U67890",
+				"",
+				types.ChannelID("C12345"),
+				types.ChannelName("general"),
+				types.SlackUserID("U67890"),
 			)
 			gt.NoError(t, err)
-			gt.Equal(t, tc.expectedName, incident.ChannelName)
+			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)
 			gt.Equal(t, tc.title, incident.Title)
 			// Ensure channel name never exceeds 80 characters
-			gt.True(t, len(incident.ChannelName) <= 80)
+			gt.True(t, len(string(incident.ChannelName)) <= 80)
 		})
 	}
 }

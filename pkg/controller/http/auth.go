@@ -177,7 +177,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	// Create session
 	session, err := h.authUC.CreateSession(
 		r.Context(),
-		user.SlackUserID,
+		user.SlackUserID.String(),
 		user.Name,
 		user.Email,
 	)
@@ -190,7 +190,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	// Set session cookies
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
-		Value:    session.ID,
+		Value:    session.ID.String(),
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
@@ -199,7 +199,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_secret",
-		Value:    session.Secret,
+		Value:    session.Secret.String(),
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,

@@ -34,6 +34,11 @@ func (a *ClientAdapter) PostMessage(ctx context.Context, channelID string, optio
 	return a.service.PostMessage(ctx, channelID, options...)
 }
 
+// UpdateMessage implements interfaces.SlackClient
+func (a *ClientAdapter) UpdateMessage(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
+	return a.service.UpdateMessage(ctx, channelID, timestamp, options...)
+}
+
 // AuthTestContext implements interfaces.SlackClient
 func (a *ClientAdapter) AuthTestContext(ctx context.Context) (*slack.AuthTestResponse, error) {
 	return a.service.AuthTestContext(ctx)
@@ -47,4 +52,9 @@ func (a *ClientAdapter) GetConversationInfo(ctx context.Context, channelID strin
 // SetPurposeOfConversationContext implements interfaces.SlackClient
 func (a *ClientAdapter) SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
 	return a.service.SetPurposeOfConversationContext(ctx, channelID, purpose)
+}
+
+// OpenView implements interfaces.SlackClient
+func (a *ClientAdapter) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
+	return a.service.OpenView(ctx, triggerID, view)
 }

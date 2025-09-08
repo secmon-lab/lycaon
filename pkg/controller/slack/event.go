@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/slack-go/slack/slackevents"
 )
 
@@ -84,35 +85,6 @@ func (h *EventHandler) handleMessageEvent(ctx context.Context, event *slackevent
 		return goerr.Wrap(err, "failed to save message")
 	}
 
-	// Convert to domain model for incident trigger check
-	message := &model.Message{
-		ID:        event.ClientMsgID,
-		UserID:    event.User,
-		ChannelID: event.Channel,
-		Text:      event.Text,
-		EventTS:   event.TimeStamp,
-	}
-
-	// Check if message triggers incident creation and extract title in one call
-	cmd := h.messageUC.ParseIncidentCommand(ctx, message)
-	if cmd.IsIncidentTrigger {
-		ctxlog.From(ctx).Info("Incident trigger detected",
-			"user", event.User,
-			"channel", event.Channel,
-			"text", event.Text,
-			"title", cmd.Title,
-		)
-
-		// Send incident creation prompt with title
-		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title); err != nil {
-			ctxlog.From(ctx).Error("Failed to send incident prompt",
-				"error", err,
-				"channel", event.Channel,
-			)
-			// Don't fail the whole operation if prompt sending fails
-		}
-	}
-
 	return nil
 }
 
@@ -135,16 +107,38 @@ func (h *EventHandler) handleAppMentionEvent(ctx context.Context, event *slackev
 		Channel:         event.Channel,
 	}
 
-	// Process as a message
-	response, err := h.messageUC.SaveAndRespond(ctx, messageEvent)
-	if err != nil {
-		return goerr.Wrap(err, "failed to process app mention")
+	// Save the message
+	if err := h.messageUC.ProcessMessage(ctx, messageEvent); err != nil {
+		return goerr.Wrap(err, "failed to save message")
 	}
 
-	ctxlog.From(ctx).Info("App mention processed successfully",
-		"user", event.User,
-		"response", response,
-	)
+	// Convert to domain model for incident trigger check
+	message := &model.Message{
+		ID:        types.MessageID(messageEvent.ClientMsgID),
+		UserID:    types.SlackUserID(event.User),
+		ChannelID: types.ChannelID(event.Channel),
+		Text:      event.Text,
+		EventTS:   types.EventTS(event.TimeStamp),
+	}
+
+	// Check if message triggers incident creation
+	cmd := h.messageUC.ParseIncidentCommand(ctx, message)
+	if cmd.IsIncidentTrigger {
+		ctxlog.From(ctx).Info("Incident trigger detected from mention",
+			"user", event.User,
+			"channel", event.Channel,
+			"title", cmd.Title,
+		)
+
+		// Send incident creation prompt with title
+		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title); err != nil {
+			ctxlog.From(ctx).Error("Failed to send incident prompt",
+				"error", err,
+				"channel", event.Channel,
+			)
+		}
+	}
+	// No response for non-incident mentions - just save the message
 
 	return nil
 }

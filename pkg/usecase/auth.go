@@ -15,6 +15,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/slack-go/slack"
 )
 
@@ -106,11 +107,12 @@ func (a *Auth) CreateSession(ctx context.Context, slackUserID, userName, userEma
 	}
 
 	// Find or create user
-	user, err := a.repo.GetUserBySlackID(ctx, slackUserID)
+	slackUserIDTyped := types.SlackUserID(slackUserID)
+	user, err := a.repo.GetUserBySlackID(ctx, slackUserIDTyped)
 	if err != nil {
 		// User doesn't exist, create new one
-		user = model.NewUser(slackUserID, userName, userEmail)
-		user.ID = slackUserID // Use Slack ID directly as user ID
+		user = model.NewUser(slackUserIDTyped, userName, userEmail)
+		user.ID = types.UserID(slackUserID) // Use Slack ID directly as user ID
 
 		if err := a.repo.SaveUser(ctx, user); err != nil {
 			return nil, goerr.Wrap(err, "failed to save user")
@@ -149,13 +151,14 @@ func (a *Auth) ValidateSession(ctx context.Context, sessionID, sessionSecret str
 		return nil, goerr.New("session ID and secret are required")
 	}
 
-	session, err := a.repo.GetSession(ctx, sessionID)
+	sessionIDTyped := types.SessionID(sessionID)
+	session, err := a.repo.GetSession(ctx, sessionIDTyped)
 	if err != nil {
 		return nil, goerr.Wrap(err, "session not found")
 	}
 
 	// Validate secret
-	if session.Secret != sessionSecret {
+	if session.Secret != types.SessionSecret(sessionSecret) {
 		return nil, goerr.New("invalid session secret")
 	}
 
@@ -175,7 +178,8 @@ func (a *Auth) DeleteSession(ctx context.Context, sessionID string) error {
 		return goerr.New("session ID is required")
 	}
 
-	if err := a.repo.DeleteSession(ctx, sessionID); err != nil {
+	sessionIDTyped := types.SessionID(sessionID)
+	if err := a.repo.DeleteSession(ctx, sessionIDTyped); err != nil {
 		return goerr.Wrap(err, "failed to delete session")
 	}
 
@@ -192,7 +196,8 @@ func (a *Auth) GetUserFromSession(ctx context.Context, sessionID string) (*model
 		return nil, goerr.New("session ID is required")
 	}
 
-	session, err := a.repo.GetSession(ctx, sessionID)
+	sessionIDTyped := types.SessionID(sessionID)
+	session, err := a.repo.GetSession(ctx, sessionIDTyped)
 	if err != nil {
 		return nil, goerr.Wrap(err, "session not found")
 	}
@@ -286,8 +291,8 @@ func (a *Auth) HandleCallback(ctx context.Context, code, redirectURI string) (*m
 	)
 
 	return &model.User{
-		ID:          idToken.Sub,
-		SlackUserID: idToken.Sub,
+		ID:          types.UserID(idToken.Sub),
+		SlackUserID: types.SlackUserID(idToken.Sub),
 		Name:        idToken.Name,
 		Email:       idToken.Email,
 		CreatedAt:   time.Now(),

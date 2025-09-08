@@ -9,6 +9,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -111,7 +112,9 @@ func (s *SlackMessage) GenerateResponse(ctx context.Context, message *model.Mess
 	return response, nil
 }
 
-// SaveAndRespond saves a message and generates a response
+// SaveAndRespond saves a message and optionally generates a response
+// Deprecated: This method is kept for backward compatibility but should not be used for new features
+// The bot no longer responds to general mentions, only to incident triggers
 func (s *SlackMessage) SaveAndRespond(ctx context.Context, event *slackevents.MessageEvent) (string, error) {
 	if event == nil {
 		return "", goerr.New("message event is nil")
@@ -122,33 +125,9 @@ func (s *SlackMessage) SaveAndRespond(ctx context.Context, event *slackevents.Me
 		return "", goerr.Wrap(err, "failed to process message")
 	}
 
-	// Convert to domain model for response generation
-	message := s.eventToMessage(event)
-
-	// Generate a response
-	response, err := s.GenerateResponse(ctx, message)
-	if err != nil {
-		return "", goerr.Wrap(err, "failed to generate response")
-	}
-
-	// Send the response back to Slack if client is configured
-	if s.slackClient != nil {
-		_, _, err = s.slackClient.PostMessage(
-			ctx,
-			event.Channel,
-			slack.MsgOptionText(response, false),
-			slack.MsgOptionTS(event.TimeStamp), // Thread response
-		)
-		if err != nil {
-			ctxlog.From(ctx).Error("Failed to send Slack response",
-				"error", err,
-				"channel", event.Channel,
-			)
-			// Don't fail the whole operation if sending fails
-		}
-	}
-
-	return response, nil
+	// No longer generate responses for general mentions
+	// Only incident triggers get responses via SendIncidentMessage
+	return "", nil
 }
 
 // parseIncidentCommand parses a Slack message to check if it's an incident trigger and extract title
@@ -215,14 +194,14 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 		requestedBy = "unknown"
 	}
 
-	// Create an incident request and save it
-	request := model.NewIncidentRequest(channelID, messageTS, title, requestedBy)
+	// Create an incident request and save it (with empty description for now)
+	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, "", types.SlackUserID(requestedBy))
 	if err := s.repo.SaveIncidentRequest(ctx, request); err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}
 
 	// Build incident prompt blocks with the request ID
-	blocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID, title)
+	blocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title)
 
 	// Send message with blocks
 	_, _, err := s.slackClient.PostMessage(
@@ -250,12 +229,12 @@ func (s *SlackMessage) eventToMessage(event *slackevents.MessageEvent) *model.Me
 	}
 
 	return &model.Message{
-		ID:        messageID,
-		UserID:    event.User,
+		ID:        types.MessageID(messageID),
+		UserID:    types.SlackUserID(event.User),
 		UserName:  event.Username,
-		ChannelID: event.Channel,
+		ChannelID: types.ChannelID(event.Channel),
 		Text:      event.Text,
-		ThreadTS:  event.ThreadTimeStamp,
-		EventTS:   event.TimeStamp,
+		ThreadTS:  types.ThreadTS(event.ThreadTimeStamp),
+		EventTS:   types.EventTS(event.TimeStamp),
 	}
 }

@@ -2,22 +2,24 @@ package model
 
 import (
 	"time"
+
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // Message represents a Slack message
 type Message struct {
-	ID        string
-	UserID    string
+	ID        types.MessageID
+	UserID    types.SlackUserID
 	UserName  string
-	ChannelID string
+	ChannelID types.ChannelID
 	Text      string
 	Timestamp time.Time
-	ThreadTS  string
-	EventTS   string
+	ThreadTS  types.ThreadTS
+	EventTS   types.EventTS
 }
 
 // NewMessage creates a new Message instance
-func NewMessage(id, userID, userName, channelID, text string) *Message {
+func NewMessage(id types.MessageID, userID types.SlackUserID, userName string, channelID types.ChannelID, text string) *Message {
 	return &Message{
 		ID:        id,
 		UserID:    userID,
