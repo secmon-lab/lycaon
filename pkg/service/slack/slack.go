@@ -123,3 +123,21 @@ func (s *Service) OpenView(ctx context.Context, triggerID string, view slack.Mod
 	}
 	return resp, nil
 }
+
+// GetConversationHistoryContext retrieves conversation history
+func (s *Service) GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+	resp, err := s.client.GetConversationHistoryContext(ctx, params)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get conversation history")
+	}
+	return resp, nil
+}
+
+// GetConversationRepliesContext retrieves conversation replies (thread messages)
+func (s *Service) GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
+	messages, hasMore, nextCursor, err := s.client.GetConversationRepliesContext(ctx, params)
+	if err != nil {
+		return nil, false, false, goerr.Wrap(err, "failed to get conversation replies")
+	}
+	return messages, hasMore, nextCursor != "", nil
+}

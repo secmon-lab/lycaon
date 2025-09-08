@@ -35,7 +35,7 @@ func TestSlackHandlerChallenge(t *testing.T) {
 		OAuthToken:    "test-token",
 	}
 	repo := repository.NewMemory()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, "")
 	gt.NoError(t, err)
 	incidentUC := usecase.NewIncident(repo, nil)
 
@@ -80,7 +80,7 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 		OAuthToken:    "test-token",
 	}
 	repo := repository.NewMemory()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, "")
 	gt.NoError(t, err)
 	incidentUC := usecase.NewIncident(repo, nil)
 
@@ -110,7 +110,7 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, nil, "")
 	gt.NoError(t, err)
 	incidentUC := usecase.NewIncident(repo, nil)
 

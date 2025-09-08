@@ -16,4 +16,6 @@ type SlackClient interface {
 	GetConversationInfo(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error)
 	SetPurposeOfConversationContext(ctx context.Context, channelID, purpose string) (*slack.Channel, error)
 	OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error)
+	GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error)
+	GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error)
 }

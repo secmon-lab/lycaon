@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -102,8 +103,9 @@ func NewServer(
 
 	server := &Server{
 		Server: &http.Server{
-			Addr:    addr,
-			Handler: router,
+			Addr:              addr,
+			Handler:           router,
+			ReadHeaderTimeout: 15 * time.Second,
 		},
 		router:         router,
 		slackConfig:    slackConfig,

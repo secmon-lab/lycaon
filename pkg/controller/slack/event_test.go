@@ -17,7 +17,7 @@ type MockSlackMessageUseCase struct {
 	SaveAndRespondFunc       func(ctx context.Context, event *slackevents.MessageEvent) (string, error)
 	GenerateResponseFunc     func(ctx context.Context, message *model.Message) (string, error)
 	ParseIncidentCommandFunc func(ctx context.Context, message *model.Message) interfaces.IncidentCommand
-	SendIncidentMessageFunc  func(ctx context.Context, channelID, messageTS, title string) error
+	SendIncidentMessageFunc  func(ctx context.Context, channelID, messageTS, title, description string) error
 }
 
 func (m *MockSlackMessageUseCase) ProcessMessage(ctx context.Context, event *slackevents.MessageEvent) error {
@@ -48,9 +48,9 @@ func (m *MockSlackMessageUseCase) ParseIncidentCommand(ctx context.Context, mess
 	return interfaces.IncidentCommand{IsIncidentTrigger: false, Title: ""}
 }
 
-func (m *MockSlackMessageUseCase) SendIncidentMessage(ctx context.Context, channelID, messageTS, title string) error {
+func (m *MockSlackMessageUseCase) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description string) error {
 	if m.SendIncidentMessageFunc != nil {
-		return m.SendIncidentMessageFunc(ctx, channelID, messageTS, title)
+		return m.SendIncidentMessageFunc(ctx, channelID, messageTS, title, description)
 	}
 	return nil
 }
@@ -174,11 +174,12 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 					Title:             "database issue",
 				}
 			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title string) error {
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description string) error {
 				incidentMessageSent = true
 				gt.Equal(t, "C12345", channelID)
 				gt.Equal(t, "1234567890.123456", messageTS)
 				gt.Equal(t, "database issue", title)
+				// Description may be empty for manually provided title
 				return nil
 			},
 		}
@@ -219,7 +220,7 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 				// This shouldn't be called for regular messages anymore
 				return interfaces.IncidentCommand{IsIncidentTrigger: true, Title: "something happened"}
 			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title string) error {
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description string) error {
 				incidentMessageSent = true
 				return nil
 			},
@@ -256,7 +257,7 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
 				return interfaces.IncidentCommand{IsIncidentTrigger: false, Title: ""}
 			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title string) error {
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description string) error {
 				incidentMessageSent = true
 				return nil
 			},

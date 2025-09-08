@@ -130,8 +130,8 @@ func (h *EventHandler) handleAppMentionEvent(ctx context.Context, event *slackev
 			"title", cmd.Title,
 		)
 
-		// Send incident creation prompt with title
-		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title); err != nil {
+		// Send incident creation prompt with title and description
+		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title, cmd.Description); err != nil {
 			ctxlog.From(ctx).Error("Failed to send incident prompt",
 				"error", err,
 				"channel", event.Channel,

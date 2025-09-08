@@ -58,3 +58,13 @@ func (a *ClientAdapter) SetPurposeOfConversationContext(ctx context.Context, cha
 func (a *ClientAdapter) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
 	return a.service.OpenView(ctx, triggerID, view)
 }
+
+// GetConversationHistoryContext implements interfaces.SlackClient
+func (a *ClientAdapter) GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+	return a.service.GetConversationHistoryContext(ctx, params)
+}
+
+// GetConversationRepliesContext implements interfaces.SlackClient
+func (a *ClientAdapter) GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
+	return a.service.GetConversationRepliesContext(ctx, params)
+}

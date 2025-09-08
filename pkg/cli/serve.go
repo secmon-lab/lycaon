@@ -83,7 +83,7 @@ func cmdServe() *cli.Command {
 
 			// Create use cases
 			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
-			messageUC, err := usecase.NewSlackMessage(ctx, repo, llmClient, slackClient, "")
+			messageUC, err := usecase.NewSlackMessage(ctx, repo, llmClient, nil, slackClient, "")
 			if err != nil {
 				return goerr.Wrap(err, "failed to create message use case")
 			}

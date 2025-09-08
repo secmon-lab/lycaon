@@ -116,7 +116,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 			// Verify message was saved with all fields correct
 			retrieved, err := repo.GetMessage(ctx, msgID)
-			gt.NoError(t, err).Must() // Failed to retrieve message after save
+			gt.NoError(t, err) // Failed to retrieve message after save
 			gt.Equal(t, msg.ID, retrieved.ID)
 			gt.Equal(t, msg.UserID, retrieved.UserID)
 			gt.Equal(t, msg.UserName, retrieved.UserName)

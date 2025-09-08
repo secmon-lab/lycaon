@@ -2,7 +2,9 @@ package usecase_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
@@ -23,6 +25,8 @@ type MockSlackClient struct {
 	GetConversationInfoFunc             func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error)
 	SetPurposeOfConversationContextFunc func(ctx context.Context, channelID, purpose string) (*slack.Channel, error)
 	OpenViewFunc                        func(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error)
+	GetConversationHistoryContextFunc   func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error)
+	GetConversationRepliesContextFunc   func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error)
 }
 
 func (m *MockSlackClient) CreateConversation(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
@@ -64,9 +68,11 @@ func (m *MockSlackClient) AuthTestContext(ctx context.Context) (*slack.AuthTestR
 	if m.AuthTestContextFunc != nil {
 		return m.AuthTestContextFunc(ctx)
 	}
+	// Use random IDs to avoid test conflicts as per CLAUDE.md
+	timestamp := time.Now().UnixNano()
 	return &slack.AuthTestResponse{
-		UserID: "U123BOT",
-		User:   "testbot",
+		UserID: fmt.Sprintf("U%d", timestamp%1000000),
+		User:   fmt.Sprintf("bot-%d", timestamp%1000000),
 	}, nil
 }
 
@@ -105,6 +111,20 @@ func (m *MockSlackClient) OpenView(ctx context.Context, triggerID string, view s
 		return m.OpenViewFunc(ctx, triggerID, view)
 	}
 	return &slack.ViewResponse{}, nil
+}
+
+func (m *MockSlackClient) GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+	if m.GetConversationHistoryContextFunc != nil {
+		return m.GetConversationHistoryContextFunc(ctx, params)
+	}
+	return &slack.GetConversationHistoryResponse{}, nil
+}
+
+func (m *MockSlackClient) GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
+	if m.GetConversationRepliesContextFunc != nil {
+		return m.GetConversationRepliesContextFunc(ctx, params)
+	}
+	return []slack.Message{}, false, false, nil
 }
 
 func TestIncidentUseCaseCreateIncident(t *testing.T) {

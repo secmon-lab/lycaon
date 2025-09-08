@@ -141,21 +141,72 @@ CI/CD workflows in `.github/workflows/`:
 
 ### Error Handling
 
-- Never compare errors using string matching (e.g., `strings.Contains(err.Error(), "some message")`)
-- Define sentinel errors as package variables using `goerr.New()`
-  ```go
-  var ErrNotFound = goerr.New("not found")
-  ```
-- Always wrap sentinel errors when returning them to preserve stack trace
-  ```go
-  return goerr.Wrap(model.ErrNotFound, "failed to get resource")
-  ```
-- Use `errors.Is()` to check for specific errors
-  ```go
-  if errors.Is(err, model.ErrNotFound) {
-      // handle not found case
-  }
-  ```
+Using `github.com/m-mizutani/goerr/v2` for enhanced error handling:
+
+#### Creating Errors
+```go
+// Create basic error
+err := goerr.New("operation failed")
+
+// Create error with context
+err := goerr.New("user validation failed", 
+    goerr.V("userID", userID),
+    goerr.V("timestamp", time.Now()))
+```
+
+#### Wrapping Errors
+```go
+// Always wrap errors to preserve context and stack trace
+if err := someOperation(); err != nil {
+    return goerr.Wrap(err, "failed to process user data",
+        goerr.V("userID", userID),
+        goerr.V("operation", "validation"))
+}
+```
+
+#### Adding Context with goerr.V()
+- Use `goerr.V(key, value)` to add contextual information
+- Helps with debugging and error tracking
+- Include relevant IDs, parameters, and state information
+
+#### Error Tags for Categorization
+```go
+// Define error tags as package variables
+var ErrTagNotFound = goerr.NewTag("not_found")
+var ErrTagValidation = goerr.NewTag("validation")
+
+// Create tagged errors
+err := goerr.New("user not found", 
+    goerr.T(ErrTagNotFound),
+    goerr.V("userID", userID))
+
+// Check error tags
+if goerr.HasTag(err, ErrTagNotFound) {
+    // Handle not found scenario
+}
+```
+
+#### Sentinel Errors
+```go
+// Define as package variables
+var ErrNotFound = goerr.New("not found")
+
+// Always wrap when returning
+return goerr.Wrap(ErrNotFound, "failed to get user",
+    goerr.V("userID", userID))
+
+// Check using errors.Is()
+if errors.Is(err, ErrNotFound) {
+    // handle not found case
+}
+```
+
+#### Best Practices
+- Never compare errors using string matching
+- Always add meaningful context with `goerr.V()`
+- Use error tags for categorization and handling
+- Use `%+v` format for printing errors with stack traces during debugging
+- Wrap all external errors to add context and preserve stack traces
 
 ### Directory
 
