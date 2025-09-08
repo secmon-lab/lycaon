@@ -17,12 +17,12 @@ import (
 
 const (
 	// Collection names
-	messagesCollection          = "messages"
-	usersCollection             = "users"
-	sessionsCollection          = "sessions"
-	incidentsCollection         = "incidents"
-	incidentRequestsCollection  = "incident_requests"
-	countersCollection          = "counters"
+	messagesCollection         = "messages"
+	usersCollection            = "users"
+	sessionsCollection         = "sessions"
+	incidentsCollection        = "incidents"
+	incidentRequestsCollection = "incident_requests"
+	countersCollection         = "counters"
 
 	// Document IDs
 	incidentCounterDocID = "incident"

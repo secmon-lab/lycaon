@@ -16,9 +16,9 @@ const (
 // that should be preserved across async boundaries
 type AuthContext struct {
 	// User information
-	UserID       string `json:"user_id,omitempty"`
-	SlackUserID  string `json:"slack_user_id,omitempty"`
-	SessionID    string `json:"session_id,omitempty"`
+	UserID      string `json:"user_id,omitempty"`
+	SlackUserID string `json:"slack_user_id,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
 }
 
 // NewAuthContext creates a new AuthContext
