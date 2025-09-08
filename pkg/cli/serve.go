@@ -11,7 +11,6 @@ import (
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
-	"github.com/m-mizutani/gollem"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
@@ -57,14 +56,11 @@ func cmdServe() *cli.Command {
 			}
 			defer repo.Close()
 
-			// Create LLM client using config (Note: currently using interfaces.LLMClient, gollem integration pending)
-			llmClient := geminiCfg.ConfigureOptional(ctx, logger)
-			if closer, ok := llmClient.(interface{ Close() error }); ok && closer != nil {
+			// Create gollem LLM client using Gemini configuration
+			gollemClient := geminiCfg.ConfigureOptional(ctx, logger)
+			if closer, ok := gollemClient.(interface{ Close() error }); ok && closer != nil {
 				defer closer.Close()
 			}
-			
-			// TODO: Replace with gollem client configuration
-			var gollemClient gollem.LLMClient
 
 			// Get Slack token from config
 			slackToken := ""
