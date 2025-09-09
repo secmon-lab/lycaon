@@ -66,7 +66,7 @@ func TestMessageHistoryService_LimitBounds(t *testing.T) {
 
 			// Call GetMessages to trigger the limit validation
 			_, err := service.GetMessages(ctx, opts)
-			gt.NoError(t, err)
+			gt.NoError(t, err).Required()
 
 			// Verify the correct limit was passed to the Slack API
 			gt.Equal(t, capturedLimit, tc.expectedLimit)
@@ -107,7 +107,7 @@ func TestMessageHistoryService_ThreadLimitBounds(t *testing.T) {
 
 			// Call GetMessages to trigger the limit validation for thread messages
 			_, err := service.GetMessages(ctx, opts)
-			gt.NoError(t, err)
+			gt.NoError(t, err).Required()
 
 			// Verify the correct limit was passed to the Slack thread API
 			gt.Equal(t, capturedLimit, tc.expectedLimit)
@@ -139,7 +139,7 @@ func TestMessageHistoryService_MessageOrdering(t *testing.T) {
 		}
 
 		messages, err := service.GetMessages(ctx, opts)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, len(messages), 3)
 
 		// Verify messages are in chronological order (oldest first)
@@ -168,7 +168,7 @@ func TestMessageHistoryService_MessageOrdering(t *testing.T) {
 		}
 
 		messages, err := service.GetMessages(ctx, opts)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, len(messages), 3)
 
 		// Verify messages remain in chronological order (oldest first)

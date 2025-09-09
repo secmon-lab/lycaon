@@ -56,7 +56,7 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
@@ -68,7 +68,7 @@ func TestSlackHandlerChallenge(t *testing.T) {
 		"token":     "test-token",
 	}
 	body, err := json.Marshal(challenge)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	req := httptest.NewRequest(http.MethodPost, "/hooks/slack/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -102,7 +102,7 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
@@ -133,7 +133,7 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)

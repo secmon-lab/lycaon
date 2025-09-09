@@ -53,7 +53,7 @@ func TestLLMService_GenerateIncidentSummary_Success(t *testing.T) {
 	// Test the service
 	summary, err := service.GenerateIncidentSummary(ctx, messages)
 
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	gt.NotEqual(t, summary, nil)
 	gt.Equal(t, summary.Title, "Web server outage with 500 errors")
 	gt.Equal(t, summary.Description, "Web server is down and returning 500 errors, preventing users from accessing the application. Multiple users confirmed the issue.")
@@ -185,7 +185,7 @@ func TestLLMService_BuildConversationText(t *testing.T) {
 	_, err := service.GenerateIncidentSummary(ctx, messages)
 
 	// Should succeed, indicating the conversation text was built correctly
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 }
 
 func TestNewLLMService(t *testing.T) {

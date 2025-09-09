@@ -33,11 +33,11 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		}
 
 		err := repo.SaveMessage(ctx, msg)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Verify the message was saved correctly
 		retrieved, err := repo.GetMessage(ctx, msg.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, msg.ID, retrieved.ID)
 		gt.Equal(t, msg.UserID, retrieved.UserID)
 		gt.Equal(t, msg.UserName, retrieved.UserName)
@@ -62,11 +62,11 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Save first
 		err := repo.SaveMessage(ctx, msg)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Then get and verify all fields
 		retrieved, err := repo.GetMessage(ctx, msg.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, msg.ID, retrieved.ID)
 		gt.Equal(t, msg.UserID, retrieved.UserID)
 		gt.Equal(t, msg.UserName, retrieved.UserName)
@@ -111,12 +111,12 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 				Timestamp: baseTime.Add(time.Duration(i) * time.Minute),
 			}
 			err := repo.SaveMessage(ctx, msg)
-			gt.NoError(t, err)
+			gt.NoError(t, err).Required()
 			savedMessages = append(savedMessages, msg)
 
 			// Verify message was saved with all fields correct
 			retrieved, err := repo.GetMessage(ctx, msgID)
-			gt.NoError(t, err) // Failed to retrieve message after save
+			gt.NoError(t, err).Required() // Failed to retrieve message after save
 			gt.Equal(t, msg.ID, retrieved.ID)
 			gt.Equal(t, msg.UserID, retrieved.UserID)
 			gt.Equal(t, msg.UserName, retrieved.UserName)
@@ -127,7 +127,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// List messages with limit
 		messages, err := repo.ListMessages(ctx, channelID, 3)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		t.Logf("Retrieved %d messages for channel %s", len(messages), channelID)
 		gt.Equal(t, 3, len(messages))
 
@@ -145,7 +145,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		// Use a unique channel ID that has no messages
 		emptyChannelID := types.ChannelID(fmt.Sprintf("empty-channel-%d", time.Now().UnixNano()))
 		messages, err := repo.ListMessages(ctx, emptyChannelID, 10)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, 0, len(messages))
 	})
 
@@ -166,11 +166,11 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Save user
 		err := repo.SaveUser(ctx, user)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Get user by ID and verify all fields
 		retrieved, err := repo.GetUser(ctx, user.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, user.ID, retrieved.ID)
 		gt.Equal(t, user.SlackUserID, retrieved.SlackUserID)
 		gt.Equal(t, user.Name, retrieved.Name)
@@ -181,7 +181,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Get user by Slack ID and verify all fields
 		retrievedBySlack, err := repo.GetUserBySlackID(ctx, user.SlackUserID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, user.ID, retrievedBySlack.ID)
 		gt.Equal(t, user.SlackUserID, retrievedBySlack.SlackUserID)
 		gt.Equal(t, user.Name, retrievedBySlack.Name)
@@ -220,11 +220,11 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Save session
 		err := repo.SaveSession(ctx, session)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Get session and verify all fields
 		retrieved, err := repo.GetSession(ctx, session.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, session.ID, retrieved.ID)
 		gt.Equal(t, session.UserID, retrieved.UserID)
 		gt.Equal(t, session.Secret, retrieved.Secret)
@@ -249,16 +249,16 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Save session
 		err := repo.SaveSession(ctx, session)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Verify it exists before deletion
 		retrieved, err := repo.GetSession(ctx, session.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, session.ID, retrieved.ID)
 
 		// Delete session
 		err = repo.DeleteSession(ctx, session.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Try to get deleted session - should fail
 		_, err = repo.GetSession(ctx, session.ID)
@@ -279,7 +279,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Get next incident number
 		incidentNum, err := repo.GetNextIncidentNumber(ctx)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.True(t, incidentNum > 0)
 
 		// Create incident
@@ -295,11 +295,11 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Save incident
 		err = repo.PutIncident(ctx, incident)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Get incident and verify all fields
 		retrieved, err := repo.GetIncident(ctx, incident.ID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, incident.ID, retrieved.ID)
 		gt.Equal(t, incident.ChannelID, retrieved.ChannelID)
 		gt.Equal(t, incident.ChannelName, retrieved.ChannelName)
@@ -318,17 +318,17 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Get first number
 		num1, err := repo.GetNextIncidentNumber(ctx)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.True(t, num1 > 0)
 
 		// Get second number - should be incremented
 		num2, err := repo.GetNextIncidentNumber(ctx)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, types.IncidentID(int(num1)+1), num2)
 
 		// Get third number - should be incremented again
 		num3, err := repo.GetNextIncidentNumber(ctx)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, types.IncidentID(int(num2)+1), num3)
 	})
 
@@ -405,7 +405,7 @@ func TestFirestoreRepository(t *testing.T) {
 		ctx = ctxlog.With(ctx, logger)
 
 		repo, err := repository.NewFirestore(ctx, projectID, databaseID)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		return repo
 	})
 }

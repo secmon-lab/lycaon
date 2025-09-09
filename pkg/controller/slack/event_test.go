@@ -92,7 +92,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, processedMessage).NotNil()
 		gt.Equal(t, "Test message", processedMessage.Text)
 	})
@@ -122,7 +122,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, processedMessage).Nil() // Message should not be processed
 	})
 
@@ -154,7 +154,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, savedEvent).NotNil()
 		gt.Equal(t, "<@U99999> help me", savedEvent.Text)
 	})
@@ -199,7 +199,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, savedEvent).NotNil()
 		gt.Equal(t, "<@U99999> inc database issue", savedEvent.Text)
 		gt.True(t, incidentMessageSent)
@@ -242,7 +242,7 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		// Incident should NOT be triggered from regular message events
 		gt.False(t, incidentMessageSent)
 	})
@@ -279,7 +279,7 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.False(t, incidentMessageSent)
 	})
 
@@ -308,7 +308,7 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, processedMessage).Nil() // Empty message should not be processed
 	})
 
@@ -338,7 +338,7 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, processedMessage).Nil() // Thread message should not be processed
 	})
 }

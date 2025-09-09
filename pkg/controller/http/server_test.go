@@ -70,7 +70,7 @@ func TestServerHealthCheck(t *testing.T) {
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	server, err := controller.NewServer(
@@ -83,7 +83,7 @@ func TestServerHealthCheck(t *testing.T) {
 		incidentUC,
 		"",
 	)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Create test request
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -109,7 +109,7 @@ func TestServerFallbackHome(t *testing.T) {
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	server, err := controller.NewServer(
@@ -122,7 +122,7 @@ func TestServerFallbackHome(t *testing.T) {
 		incidentUC,
 		"",
 	)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Create test request
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

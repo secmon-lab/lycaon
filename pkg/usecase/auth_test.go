@@ -24,7 +24,7 @@ func TestAuthCreateSession(t *testing.T) {
 	auth := usecase.NewAuth(ctx, repo, slackConfig)
 
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	gt.NotEqual(t, "", session.ID)
 	gt.NotEqual(t, "", session.Secret)
 	gt.Equal(t, "U12345", session.UserID)
@@ -32,7 +32,7 @@ func TestAuthCreateSession(t *testing.T) {
 
 	// Create another session for the same user
 	session2, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	gt.NotEqual(t, session.ID, session2.ID)      // Different session ID
 	gt.Equal(t, session.UserID, session2.UserID) // Same user ID
 }
@@ -47,11 +47,11 @@ func TestAuthValidateSession(t *testing.T) {
 
 	// Create a session
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	t.Run("Valid session", func(t *testing.T) {
 		validated, err := auth.ValidateSession(ctx, session.ID.String(), session.Secret.String())
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, session.ID, validated.ID)
 		gt.Equal(t, session.UserID, validated.UserID)
 	})
@@ -82,11 +82,11 @@ func TestAuthDeleteSession(t *testing.T) {
 
 	// Create a session
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Delete the session
 	err = auth.DeleteSession(ctx, session.ID.String())
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Try to validate deleted session
 	_, err = auth.ValidateSession(ctx, session.ID.String(), session.Secret.String())
@@ -107,11 +107,11 @@ func TestAuthGetUserFromSession(t *testing.T) {
 
 	// Create a session
 	session, err := auth.CreateSession(ctx, "U12345", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	t.Run("Valid session", func(t *testing.T) {
 		user, err := auth.GetUserFromSession(ctx, session.ID.String())
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, types.SlackUserID("U12345"), user.SlackUserID)
 		gt.Equal(t, "Test User", user.Name)
 		gt.Equal(t, "test@example.com", user.Email)
@@ -141,17 +141,17 @@ func TestAuthCleanupExpiredSessions(t *testing.T) {
 
 	// Create multiple sessions
 	session1, err := auth.CreateSession(ctx, "U1", "User1", "user1@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	session2, err := auth.CreateSession(ctx, "U2", "User2", "user2@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Both sessions should be valid
 	_, err = auth.ValidateSession(ctx, session1.ID.String(), session1.Secret.String())
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	_, err = auth.ValidateSession(ctx, session2.ID.String(), session2.Secret.String())
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Note: To properly test cleanup, we would need to:
 	// 1. Create sessions with shorter expiration times

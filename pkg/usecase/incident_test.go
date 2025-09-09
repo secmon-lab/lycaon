@@ -67,7 +67,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		)
 
 		// Verify incident was created successfully
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.V(t, incident).NotNil()
 		gt.Equal(t, 1, incident.ID)
 		gt.Equal(t, "inc-1-database-outage", incident.ChannelName)
@@ -81,7 +81,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Verify incident was saved to repository
 		savedIncident, err := repo.GetIncident(ctx, 1)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, incident.ID, savedIncident.ID)
 	})
 
@@ -171,11 +171,11 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Create an incident
 		created, err := uc.CreateIncident(ctx, "test incident", "", "C-TEST", "test-channel", "U-TEST")
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Retrieve the incident
 		retrieved, err := uc.GetIncident(ctx, created.ID.Int())
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, created.ID, retrieved.ID)
 		gt.Equal(t, created.ChannelName, retrieved.ChannelName)
 		gt.Equal(t, created.OriginChannelID, retrieved.OriginChannelID)

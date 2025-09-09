@@ -48,7 +48,7 @@ func TestSlackMessageProcessMessage(t *testing.T) {
 	mockGollem, mockSlack := createMockClients()
 
 	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Use random IDs as per CLAUDE.md
 	msgID := fmt.Sprintf("msg-test-%d", time.Now().UnixNano()%1000000)
@@ -66,11 +66,11 @@ func TestSlackMessageProcessMessage(t *testing.T) {
 	}
 
 	err = uc.ProcessMessage(ctx, event)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Verify message was saved
 	saved, err := repo.GetMessage(ctx, types.MessageID(msgID))
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 	gt.Equal(t, msgID, saved.ID.String())
 	gt.Equal(t, "Test message", saved.Text)
 	gt.Equal(t, userID, saved.UserID.String())
@@ -102,7 +102,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		_, mockSlack := createMockClients()
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		message := &model.Message{
 			ID:   types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
@@ -110,7 +110,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		}
 
 		response, err := uc.GenerateResponse(ctx, message)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "Generated response", response)
 	})
 
@@ -124,7 +124,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		_, mockSlack := createMockClients()
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		message := &model.Message{
 			ID:   types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
@@ -132,7 +132,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		}
 
 		response, err := uc.GenerateResponse(ctx, message)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "I understand your message. Let me help you with that.", response)
 	})
 }
@@ -160,7 +160,7 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 	_, mockSlack := createMockClients()
 
 	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	t.Run("With ClientMsgID", func(t *testing.T) {
 		msgID := fmt.Sprintf("msg-test-%d", time.Now().UnixNano()%1000000)
@@ -178,12 +178,12 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 		}
 
 		response, err := uc.SaveAndRespond(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "", response) // No response for general mentions
 
 		// Verify message was saved with ClientMsgID
 		saved, err := repo.GetMessage(ctx, types.MessageID(msgID))
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "I need help with an incident", saved.Text)
 	})
 
@@ -204,12 +204,12 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 		}
 
 		response, err := uc.SaveAndRespond(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "", response) // No response for general mentions
 
 		// Verify message was saved with TimeStamp as ID
 		saved, err := repo.GetMessage(ctx, types.MessageID(timestamp))
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, fmt.Sprintf("<@%s> inc server is down", botID), saved.Text)
 	})
 }
@@ -234,7 +234,7 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 	mockGollem, _ := createMockClients()
 
 	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	testCases := []struct {
 		name          string
@@ -601,7 +601,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Test parsing incident command without title (should trigger LLM enhancement)
 		message := &model.Message{
@@ -665,7 +665,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Test with thread timestamp (should use thread messages)
 		threadTS := fmt.Sprintf("%d.000000", time.Now().Unix())
@@ -721,7 +721,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		message := &model.Message{
 			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
@@ -776,7 +776,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		message := &model.Message{
 			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
@@ -806,7 +806,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		}
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// With manual title - should not trigger LLM
 		message := &model.Message{

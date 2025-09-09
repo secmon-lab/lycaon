@@ -20,7 +20,7 @@ func TestNewIncident(t *testing.T) {
 			types.ChannelName("general"),
 			types.SlackUserID("U67890"),
 		)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, 1, incident.ID)
 		gt.Equal(t, "inc-1-database-outage", incident.ChannelName)
 		gt.Equal(t, "database outage", incident.Title)
@@ -111,7 +111,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 				types.ChannelName("general"),
 				types.SlackUserID("U67890"),
 			)
-			gt.NoError(t, err)
+			gt.NoError(t, err).Required()
 			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)
 		})
 	}
@@ -147,7 +147,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 				types.ChannelName("general"),
 				types.SlackUserID("U67890"),
 			)
-			gt.NoError(t, err)
+			gt.NoError(t, err).Required()
 			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)
 			gt.Equal(t, tc.title, incident.Title)
 			// Ensure channel name never exceeds 80 characters
