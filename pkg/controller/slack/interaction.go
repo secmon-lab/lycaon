@@ -15,7 +15,7 @@ import (
 // InteractionHandler handles Slack interactions
 type InteractionHandler struct {
 	incidentUC   interfaces.Incident
-	slackService *slackSvc.Service
+	slackService interfaces.SlackClient
 	blockBuilder *slackSvc.BlockBuilder
 }
 

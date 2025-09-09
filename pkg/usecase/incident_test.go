@@ -13,7 +13,6 @@ import (
 	"github.com/slack-go/slack"
 )
 
-
 func TestIncidentUseCaseCreateIncident(t *testing.T) {
 	ctx := context.Background()
 

@@ -28,7 +28,6 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
-
 // Helper function to create mock clients for controller tests
 func createMockClientsForController() (gollem.LLMClient, *mocks.SlackClientMock) {
 	mockLLM := &mock.LLMClientMock{}

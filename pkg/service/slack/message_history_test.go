@@ -10,7 +10,6 @@ import (
 	"github.com/slack-go/slack"
 )
 
-
 func TestMessageHistoryService_New(t *testing.T) {
 	// Test service creation
 	service := slackSvc.NewMessageHistoryService(nil)

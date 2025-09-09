@@ -21,7 +21,6 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
-
 // Helper to create mock clients for HTTP tests
 func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
 	return &mock.LLMClientMock{}, &mocks.SlackClientMock{

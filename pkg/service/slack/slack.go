@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/slack-go/slack"
 )
 
@@ -13,8 +14,8 @@ type Service struct {
 	client *slack.Client
 }
 
-// New creates a new Slack service
-func New(token string) *Service {
+// New creates a new Slack service that implements interfaces.SlackClient
+func New(token string) interfaces.SlackClient {
 	return &Service{
 		client: slack.New(token),
 	}
