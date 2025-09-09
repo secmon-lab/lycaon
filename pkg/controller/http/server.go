@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -22,7 +23,6 @@ type Server struct {
 	slackConfig    *config.SlackConfig
 	authUC         interfaces.Auth
 	messageUC      interfaces.SlackMessage
-	devMode        bool
 	authMiddleware *Middleware
 	slackHandler   *slackCtrl.Handler
 	authHandler    *AuthHandler
@@ -37,7 +37,6 @@ func NewServer(
 	authUC interfaces.Auth,
 	messageUC interfaces.SlackMessage,
 	incidentUC interfaces.Incident,
-	devMode bool,
 	frontendURL string,
 ) (*Server, error) {
 	router := chi.NewRouter()
@@ -79,37 +78,30 @@ func NewServer(
 	})
 
 	// Frontend routes (serve embedded or filesystem)
-	if devMode {
-		// In dev mode, serve from filesystem
-		ctxlog.From(ctx).Info("Serving frontend from filesystem (dev mode)")
-		fs := http.FileServer(http.Dir("frontend/dist"))
-		router.Handle("/*", fs)
+	// In production, serve embedded files
+	fs, err := frontend.GetHTTPFS()
+	if err != nil {
+		ctxlog.From(ctx).Warn("Failed to get embedded frontend, using fallback",
+			"error", err,
+		)
+		// Fallback to a simple handler
+		router.Get("/*", handleFallbackHome)
 	} else {
-		// In production, serve embedded files
-		fs, err := frontend.GetHTTPFS()
-		if err != nil {
-			ctxlog.From(ctx).Warn("Failed to get embedded frontend, using fallback",
-				"error", err,
-			)
-			// Fallback to a simple handler
-			router.Get("/*", handleFallbackHome)
-		} else {
-			ctxlog.From(ctx).Info("Serving frontend from embedded files")
-			fileServer := http.FileServer(fs)
-			router.Handle("/*", fileServer)
-		}
+		ctxlog.From(ctx).Info("Serving frontend from embedded files")
+		fileServer := http.FileServer(fs)
+		router.Handle("/*", fileServer)
 	}
 
 	server := &Server{
 		Server: &http.Server{
-			Addr:    addr,
-			Handler: router,
+			Addr:              addr,
+			Handler:           router,
+			ReadHeaderTimeout: 15 * time.Second,
 		},
 		router:         router,
 		slackConfig:    slackConfig,
 		authUC:         authUC,
 		messageUC:      messageUC,
-		devMode:        devMode,
 		authMiddleware: authMiddleware,
 		slackHandler:   slackHandler,
 		authHandler:    authHandler,

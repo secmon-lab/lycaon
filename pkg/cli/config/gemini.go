@@ -4,11 +4,11 @@ import (
 	"context"
 	"log/slog"
 
-	"cloud.google.com/go/vertexai/genai"
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
-	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/m-mizutani/gollem"
+	"github.com/m-mizutani/gollem/llm/gemini"
 	"github.com/urfave/cli/v3"
-	"google.golang.org/api/option"
 )
 
 // Gemini holds Gemini configuration
@@ -48,26 +48,29 @@ func (g *Gemini) Flags() []cli.Flag {
 }
 
 // Configure creates and returns a Gemini LLM client
-func (g *Gemini) Configure(ctx context.Context) (interfaces.LLMClient, error) {
+func (g *Gemini) Configure(ctx context.Context) (gollem.LLMClient, error) {
 	if !g.IsConfigured() {
-		return nil, nil
+		return nil, goerr.New("Gemini configuration is required. Please provide LYCAON_GEMINI_PROJECT")
 	}
 
-	// Create Vertex AI client
-	client, err := genai.NewClient(ctx, g.Project, g.Location, option.WithCredentialsFile(""))
+	// Create Gemini client using gollem's gemini package
+	client, err := gemini.New(ctx, g.Project, g.Location,
+		gemini.WithModel(g.Model),
+	)
 	if err != nil {
-		return nil, goerr.Wrap(err, "failed to create Vertex AI client")
+		return nil, goerr.Wrap(err, "failed to create Gemini client",
+			goerr.V("project", g.Project),
+			goerr.V("location", g.Location),
+			goerr.V("model", g.Model),
+		)
 	}
 
-	model := client.GenerativeModel(g.Model)
-	return &vertexAdapter{
-		model:  model,
-		client: client,
-	}, nil
+	return client, nil
 }
 
 // ConfigureOptional creates a Gemini LLM client if configured, returns nil if not
-func (g *Gemini) ConfigureOptional(ctx context.Context, logger *slog.Logger) interfaces.LLMClient {
+func (g *Gemini) ConfigureOptional(ctx context.Context) gollem.LLMClient {
+	logger := ctxlog.From(ctx)
 	if !g.IsConfigured() {
 		logger.Info("Gemini not configured")
 		return nil
@@ -100,41 +103,4 @@ func (g Gemini) LogValue() slog.Value {
 		slog.String("location", g.Location),
 		slog.String("model", g.Model),
 	)
-}
-
-// vertexAdapter adapts Vertex AI model to interfaces.LLMClient
-type vertexAdapter struct {
-	model  *genai.GenerativeModel
-	client *genai.Client
-}
-
-// Close closes the underlying client
-func (a *vertexAdapter) Close() error {
-	if a.client != nil {
-		return a.client.Close()
-	}
-	return nil
-}
-
-func (a *vertexAdapter) GenerateResponse(ctx context.Context, prompt string) (string, error) {
-	resp, err := a.model.GenerateContent(ctx, genai.Text(prompt))
-	if err != nil {
-		return "", err
-	}
-	if len(resp.Candidates) == 0 {
-		return "", goerr.New("no response candidates")
-	}
-
-	var result string
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if text, ok := part.(genai.Text); ok {
-			result += string(text)
-		}
-	}
-	return result, nil
-}
-
-func (a *vertexAdapter) AnalyzeMessage(ctx context.Context, message string) (string, error) {
-	prompt := "Analyze this message and provide insights: " + message
-	return a.GenerateResponse(ctx, prompt)
 }

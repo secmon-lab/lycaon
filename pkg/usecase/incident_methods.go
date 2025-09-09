@@ -122,8 +122,8 @@ func (u *Incident) HandleEditIncidentAction(ctx context.Context, requestID, user
 		return goerr.Wrap(err, "failed to retrieve incident request for editing")
 	}
 
-	// Build the edit modal with the existing title pre-filled
-	modal := u.blockBuilder.BuildIncidentEditModal(requestID, request.Title)
+	// Build the edit modal with the existing title and description pre-filled
+	modal := u.blockBuilder.BuildIncidentEditModal(requestID, request.Title, request.Description)
 
 	// Open the modal
 	_, err = u.slackClient.OpenView(ctx, triggerID, modal)

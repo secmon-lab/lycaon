@@ -10,12 +10,25 @@ import (
 	"testing"
 
 	"github.com/m-mizutani/ctxlog"
+	"github.com/m-mizutani/gollem"
+	"github.com/m-mizutani/gollem/mock"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
+	slackgo "github.com/slack-go/slack"
 )
+
+// Helper to create mock clients for HTTP tests
+func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
+	return &mock.LLMClientMock{}, &mocks.SlackClientMock{
+		AuthTestContextFunc: func(ctx context.Context) (*slackgo.AuthTestResponse, error) {
+			return &slackgo.AuthTestResponse{UserID: "U_TEST_BOT", User: "test-bot"}, nil
+		},
+	}
+}
 
 func TestServerHealthCheck(t *testing.T) {
 	// Setup
@@ -26,8 +39,9 @@ func TestServerHealthCheck(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
-	gt.NoError(t, err)
+	mockLLM, mockSlack := createMockClients()
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	server, err := controller.NewServer(
@@ -38,10 +52,9 @@ func TestServerHealthCheck(t *testing.T) {
 		authUC,
 		messageUC,
 		incidentUC,
-		false,
 		"",
 	)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Create test request
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -65,8 +78,9 @@ func TestServerFallbackHome(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
-	gt.NoError(t, err)
+	mockLLM, mockSlack := createMockClients()
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	server, err := controller.NewServer(
@@ -77,10 +91,9 @@ func TestServerFallbackHome(t *testing.T) {
 		authUC,
 		messageUC,
 		incidentUC,
-		false, // Production mode to trigger fallback
 		"",
 	)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Create test request
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

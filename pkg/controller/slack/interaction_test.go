@@ -189,10 +189,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		err = handler.HandleInteraction(ctx, payload)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Wait for async processing to complete
 		select {
@@ -238,7 +238,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		err = handler.HandleInteraction(ctx, payload)
 		gt.Error(t, err)
@@ -285,10 +285,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		err = handler.HandleInteraction(ctx, payload)
-		gt.NoError(t, err) // The handler itself should not return error (responds immediately)
+		gt.NoError(t, err).Required() // The handler itself should not return error (responds immediately)
 
 		// Wait for async processing to complete
 		select {
@@ -325,11 +325,11 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Should not error for unknown actions, just log and continue
 		err = handler.HandleInteraction(ctx, payload)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 	})
 
 	t.Run("Handle shortcut interaction", func(t *testing.T) {
@@ -350,11 +350,11 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Should handle shortcut without error (even if not fully implemented)
 		err = handler.HandleInteraction(ctx, payload)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 	})
 
 	t.Run("Handle view submission", func(t *testing.T) {
@@ -394,11 +394,11 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Should handle view submission without error
 		err = handler.HandleInteraction(ctx, payload)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 	})
 
 	t.Run("Handle view submission with missing fields", func(t *testing.T) {
@@ -427,7 +427,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Should handle missing fields gracefully and return error for empty title
 		err = handler.HandleInteraction(ctx, payload)
@@ -454,10 +454,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		}
 
 		payload, err := json.Marshal(interaction)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 
 		// Should handle view closed without error
 		err = handler.HandleInteraction(ctx, payload)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 	})
 }

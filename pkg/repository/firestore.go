@@ -52,7 +52,7 @@ func NewFirestore(ctx context.Context, projectID, databaseID string) (interfaces
 	if err != nil && err != iterator.Done {
 		// Only fail if it's a real error (not just empty collection)
 		if status.Code(err) == codes.PermissionDenied || status.Code(err) == codes.Unauthenticated {
-			client.Close()
+			_ = client.Close()
 			return nil, goerr.Wrap(err, "failed to connect to firestore project",
 				goerr.V("firestore error code", status.Code(err).String()),
 			)

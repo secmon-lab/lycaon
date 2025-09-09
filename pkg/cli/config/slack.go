@@ -1,9 +1,12 @@
 package config
 
 import (
+	"context"
 	"log/slog"
 
-	"github.com/slack-go/slack"
+	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/urfave/cli/v3"
 )
 
@@ -50,23 +53,28 @@ func (s *Slack) Flags() []cli.Flag {
 	}
 }
 
-// Configure creates and returns a Slack client
-func (s *Slack) Configure() *slack.Client {
+// Configure creates and returns a Slack client interface
+func (s *Slack) Configure(ctx context.Context) (interfaces.SlackClient, error) {
 	if !s.IsConfigured() {
-		return nil
+		return nil, goerr.New("Slack client configuration is required. Please provide LYCAON_SLACK_OAUTH_TOKEN")
 	}
-	return slack.New(s.OAuthToken)
+	return slackSvc.New(s.OAuthToken), nil
 }
 
 // ConfigureOptional creates a Slack client if configured, returns nil if not
-func (s *Slack) ConfigureOptional(logger *slog.Logger) *slack.Client {
+func (s *Slack) ConfigureOptional(ctx context.Context, logger *slog.Logger) interfaces.SlackClient {
 	if !s.IsConfigured() {
 		logger.Warn("Slack not configured - webhook endpoints will not work")
 		return nil
 	}
 
 	logger.Info("Configuring Slack client")
-	return slack.New(s.OAuthToken)
+	client, err := s.Configure(ctx)
+	if err != nil {
+		logger.Warn("Failed to create Slack client", slog.Any("error", err))
+		return nil
+	}
+	return client
 }
 
 // IsConfigured checks if Slack is properly configured for basic operations

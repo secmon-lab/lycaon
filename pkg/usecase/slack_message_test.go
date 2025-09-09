@@ -2,36 +2,41 @@ package usecase_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/m-mizutani/ctxlog"
+	"github.com/m-mizutani/gollem"
+	"github.com/m-mizutani/gollem/mock"
 	"github.com/m-mizutani/gt"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
 
-// MockLLMClient implements interfaces.LLMClient for testing
-type MockLLMClient struct {
-	GenerateResponseFunc func(ctx context.Context, prompt string) (string, error)
-	AnalyzeMessageFunc   func(ctx context.Context, message string) (string, error)
-}
+// Helper function to create default mock clients for testing
+func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
+	// Create default mock LLM client
+	mockLLM := &mock.LLMClientMock{}
 
-func (m *MockLLMClient) GenerateResponse(ctx context.Context, prompt string) (string, error) {
-	if m.GenerateResponseFunc != nil {
-		return m.GenerateResponseFunc(ctx, prompt)
+	// Create default mock Slack client with a test bot user
+	mockSlack := &mocks.SlackClientMock{
+		AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+			return &slack.AuthTestResponse{
+				UserID: "U_TEST_BOT",
+				User:   "test-bot",
+			}, nil
+		},
 	}
-	return "Mock response", nil
-}
 
-func (m *MockLLMClient) AnalyzeMessage(ctx context.Context, message string) (string, error) {
-	if m.AnalyzeMessageFunc != nil {
-		return m.AnalyzeMessageFunc(ctx, message)
-	}
-	return "Mock analysis", nil
+	return mockLLM, mockSlack
 }
 
 func TestSlackMessageProcessMessage(t *testing.T) {
@@ -39,31 +44,37 @@ func TestSlackMessageProcessMessage(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	llm := &MockLLMClient{}
+	// Create mock clients
+	mockGollem, mockSlack := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, llm, nil, "")
-	gt.NoError(t, err)
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+	gt.NoError(t, err).Required()
+
+	// Use random IDs as per CLAUDE.md
+	msgID := fmt.Sprintf("msg-test-%d", time.Now().UnixNano()%1000000)
+	userID := fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)
+	channelID := fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)
 
 	event := &slackevents.MessageEvent{
-		ClientMsgID:     "msg-test-001",
-		User:            "U12345",
+		ClientMsgID:     msgID,
+		User:            userID,
 		Username:        "testuser",
-		Channel:         "C12345",
+		Channel:         channelID,
 		Text:            "Test message",
 		TimeStamp:       "1234567890.123456",
 		ThreadTimeStamp: "",
 	}
 
 	err = uc.ProcessMessage(ctx, event)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	// Verify message was saved
-	saved, err := repo.GetMessage(ctx, "msg-test-001")
-	gt.NoError(t, err)
-	gt.Equal(t, "msg-test-001", saved.ID)
+	saved, err := repo.GetMessage(ctx, types.MessageID(msgID))
+	gt.NoError(t, err).Required()
+	gt.Equal(t, msgID, saved.ID.String())
 	gt.Equal(t, "Test message", saved.Text)
-	gt.Equal(t, "U12345", saved.UserID)
-	gt.Equal(t, "C12345", saved.ChannelID)
+	gt.Equal(t, userID, saved.UserID.String())
+	gt.Equal(t, channelID, saved.ChannelID.String())
 }
 
 func TestSlackMessageGenerateResponse(t *testing.T) {
@@ -73,37 +84,56 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 	repo := repository.NewMemory()
 
 	t.Run("With LLM client", func(t *testing.T) {
-		llm := &MockLLMClient{
-			GenerateResponseFunc: func(ctx context.Context, prompt string) (string, error) {
-				return "Generated response", nil
+		// Create mock LLM client using gollem's built-in mock
+		mockLLM := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				mockSession := &mock.SessionMock{
+					GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+						return &gollem.Response{
+							Texts: []string{"Generated response"},
+						}, nil
+					},
+				}
+				return mockSession, nil
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, llm, nil, "")
-		gt.NoError(t, err)
+		// Create mock clients
+		_, mockSlack := createMockClients()
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+		gt.NoError(t, err).Required()
 
 		message := &model.Message{
-			ID:   "msg-001",
+			ID:   types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
 			Text: "Help me with incident",
 		}
 
 		response, err := uc.GenerateResponse(ctx, message)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "Generated response", response)
 	})
 
-	t.Run("Without LLM client", func(t *testing.T) {
-		uc, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
-		gt.NoError(t, err)
+	t.Run("With LLM error fallback", func(t *testing.T) {
+		// Test what happens when LLM generation fails - should get a fallback response
+		mockLLM := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				return nil, fmt.Errorf("LLM service unavailable")
+			},
+		}
+		_, mockSlack := createMockClients()
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+		gt.NoError(t, err).Required()
 
 		message := &model.Message{
-			ID:   "msg-002",
+			ID:   types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
 			Text: "Help me with incident",
 		}
 
 		response, err := uc.GenerateResponse(ctx, message)
-		gt.NoError(t, err)
-		gt.Equal(t, "Thank you for your message. I'm currently processing it.", response)
+		gt.NoError(t, err).Required()
+		gt.Equal(t, "I understand your message. Let me help you with that.", response)
 	})
 }
 
@@ -112,55 +142,75 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
-	llm := &MockLLMClient{
-		GenerateResponseFunc: func(ctx context.Context, prompt string) (string, error) {
-			return "Here's help with your incident", nil
+	// Create mock gollem client using gollem's built-in mock
+	mockGollem := &mock.LLMClientMock{
+		NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+			mockSession := &mock.SessionMock{
+				GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+					return &gollem.Response{
+						Texts: []string{"Here's help with your incident"},
+					}, nil
+				},
+			}
+			return mockSession, nil
 		},
 	}
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, llm, nil, "")
-	gt.NoError(t, err)
+	// Create mock slack client
+	_, mockSlack := createMockClients()
+
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+	gt.NoError(t, err).Required()
 
 	t.Run("With ClientMsgID", func(t *testing.T) {
+		msgID := fmt.Sprintf("msg-test-%d", time.Now().UnixNano()%1000000)
+		userID := fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)
+		channelID := fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)
+
 		event := &slackevents.MessageEvent{
-			ClientMsgID:     "msg-test-002",
-			User:            "U67890",
+			ClientMsgID:     msgID,
+			User:            userID,
 			Username:        "helpuser",
-			Channel:         "C67890",
+			Channel:         channelID,
 			Text:            "I need help with an incident",
 			TimeStamp:       "1234567890.654321",
 			ThreadTimeStamp: "",
 		}
 
 		response, err := uc.SaveAndRespond(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "", response) // No response for general mentions
 
 		// Verify message was saved with ClientMsgID
-		saved, err := repo.GetMessage(ctx, "msg-test-002")
-		gt.NoError(t, err)
+		saved, err := repo.GetMessage(ctx, types.MessageID(msgID))
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "I need help with an incident", saved.Text)
 	})
 
 	t.Run("Without ClientMsgID (app mention)", func(t *testing.T) {
+		userID := fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)
+		channelID := fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)
+		botID := fmt.Sprintf("U%dBOT", time.Now().UnixNano()%1000000)
+		timestamp := fmt.Sprintf("%d.123456", time.Now().Unix())
+
 		event := &slackevents.MessageEvent{
 			ClientMsgID:     "", // Empty for app mentions
-			User:            "U99999",
+			User:            userID,
 			Username:        "mentionuser",
-			Channel:         "C99999",
-			Text:            "<@U123BOT> inc server is down",
-			TimeStamp:       "9876543210.123456",
+			Channel:         channelID,
+			Text:            fmt.Sprintf("<@%s> inc server is down", botID),
+			TimeStamp:       timestamp,
 			ThreadTimeStamp: "",
 		}
 
 		response, err := uc.SaveAndRespond(ctx, event)
-		gt.NoError(t, err)
+		gt.NoError(t, err).Required()
 		gt.Equal(t, "", response) // No response for general mentions
 
 		// Verify message was saved with TimeStamp as ID
-		saved, err := repo.GetMessage(ctx, "9876543210.123456")
-		gt.NoError(t, err)
-		gt.Equal(t, "<@U123BOT> inc server is down", saved.Text)
+		saved, err := repo.GetMessage(ctx, types.MessageID(timestamp))
+		gt.NoError(t, err).Required()
+		gt.Equal(t, fmt.Sprintf("<@%s> inc server is down", botID), saved.Text)
 	})
 }
 
@@ -170,10 +220,21 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 	ctx = ctxlog.With(ctx, logger)
 	repo := repository.NewMemory()
 
-	// Use a specific bot ID for testing
-	botUserID := "U123BOT"
-	uc, err := usecase.NewSlackMessage(ctx, repo, nil, nil, botUserID)
-	gt.NoError(t, err)
+	// Create mock Slack client that returns a specific bot user ID
+	mockSlack := &mocks.SlackClientMock{
+		AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+			return &slack.AuthTestResponse{
+				UserID: "U123BOT",
+				User:   "lycaon-bot",
+			}, nil
+		},
+	}
+
+	// Create mock LLM client
+	mockGollem, _ := createMockClients()
+
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+	gt.NoError(t, err).Required()
 
 	testCases := []struct {
 		name          string
@@ -479,4 +540,286 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSlackMessageLLMIntegration tests the LLM-enhanced incident creation functionality
+func TestSlackMessageLLMIntegration(t *testing.T) {
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx = ctxlog.With(ctx, logger)
+	repo := repository.NewMemory()
+
+	// Use random IDs as per CLAUDE.md
+	botUserID := fmt.Sprintf("U%dBOT", time.Now().UnixNano()%1000000)
+
+	t.Run("LLM enhancement with successful generation", func(t *testing.T) {
+		// Create mock gollem client that returns structured JSON
+		mockGollem := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				mockSession := &mock.SessionMock{
+					GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+						return &gollem.Response{
+							Texts: []string{`{
+								"title": "Database Connection Timeout",
+								"description": "Multiple users reporting database connection timeouts affecting user login and data retrieval operations."
+							}`},
+						}, nil
+					},
+				}
+				return mockSession, nil
+			},
+		}
+
+		// Create mock slack client for message history
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
+			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+				return &slack.GetConversationHistoryResponse{
+					Messages: []slack.Message{
+						{
+							Msg: slack.Msg{
+								Timestamp: fmt.Sprintf("%d.000001", time.Now().Unix()),
+								User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+								Text:      "Database is really slow",
+							},
+						},
+						{
+							Msg: slack.Msg{
+								Timestamp: fmt.Sprintf("%d.000002", time.Now().Unix()),
+								User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+								Text:      "I'm getting timeout errors on login",
+							},
+						},
+					},
+				}, nil
+			},
+		}
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+		gt.NoError(t, err).Required()
+
+		// Test parsing incident command without title (should trigger LLM enhancement)
+		message := &model.Message{
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
+			Text:      fmt.Sprintf("<@%s> inc", botUserID),
+			ChannelID: types.ChannelID(fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)),
+			UserID:    types.SlackUserID(fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)),
+			Timestamp: time.Now(),
+		}
+
+		result := uc.ParseIncidentCommand(ctx, message)
+		gt.Equal(t, true, result.IsIncidentTrigger)
+		gt.Equal(t, "Database Connection Timeout", result.Title)
+		gt.Equal(t, "Multiple users reporting database connection timeouts affecting user login and data retrieval operations.", result.Description)
+	})
+
+	t.Run("LLM enhancement with thread messages", func(t *testing.T) {
+		// Mock LLM client that returns incident summary based on thread
+		mockGollem := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				mockSession := &mock.SessionMock{
+					GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+						return &gollem.Response{
+							Texts: []string{`{
+								"title": "API Service Outage",
+								"description": "Complete API service outage causing 500 errors across all endpoints, affecting user authentication and data access."
+							}`},
+						}, nil
+					},
+				}
+				return mockSession, nil
+			},
+		}
+
+		// Mock slack client for thread replies
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
+			GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
+				return []slack.Message{
+					{
+						Msg: slack.Msg{
+							Timestamp: fmt.Sprintf("%d.000001", time.Now().Unix()),
+							User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+							Text:      "API is returning 500 errors",
+						},
+					},
+					{
+						Msg: slack.Msg{
+							Timestamp: fmt.Sprintf("%d.000002", time.Now().Unix()),
+							User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+							Text:      "All authentication is failing",
+						},
+					},
+				}, false, false, nil
+			},
+		}
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+		gt.NoError(t, err).Required()
+
+		// Test with thread timestamp (should use thread messages)
+		threadTS := fmt.Sprintf("%d.000000", time.Now().Unix())
+		message := &model.Message{
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
+			Text:      fmt.Sprintf("<@%s> inc", botUserID),
+			ChannelID: types.ChannelID(fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)),
+			UserID:    types.SlackUserID(fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)),
+			ThreadTS:  types.ThreadTS(threadTS),
+			Timestamp: time.Now(),
+		}
+
+		result := uc.ParseIncidentCommand(ctx, message)
+		gt.Equal(t, true, result.IsIncidentTrigger)
+		gt.Equal(t, "API Service Outage", result.Title)
+		gt.Equal(t, "Complete API service outage causing 500 errors across all endpoints, affecting user authentication and data access.", result.Description)
+	})
+
+	t.Run("LLM enhancement failure fallback", func(t *testing.T) {
+		// Mock LLM client that returns an error
+		mockGollem := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				mockSession := &mock.SessionMock{
+					GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+						return nil, fmt.Errorf("LLM service unavailable")
+					},
+				}
+				return mockSession, nil
+			},
+		}
+
+		// Mock slack client that returns some messages
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
+			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+				return &slack.GetConversationHistoryResponse{
+					Messages: []slack.Message{
+						{
+							Msg: slack.Msg{
+								Timestamp: fmt.Sprintf("%d.000001", time.Now().Unix()),
+								User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+								Text:      "Something is broken",
+							},
+						},
+					},
+				}, nil
+			},
+		}
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+		gt.NoError(t, err).Required()
+
+		message := &model.Message{
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
+			Text:      fmt.Sprintf("<@%s> inc", botUserID),
+			ChannelID: types.ChannelID(fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)),
+			UserID:    types.SlackUserID(fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)),
+			Timestamp: time.Now(),
+		}
+
+		// Should still work but without LLM enhancement (fallback to manual input)
+		result := uc.ParseIncidentCommand(ctx, message)
+		gt.Equal(t, true, result.IsIncidentTrigger)
+		gt.Equal(t, "", result.Title)       // Should be empty when LLM fails
+		gt.Equal(t, "", result.Description) // Should be empty when LLM fails
+	})
+
+	t.Run("LLM enhancement with invalid JSON response", func(t *testing.T) {
+		// Mock LLM client that returns invalid JSON
+		mockGollem := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				mockSession := &mock.SessionMock{
+					GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+						return &gollem.Response{
+							Texts: []string{"This is not valid JSON"},
+						}, nil
+					},
+				}
+				return mockSession, nil
+			},
+		}
+
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
+			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+				return &slack.GetConversationHistoryResponse{
+					Messages: []slack.Message{
+						{
+							Msg: slack.Msg{
+								Timestamp: fmt.Sprintf("%d.000001", time.Now().Unix()),
+								User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+								Text:      "Server issue",
+							},
+						},
+					},
+				}, nil
+			},
+		}
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+		gt.NoError(t, err).Required()
+
+		message := &model.Message{
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
+			Text:      fmt.Sprintf("<@%s> inc", botUserID),
+			ChannelID: types.ChannelID(fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)),
+			UserID:    types.SlackUserID(fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)),
+			Timestamp: time.Now(),
+		}
+
+		// Should fallback gracefully when JSON parsing fails
+		result := uc.ParseIncidentCommand(ctx, message)
+		gt.Equal(t, true, result.IsIncidentTrigger)
+		gt.Equal(t, "", result.Title)       // Should fallback to empty
+		gt.Equal(t, "", result.Description) // Should fallback to empty
+	})
+
+	t.Run("Manual title specified (no LLM enhancement)", func(t *testing.T) {
+		// Mock that should not be called since title is provided
+		mockGollem := &mock.LLMClientMock{}
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					UserID: botUserID,
+					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
+				}, nil
+			},
+		}
+
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack)
+		gt.NoError(t, err).Required()
+
+		// With manual title - should not trigger LLM
+		message := &model.Message{
+			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
+			Text:      fmt.Sprintf("<@%s> inc Manual Incident Title", botUserID),
+			ChannelID: types.ChannelID(fmt.Sprintf("C%d", time.Now().UnixNano()%1000000)),
+			UserID:    types.SlackUserID(fmt.Sprintf("U%d", time.Now().UnixNano()%1000000)),
+			Timestamp: time.Now(),
+		}
+
+		result := uc.ParseIncidentCommand(ctx, message)
+		gt.Equal(t, true, result.IsIncidentTrigger)
+		gt.Equal(t, "Manual Incident Title", result.Title)
+		gt.Equal(t, "", result.Description) // No description when manually specified
+	})
 }

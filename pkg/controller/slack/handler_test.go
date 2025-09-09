@@ -17,12 +17,30 @@ import (
 	"time"
 
 	"github.com/m-mizutani/ctxlog"
+	"github.com/m-mizutani/gollem"
+	"github.com/m-mizutani/gollem/mock"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/controller/slack"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
+	slackgo "github.com/slack-go/slack"
 )
+
+// Helper function to create mock clients for controller tests
+func createMockClientsForController() (gollem.LLMClient, *mocks.SlackClientMock) {
+	mockLLM := &mock.LLMClientMock{}
+	mockSlack := &mocks.SlackClientMock{
+		AuthTestContextFunc: func(ctx context.Context) (*slackgo.AuthTestResponse, error) {
+			return &slackgo.AuthTestResponse{
+				UserID: "U_TEST_BOT",
+				User:   "test-bot",
+			}, nil
+		},
+	}
+	return mockLLM, mockSlack
+}
 
 func TestSlackHandlerChallenge(t *testing.T) {
 	// Setup
@@ -35,8 +53,9 @@ func TestSlackHandlerChallenge(t *testing.T) {
 		OAuthToken:    "test-token",
 	}
 	repo := repository.NewMemory()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
-	gt.NoError(t, err)
+	mockLLM, mockSlack := createMockClientsForController()
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
@@ -48,7 +67,7 @@ func TestSlackHandlerChallenge(t *testing.T) {
 		"token":     "test-token",
 	}
 	body, err := json.Marshal(challenge)
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	req := httptest.NewRequest(http.MethodPost, "/hooks/slack/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -80,8 +99,9 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 		OAuthToken:    "test-token",
 	}
 	repo := repository.NewMemory()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
-	gt.NoError(t, err)
+	mockLLM, mockSlack := createMockClientsForController()
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
@@ -110,8 +130,9 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, nil, nil, "")
-	gt.NoError(t, err)
+	mockLLM, mockSlack := createMockClientsForController()
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	gt.NoError(t, err).Required()
 	incidentUC := usecase.NewIncident(repo, nil)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)

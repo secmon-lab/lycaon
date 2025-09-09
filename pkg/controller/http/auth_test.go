@@ -82,7 +82,7 @@ func TestAuthHandlerLogout(t *testing.T) {
 
 	// Create session first
 	session, err := authUC.CreateSession(ctx, "U123", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	handler := controller.NewAuthHandler(ctx, slackConfig, authUC, "")
 
@@ -133,7 +133,7 @@ func TestAuthHandlerUserMe(t *testing.T) {
 
 	// Create session
 	session, err := authUC.CreateSession(ctx, "U123", "Test User", "test@example.com")
-	gt.NoError(t, err)
+	gt.NoError(t, err).Required()
 
 	handler := controller.NewAuthHandler(ctx, slackConfig, authUC, "")
 

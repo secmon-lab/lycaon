@@ -155,7 +155,7 @@ func (b *BlockBuilder) BuildErrorBlocks(errorMessage string) []slack.Block {
 }
 
 // BuildIncidentEditModal builds the modal view for editing incident details
-func (b *BlockBuilder) BuildIncidentEditModal(requestID, title string) slack.ModalViewRequest {
+func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description string) slack.ModalViewRequest {
 	// Title input block
 	titleBlock := slack.NewInputBlock(
 		"title_block",
@@ -203,9 +203,12 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title string) slack.Mod
 			"description_input",
 		),
 	)
-	// Make it multiline
+	// Make it multiline and set initial value if description is provided
 	descriptionInput := descriptionBlock.Element.(*slack.PlainTextInputBlockElement)
 	descriptionInput.Multiline = true
+	if description != "" {
+		descriptionInput.InitialValue = description
+	}
 	descriptionBlock.Optional = true
 
 	return slack.ModalViewRequest{
