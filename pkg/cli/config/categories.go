@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
@@ -14,8 +15,11 @@ func LoadCategoriesFromFile(path string) (*model.CategoriesConfig, error) {
 		return nil, goerr.New("configuration file path is required")
 	}
 
-	// Read file
-	data, err := os.ReadFile(path)
+	// Clean the path to prevent directory traversal
+	cleanPath := filepath.Clean(path)
+
+	// Read file with cleaned path
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, goerr.Wrap(err, "configuration file not found",
