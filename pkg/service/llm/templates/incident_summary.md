@@ -36,7 +36,7 @@ Respond with ONLY a valid JSON object in the following format:
   - What systems/services are affected?
   - What impact are users experiencing?
   - Any relevant technical details mentioned
-- **Language**: Use clear, professional incident management language
+- **Language**: Use the same language that humans are using in the Slack conversation (exclude system logs and technical outputs - focus on human conversation language)
 - **Focus**: Prioritize information that helps responders understand and address the incident
 - **Accuracy**: Base the summary only on information explicitly mentioned in the messages
 
