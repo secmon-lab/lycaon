@@ -121,7 +121,18 @@ func (h *EventHandler) handleAppMentionEvent(ctx context.Context, event *slackev
 		EventTS:   types.EventTS(event.TimeStamp),
 	}
 
-	// Check if message triggers incident creation
+	// First check if it's a basic incident trigger (before any heavy processing)
+	if h.messageUC.IsBasicIncidentTrigger(ctx, message) {
+		// Send immediate context message to acknowledge the command
+		if err := h.messageUC.SendProcessingMessage(ctx, event.Channel, event.TimeStamp); err != nil {
+			ctxlog.From(ctx).Warn("Failed to send processing message",
+				"error", err,
+				"channel", event.Channel,
+			)
+		}
+	}
+
+	// Check if message triggers incident creation (this may do LLM analysis)
 	cmd := h.messageUC.ParseIncidentCommand(ctx, message)
 	if cmd.IsIncidentTrigger {
 		ctxlog.From(ctx).Info("Incident trigger detected from mention",
@@ -131,7 +142,7 @@ func (h *EventHandler) handleAppMentionEvent(ctx context.Context, event *slackev
 		)
 
 		// Send incident creation prompt with title and description
-		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title, cmd.Description); err != nil {
+		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title, cmd.Description, cmd.CategoryID); err != nil {
 			ctxlog.From(ctx).Error("Failed to send incident prompt",
 				"error", err,
 				"channel", event.Channel,

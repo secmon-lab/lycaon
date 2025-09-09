@@ -25,7 +25,16 @@ func cmdServe() *cli.Command {
 		geminiCfg    config.Gemini
 	)
 
+	// Add config file flag
+	configFlag := &cli.StringFlag{
+		Name:    "config",
+		Aliases: []string{"c"},
+		Usage:   "Path to configuration file (required if LYCAON_CONFIG not set)",
+		Sources: cli.EnvVars("LYCAON_CONFIG"),
+	}
+
 	flags := joinFlags(
+		[]cli.Flag{configFlag},
 		serverCfg.Flags(),
 		slackCfg.Flags(),
 		firestoreCfg.Flags(),
@@ -33,15 +42,29 @@ func cmdServe() *cli.Command {
 	)
 
 	return &cli.Command{
-		Name:  "serve",
-		Usage: "Start HTTP server",
-		Flags: flags,
+		Name:    "serve",
+		Aliases: []string{"s"},
+		Usage:   "Start HTTP server",
+		Flags:   flags,
 		Action: func(ctx context.Context, c *cli.Command) error {
 			// Get logger from root command metadata
 			logger := ctxlog.From(ctx)
 
+			// Load categories configuration
+			configPath := c.String("config")
+			if configPath == "" {
+				return goerr.New("configuration file path is required (use --config flag or LYCAON_CONFIG environment variable)")
+			}
+
+			categories, err := config.LoadCategoriesFromFile(configPath)
+			if err != nil {
+				return goerr.Wrap(err, "failed to load configuration file")
+			}
+
 			logger.Info("Starting lycaon server",
 				slog.String("addr", serverCfg.Addr),
+				slog.String("config", configPath),
+				slog.Int("categories", len(categories.Categories)),
 				slog.Any("slack", slackCfg),
 				slog.Any("firestore", firestoreCfg),
 				slog.Any("gemini", geminiCfg),
@@ -78,11 +101,11 @@ func cmdServe() *cli.Command {
 
 			// Create use cases
 			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
-			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient)
+			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient, categories)
 			if err != nil {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
-			incidentUC := usecase.NewIncident(repo, slackClient)
+			incidentUC := usecase.NewIncident(repo, slackClient, categories)
 
 			// Create HTTP server
 			server, err := controller.NewServer(

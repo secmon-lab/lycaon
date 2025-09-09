@@ -185,7 +185,7 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 
 	// Handle specific view submissions based on CallbackID
 	switch interaction.View.CallbackID {
-	case "incident_creation_modal":
+	case "incident_creation_modal", "incident_edit_modal":
 		ctxlog.From(ctx).Info("Incident creation modal submitted",
 			"user", interaction.User.ID,
 			"team", interaction.Team.ID,
@@ -214,16 +214,31 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 			}
 		}
 
-		// Validate required title field
+		// Extract category from the modal (required)
+		var categoryValue string
+		if categoryBlock, ok := interaction.View.State.Values["category_block"]; ok {
+			if categorySelect, ok := categoryBlock["category_select"]; ok {
+				if categorySelect.SelectedOption.Value != "" {
+					categoryValue = categorySelect.SelectedOption.Value
+				}
+			}
+		}
+
+		// Validate required fields
 		if titleValue == "" {
 			ctxlog.From(ctx).Error("Title is required for incident creation")
 			return goerr.New("incident title is required")
+		}
+		if categoryValue == "" {
+			ctxlog.From(ctx).Error("Category is required for incident creation")
+			return goerr.New("incident category is required")
 		}
 
 		ctxlog.From(ctx).Info("Processing incident creation with details",
 			"requestID", requestID,
 			"title", titleValue,
 			"hasDescription", descriptionValue != "",
+			"category", categoryValue,
 		)
 
 		// Process incident creation asynchronously
@@ -235,6 +250,7 @@ func (h *InteractionHandler) handleViewSubmission(ctx context.Context, interacti
 				requestID,
 				titleValue,
 				descriptionValue,
+				categoryValue,
 				interaction.User.ID,
 			)
 			if err != nil {

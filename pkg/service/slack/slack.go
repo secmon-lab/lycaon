@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/slack-go/slack"
@@ -141,4 +142,64 @@ func (s *Service) GetConversationRepliesContext(ctx context.Context, params *sla
 		return nil, false, false, goerr.Wrap(err, "failed to get conversation replies")
 	}
 	return messages, hasMore, nextCursor != "", nil
+}
+
+// SendContextMessage sends a context block message to a channel
+// This method does not return errors - failures are logged but don't affect the main flow
+// Returns the timestamp of the sent message, or empty string if failed
+func (s *Service) SendContextMessage(ctx context.Context, channelID, messageTS, contextText string) string {
+	ctxlog.From(ctx).Info("Sending context message",
+		"channelID", channelID,
+		"messageTS", messageTS,
+		"contextText", contextText,
+	)
+
+	// Build context blocks
+	contextBlocks := []slack.Block{
+		slack.NewContextBlock(
+			"",
+			slack.NewTextBlockObject(
+				slack.MarkdownType,
+				contextText,
+				false,
+				false,
+			),
+		),
+	}
+
+	// Debug log the actual block structure
+	ctxlog.From(ctx).Debug("Context block structure",
+		"block", fmt.Sprintf("%+v", contextBlocks[0]),
+	)
+
+	ctxlog.From(ctx).Debug("Built context blocks",
+		"blockCount", len(contextBlocks),
+		"channelID", channelID,
+	)
+
+	channelResp, contextMsgTS, err := s.client.PostMessageContext(
+		ctx,
+		channelID,
+		slack.MsgOptionBlocks(contextBlocks...),
+		slack.MsgOptionTS(messageTS), // Reply in thread
+	)
+	if err != nil {
+		// Log error but don't fail - context message is not critical
+		ctxlog.From(ctx).Error("Failed to send context message",
+			"error", err,
+			"errorType", fmt.Sprintf("%T", err),
+			"channelID", channelID,
+			"messageTS", messageTS,
+			"contextText", contextText,
+		)
+		return ""
+	}
+
+	ctxlog.From(ctx).Info("Context message sent successfully",
+		"channelID", channelID,
+		"channelResp", channelResp,
+		"contextMsgTS", contextMsgTS,
+		"contextText", contextText,
+	)
+	return contextMsgTS
 }

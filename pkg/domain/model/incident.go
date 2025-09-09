@@ -16,6 +16,7 @@ type Incident struct {
 	ID                types.IncidentID  // Incident serial number (e.g., 1, 2, 3)
 	Title             string            // Incident title (e.g., "database outage")
 	Description       string            // Incident description (optional)
+	CategoryID        string            // Category ID (e.g., "security_incident", "system_failure")
 	ChannelID         types.ChannelID   // Dedicated incident channel ID
 	ChannelName       types.ChannelName // Dedicated incident channel name (e.g., "inc-1-database-outage")
 	OriginChannelID   types.ChannelID   // Origin channel ID where incident was created
@@ -24,8 +25,18 @@ type Incident struct {
 	CreatedAt         time.Time         // Creation timestamp
 }
 
+// CreateIncidentRequest represents parameters for creating an incident
+type CreateIncidentRequest struct {
+	Title             string
+	Description       string
+	CategoryID        string
+	OriginChannelID   string
+	OriginChannelName string
+	CreatedBy         string
+}
+
 // NewIncident creates a new Incident instance
-func NewIncident(id types.IncidentID, title, description string, originChannelID types.ChannelID, originChannelName types.ChannelName, createdBy types.SlackUserID) (*Incident, error) {
+func NewIncident(id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, createdBy types.SlackUserID) (*Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -45,6 +56,7 @@ func NewIncident(id types.IncidentID, title, description string, originChannelID
 		ID:                id,
 		Title:             title,
 		Description:       description,
+		CategoryID:        categoryID,
 		ChannelName:       types.ChannelName(channelName),
 		OriginChannelID:   originChannelID,
 		OriginChannelName: originChannelName,

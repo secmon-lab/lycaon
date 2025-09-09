@@ -16,6 +16,7 @@ func TestNewIncident(t *testing.T) {
 			types.IncidentID(1),
 			"database outage",
 			"test description",
+			"system_failure",
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.SlackUserID("U67890"),
@@ -36,9 +37,10 @@ func TestNewIncident(t *testing.T) {
 			0,
 			"test",
 			"",
-			"C12345",
-			"general",
-			"U67890",
+			"unknown",
+			types.ChannelID("C12345"),
+			types.ChannelName("general"),
+			types.SlackUserID("U67890"),
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -50,9 +52,10 @@ func TestNewIncident(t *testing.T) {
 			1,
 			"test",
 			"",
-			"",
-			"general",
-			"U67890",
+			"unknown",
+			types.ChannelID(""),
+			types.ChannelName("general"),
+			types.SlackUserID("U67890"),
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -64,9 +67,10 @@ func TestNewIncident(t *testing.T) {
 			1,
 			"test",
 			"",
-			"C12345",
-			"",
-			"U67890",
+			"unknown",
+			types.ChannelID("C12345"),
+			types.ChannelName(""),
+			types.SlackUserID("U67890"),
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -78,9 +82,10 @@ func TestNewIncident(t *testing.T) {
 			1,
 			"test",
 			"",
-			"C12345",
-			"general",
-			"",
+			"unknown",
+			types.ChannelID("C12345"),
+			types.ChannelName("general"),
+			types.SlackUserID(""),
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -107,6 +112,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 				types.IncidentID(tc.id),
 				"",
 				"",
+				"unknown",
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.SlackUserID("U67890"),
@@ -143,6 +149,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 				types.IncidentID(tc.id),
 				tc.title,
 				"",
+				"unknown",
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.SlackUserID("U67890"),

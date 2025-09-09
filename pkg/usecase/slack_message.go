@@ -35,6 +35,7 @@ type SlackMessage struct {
 	botUserID      string // Bot's user ID for mention detection
 	messageHistory *slackSvc.MessageHistoryService
 	llmService     *llmSvc.LLMService
+	categories     *model.CategoriesConfig
 }
 
 // NewSlackMessage creates a new SlackMessage use case
@@ -44,6 +45,7 @@ func NewSlackMessage(
 	repo interfaces.Repository,
 	gollemClient gollem.LLMClient,
 	slackClient interfaces.SlackClient,
+	categories *model.CategoriesConfig,
 ) (*SlackMessage, error) {
 	// Validate required parameters
 	if repo == nil {
@@ -55,6 +57,9 @@ func NewSlackMessage(
 	if slackClient == nil {
 		return nil, goerr.New("Slack client is required")
 	}
+	if categories == nil {
+		return nil, goerr.New("categories configuration is required")
+	}
 
 	s := &SlackMessage{
 		repo:           repo,
@@ -63,6 +68,7 @@ func NewSlackMessage(
 		blockBuilder:   slackSvc.NewBlockBuilder(),
 		messageHistory: slackSvc.NewMessageHistoryService(slackClient),
 		llmService:     llmSvc.NewLLMService(gollemClient),
+		categories:     categories,
 	}
 
 	// Get bot user ID from Slack API
@@ -279,57 +285,88 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 	ctxlog.From(ctx).Debug("Analyzing messages with LLM",
 		"messageCount", len(messages))
 
-	// Generate summary using LLM
-	summary, err := s.llmService.GenerateIncidentSummary(ctx, messages)
+	// Perform comprehensive incident analysis in a single LLM call
+	summary, err := s.llmService.AnalyzeIncident(ctx, messages, s.categories)
 	if err != nil {
-		ctxlog.From(ctx).Error("Failed to generate incident summary with LLM",
+		ctxlog.From(ctx).Error("Failed to analyze incident with LLM",
 			"error", err,
 			"messageCount", len(messages))
 		// Return basic command on LLM failure
 		return baseCommand
 	}
 
-	ctxlog.From(ctx).Info("Generated incident summary with LLM",
+	ctxlog.From(ctx).Info("Incident analysis completed with LLM",
 		"title", summary.Title,
-		"descriptionLength", len(summary.Description))
+		"descriptionLength", len(summary.Description),
+		"categoryID", summary.CategoryID)
 
-	// Return enhanced command
+	// Return enhanced command with all information
 	return interfaces.IncidentCommand{
 		IsIncidentTrigger: true,
 		Title:             summary.Title,
 		Description:       summary.Description,
+		CategoryID:        summary.CategoryID,
 	}
 }
 
+// IsBasicIncidentTrigger quickly checks if message is an inc command (without LLM analysis)
+func (s *SlackMessage) IsBasicIncidentTrigger(ctx context.Context, message *model.Message) bool {
+	if s.botUserID == "" || message == nil || message.Text == "" {
+		return false
+	}
+
+	// Parse basic incident command to check for "inc" trigger
+	cmd := parseIncidentCommand(message, s.botUserID)
+	return cmd.IsIncidentTrigger
+}
+
+// SendProcessingMessage sends an immediate processing context message
+func (s *SlackMessage) SendProcessingMessage(ctx context.Context, channelID, messageTS string) error {
+	// Send context message using the slack service
+	msgTS := s.sendContextMessage(ctx, channelID, messageTS, "🔄 Processing incident command...")
+	if msgTS == "" {
+		// Don't return error since it's not critical
+		ctxlog.From(ctx).Warn("Processing message was not sent, but continuing",
+			"channelID", channelID,
+			"messageTS", messageTS,
+		)
+	}
+	return nil
+}
+
 // SendIncidentMessage sends an incident creation prompt message
-func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description string) error {
+func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description, categoryID string) error {
+	ctxlog.From(ctx).Info("SendIncidentMessage called",
+		"channelID", channelID,
+		"messageTS", messageTS,
+		"title", title,
+		"categoryID", categoryID,
+	)
+
 	if s.slackClient == nil {
 		return goerr.New("slack client is not configured")
 	}
 
-	// Get the user ID from the auth test response (bot user ID is the one creating the request)
-	// In a real scenario, you might want to pass the actual user ID who triggered this
+	// Get the user ID from the auth test response
 	requestedBy := s.botUserID
 	if requestedBy == "" {
-		// If we don't have bot user ID, we can't properly track who requested
-		// This is just a fallback
 		requestedBy = "unknown"
 	}
 
 	// Create an incident request and save it
-	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, description, types.SlackUserID(requestedBy))
+	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, description, categoryID, types.SlackUserID(requestedBy))
 	if err := s.repo.SaveIncidentRequest(ctx, request); err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}
 
 	// Build incident prompt blocks with the request ID
-	blocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title)
+	promptBlocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title)
 
-	// Send message with blocks
+	// Send incident prompt message
 	_, _, err := s.slackClient.PostMessage(
 		ctx,
 		channelID,
-		slack.MsgOptionBlocks(blocks...),
+		slack.MsgOptionBlocks(promptBlocks...),
 		slack.MsgOptionTS(messageTS), // Reply in thread
 	)
 	if err != nil {
@@ -339,6 +376,49 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 	}
 
 	return nil
+}
+
+// sendContextMessage sends a context block message and returns the timestamp
+// This method does not return errors - failures are logged but don't affect the main flow
+func (s *SlackMessage) sendContextMessage(ctx context.Context, channelID, messageTS, contextText string) string {
+	// Try to use the Slack service's SendContextMessage if available
+	if slackService, ok := s.slackClient.(*slackSvc.Service); ok {
+		return slackService.SendContextMessage(ctx, channelID, messageTS, contextText)
+	}
+
+	// Fallback to direct implementation for backward compatibility
+	ctxlog.From(ctx).Info("Sending context message (fallback)",
+		"channelID", channelID,
+		"messageTS", messageTS,
+		"contextText", contextText,
+	)
+
+	contextBlocks := s.blockBuilder.BuildContextBlocks(contextText)
+	channelResp, contextMsgTS, err := s.slackClient.PostMessage(
+		ctx,
+		channelID,
+		slack.MsgOptionBlocks(contextBlocks...),
+		slack.MsgOptionTS(messageTS), // Reply in thread
+	)
+	if err != nil {
+		// Log error but don't fail - context message is not critical
+		ctxlog.From(ctx).Error("Failed to send context message (fallback)",
+			"error", err,
+			"errorType", fmt.Sprintf("%T", err),
+			"channelID", channelID,
+			"messageTS", messageTS,
+			"contextText", contextText,
+		)
+		return ""
+	}
+
+	ctxlog.From(ctx).Info("Context message sent successfully (fallback)",
+		"channelID", channelID,
+		"channelResp", channelResp,
+		"contextMsgTS", contextMsgTS,
+		"contextText", contextText,
+	)
+	return contextMsgTS
 }
 
 // eventToMessage converts a Slack event to our domain model

@@ -3,6 +3,7 @@ package slack
 import (
 	"fmt"
 
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/slack-go/slack"
 )
 
@@ -61,13 +62,15 @@ func (b *BlockBuilder) BuildIncidentPromptBlocks(requestID, title string) []slac
 }
 
 // BuildIncidentCreatedBlocks builds blocks for incident created notification
-func (b *BlockBuilder) BuildIncidentCreatedBlocks(channelName, channelID, title string) []slack.Block {
+func (b *BlockBuilder) BuildIncidentCreatedBlocks(channelName, channelID, title, categoryID string, categories *model.CategoriesConfig) []slack.Block {
 	channelLink := fmt.Sprintf("<#%s>", channelID)
+	category := categories.FindCategoryByIDWithFallback(categoryID)
+
 	var message string
 	if title != "" {
-		message = fmt.Sprintf("✅ Incident channel %s has been created for: *%s*", channelLink, title)
+		message = fmt.Sprintf("✅ Incident channel %s has been created for: *%s*\n*Category:* %s", channelLink, title, category.Name)
 	} else {
-		message = fmt.Sprintf("✅ Incident channel %s has been created", channelLink)
+		message = fmt.Sprintf("✅ Incident channel %s has been created\n*Category:* %s", channelLink, category.Name)
 	}
 
 	return []slack.Block{
@@ -85,7 +88,9 @@ func (b *BlockBuilder) BuildIncidentCreatedBlocks(channelName, channelID, title 
 }
 
 // BuildIncidentChannelWelcomeBlocks builds blocks for the welcome message in the incident channel
-func (b *BlockBuilder) BuildIncidentChannelWelcomeBlocks(incidentID int, originChannelName string, createdBy string, description string) []slack.Block {
+func (b *BlockBuilder) BuildIncidentChannelWelcomeBlocks(incidentID int, originChannelName string, createdBy string, description string, categoryID string, categories *model.CategoriesConfig) []slack.Block {
+	category := categories.FindCategoryByIDWithFallback(categoryID)
+
 	blocks := []slack.Block{
 		slack.NewHeaderBlock(
 			slack.NewTextBlockObject(
@@ -98,7 +103,7 @@ func (b *BlockBuilder) BuildIncidentChannelWelcomeBlocks(incidentID int, originC
 		slack.NewSectionBlock(
 			slack.NewTextBlockObject(
 				slack.MarkdownType,
-				fmt.Sprintf("This incident was created from *#%s* by <@%s>", originChannelName, createdBy),
+				fmt.Sprintf("This incident was created from *#%s* by <@%s>\n*Category:* %s", originChannelName, createdBy, category.Name),
 				false,
 				false,
 			),
@@ -155,7 +160,7 @@ func (b *BlockBuilder) BuildErrorBlocks(errorMessage string) []slack.Block {
 }
 
 // BuildIncidentEditModal builds the modal view for editing incident details
-func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description string) slack.ModalViewRequest {
+func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description, categoryID string, categories []model.Category) slack.ModalViewRequest {
 	// Title input block
 	titleBlock := slack.NewInputBlock(
 		"title_block",
@@ -211,17 +216,85 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description stri
 	}
 	descriptionBlock.Optional = true
 
+	// Category selection block
+	var categoryOptions []*slack.OptionBlockObject
+	var initialOption *slack.OptionBlockObject
+
+	// Ensure we have at least one category option
+	if len(categories) == 0 {
+		// Add a default unknown category if no categories are available
+		option := slack.NewOptionBlockObject(
+			"unknown",
+			slack.NewTextBlockObject(slack.PlainTextType, "Unknown", false, false),
+			slack.NewTextBlockObject(slack.PlainTextType, "Incidents that cannot be categorized", false, false),
+		)
+		categoryOptions = append(categoryOptions, option)
+		if categoryID == "unknown" || categoryID == "" {
+			initialOption = option
+		}
+	} else {
+		for _, category := range categories {
+			// Truncate description to avoid Slack limits (max 75 chars for option description)
+			description := category.Description
+			if len(description) > 75 {
+				description = description[:72] + "..."
+			}
+
+			option := slack.NewOptionBlockObject(
+				category.ID,
+				slack.NewTextBlockObject(slack.PlainTextType, category.Name, false, false),
+				slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
+			)
+			categoryOptions = append(categoryOptions, option)
+
+			// Set initial selection if this is the current category
+			if category.ID == categoryID {
+				initialOption = option
+			}
+		}
+	}
+
+	categoryBlock := slack.NewInputBlock(
+		"category_block",
+		slack.NewTextBlockObject(
+			slack.PlainTextType,
+			"Category",
+			false,
+			false,
+		),
+		nil,
+		slack.NewOptionsSelectBlockElement(
+			"static_select",
+			slack.NewTextBlockObject(
+				slack.PlainTextType,
+				"Select incident category",
+				false,
+				false,
+			),
+			"category_select",
+			categoryOptions...,
+		),
+	)
+
+	// Set initial option if we have a matching category
+	if initialOption != nil {
+		if selectElement, ok := categoryBlock.Element.(*slack.SelectBlockElement); ok {
+			selectElement.InitialOption = initialOption
+		}
+	}
+
 	return slack.ModalViewRequest{
 		Type:            slack.ViewType("modal"),
-		Title:           slack.NewTextBlockObject(slack.PlainTextType, "Create Incident", false, false),
+		Title:           slack.NewTextBlockObject(slack.PlainTextType, "Edit Incident", false, false),
 		Submit:          slack.NewTextBlockObject(slack.PlainTextType, "Declare", false, false),
 		Close:           slack.NewTextBlockObject(slack.PlainTextType, "Cancel", false, false),
-		CallbackID:      "incident_creation_modal",
+		CallbackID:      "incident_edit_modal",
 		PrivateMetadata: requestID, // Store request ID in private metadata
 		Blocks: slack.Blocks{
 			BlockSet: []slack.Block{
 				titleBlock,
 				descriptionBlock,
+				categoryBlock,
 			},
 		},
 	}
@@ -246,6 +319,26 @@ func (b *BlockBuilder) BuildIncidentPromptUsedBlocks(title string) []slack.Block
 			),
 			nil,
 			nil,
+		),
+	}
+}
+
+// BuildIncidentProcessingBlocks builds blocks to show that incident command is being processed
+func (b *BlockBuilder) BuildIncidentProcessingBlocks() []slack.Block {
+	return b.BuildContextBlocks("🔄 Processing incident command...")
+}
+
+// BuildContextBlocks builds generic context blocks with the given message
+func (b *BlockBuilder) BuildContextBlocks(message string) []slack.Block {
+	return []slack.Block{
+		slack.NewContextBlock(
+			"",
+			slack.NewTextBlockObject(
+				slack.MarkdownType,
+				message,
+				false,
+				false,
+			),
 		),
 	}
 }
