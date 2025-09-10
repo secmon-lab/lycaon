@@ -11,7 +11,16 @@ import (
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gollem"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/slack-go/slack"
+)
+
+// Error tags for categorization
+var (
+	ErrTagInvalidJSON     = goerr.NewTag("invalid_json")
+	ErrTagMissingField    = goerr.NewTag("missing_field")
+	ErrTagEmptyResponse   = goerr.NewTag("empty_response")
+	ErrTagTemplateFailure = goerr.NewTag("template_failure")
 )
 
 //go:embed templates/*.md
@@ -26,6 +35,7 @@ type LLMService struct {
 type IncidentSummary struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	CategoryID  string `json:"category_id"`
 }
 
 // TemplateMessage represents a message for template rendering
@@ -35,9 +45,10 @@ type TemplateMessage struct {
 	Text      string
 }
 
-// IncidentSummaryTemplateData contains data for incident summary template
-type IncidentSummaryTemplateData struct {
-	Messages []TemplateMessage
+// IncidentAnalysisTemplateData contains data for comprehensive incident analysis template
+type IncidentAnalysisTemplateData struct {
+	Categories []model.Category
+	Messages   []TemplateMessage
 }
 
 // NewLLMService creates a new LLMService instance
@@ -47,19 +58,24 @@ func NewLLMService(llmClient gollem.LLMClient) *LLMService {
 	}
 }
 
-// GenerateIncidentSummary generates title and description for an incident based on message history
-func (s *LLMService) GenerateIncidentSummary(ctx context.Context, messages []slack.Message) (*IncidentSummary, error) {
+// AnalyzeIncident performs comprehensive incident analysis in a single LLM call
+// Returns title, description, and category_id all at once
+func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig) (*IncidentSummary, error) {
 	if len(messages) == 0 {
-		return nil, goerr.New("no messages provided for summary generation")
+		return nil, goerr.New("no messages provided for incident analysis")
 	}
 
-	// Build template data from messages
-	templateData := s.buildTemplateData(messages)
+	// Build template data
+	templateData := IncidentAnalysisTemplateData{
+		Categories: categories.Categories,
+		Messages:   s.buildTemplateMessages(messages),
+	}
 
-	// Generate prompt using template
-	prompt, err := s.renderIncidentSummaryTemplate(templateData)
+	// Generate prompt using the unified template
+	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
 	if err != nil {
-		return nil, goerr.Wrap(err, "failed to render incident summary template")
+		return nil, goerr.Wrap(err, "failed to render incident analysis template",
+			goerr.T(ErrTagTemplateFailure))
 	}
 
 	// Create session with JSON content type
@@ -68,7 +84,7 @@ func (s *LLMService) GenerateIncidentSummary(ctx context.Context, messages []sla
 		return nil, goerr.Wrap(err, "failed to create LLM session")
 	}
 
-	// Generate response
+	// Generate response from LLM
 	response, err := session.GenerateContent(ctx, gollem.Text(prompt))
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to generate LLM response")
@@ -76,7 +92,8 @@ func (s *LLMService) GenerateIncidentSummary(ctx context.Context, messages []sla
 
 	// Check if response has content
 	if len(response.Texts) == 0 || response.Texts[0] == "" {
-		return nil, goerr.New("empty response from LLM")
+		return nil, goerr.New("empty response from LLM",
+			goerr.T(ErrTagEmptyResponse))
 	}
 
 	// Parse JSON response
@@ -84,22 +101,43 @@ func (s *LLMService) GenerateIncidentSummary(ctx context.Context, messages []sla
 	if err := json.Unmarshal([]byte(response.Texts[0]), &summary); err != nil {
 		return nil, goerr.Wrap(err, "failed to parse LLM response as JSON",
 			goerr.V("response", response.Texts[0]),
-		)
+			goerr.T(ErrTagInvalidJSON))
 	}
 
-	// Validate required fields
+	// Validate response
 	if summary.Title == "" {
-		return nil, goerr.New("LLM response missing required title field")
+		return nil, goerr.New("LLM response missing title",
+			goerr.T(ErrTagMissingField),
+			goerr.V("field", "title"))
 	}
 	if summary.Description == "" {
-		return nil, goerr.New("LLM response missing required description field")
+		return nil, goerr.New("LLM response missing description",
+			goerr.T(ErrTagMissingField),
+			goerr.V("field", "description"))
+	}
+
+	// Validate category ID
+	if summary.CategoryID == "" {
+		summary.CategoryID = "unknown"
+	} else {
+		// Check if the selected category is valid
+		found := false
+		for _, cat := range categories.Categories {
+			if cat.ID == summary.CategoryID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			summary.CategoryID = "unknown"
+		}
 	}
 
 	return &summary, nil
 }
 
-// buildTemplateData converts Slack messages to template data structure
-func (s *LLMService) buildTemplateData(messages []slack.Message) *IncidentSummaryTemplateData {
+// buildTemplateMessages converts Slack messages to template messages
+func (s *LLMService) buildTemplateMessages(messages []slack.Message) []TemplateMessage {
 	templateMessages := make([]TemplateMessage, 0, len(messages))
 
 	for _, msg := range messages {
@@ -125,29 +163,27 @@ func (s *LLMService) buildTemplateData(messages []slack.Message) *IncidentSummar
 		})
 	}
 
-	return &IncidentSummaryTemplateData{
-		Messages: templateMessages,
-	}
+	return templateMessages
 }
 
-// renderIncidentSummaryTemplate renders the incident summary template with data
-func (s *LLMService) renderIncidentSummaryTemplate(data *IncidentSummaryTemplateData) (string, error) {
-	// Read template from embedded filesystem
-	templateContent, err := templateFS.ReadFile("templates/incident_summary.md")
+// renderIncidentAnalysisTemplate renders the comprehensive incident analysis template
+func (s *LLMService) renderIncidentAnalysisTemplate(data IncidentAnalysisTemplateData) (string, error) {
+	// Load template from embedded filesystem
+	templateContent, err := templateFS.ReadFile("templates/incident_analysis.md")
 	if err != nil {
-		return "", goerr.Wrap(err, "failed to read incident summary template")
+		return "", goerr.Wrap(err, "failed to read incident analysis template")
 	}
 
 	// Parse template
-	tmpl, err := template.New("incident_summary").Parse(string(templateContent))
+	tmpl, err := template.New("incident_analysis").Parse(string(templateContent))
 	if err != nil {
-		return "", goerr.Wrap(err, "failed to parse incident summary template")
+		return "", goerr.Wrap(err, "failed to parse incident analysis template")
 	}
 
 	// Execute template
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", goerr.Wrap(err, "failed to execute incident summary template")
+		return "", goerr.Wrap(err, "failed to execute incident analysis template")
 	}
 
 	return buf.String(), nil

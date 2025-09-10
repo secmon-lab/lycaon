@@ -12,7 +12,23 @@ import (
 )
 
 // HandleCreateIncidentWithDetails handles the create incident with edited details from modal
-func (u *Incident) HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error) {
+func (u *Incident) HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, categoryID, userID string) (*model.Incident, error) {
+	return u.handleCreateIncidentFromRequest(ctx, requestID, userID, &incidentDetails{
+		title:       title,
+		description: description,
+		categoryID:  categoryID,
+	})
+}
+
+// incidentDetails holds the details for incident creation
+type incidentDetails struct {
+	title       string
+	description string
+	categoryID  string
+}
+
+// handleCreateIncidentFromRequest is the common implementation for creating incidents from requests
+func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestID, userID string, details *incidentDetails) (*model.Incident, error) {
 	if requestID == "" {
 		return nil, goerr.New("request ID is empty")
 	}
@@ -20,63 +36,72 @@ func (u *Incident) HandleCreateIncidentWithDetails(ctx context.Context, requestI
 		return nil, goerr.New("user ID is empty")
 	}
 
-	// Retrieve the incident request to get the channel ID
+	// Retrieve the incident request
 	request, err := u.repo.GetIncidentRequest(ctx, types.IncidentRequestID(requestID))
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to get incident request")
 	}
 
-	// Get channel info from Slack
-	channelInfo, err := u.slackClient.GetConversationInfo(ctx, request.ChannelID.String(), false)
-	if err != nil {
-		// If we can't get channel info, use channel ID as name
-		ctxlog.From(ctx).Warn("Failed to get conversation info, using channel ID as name",
-			"error", err,
-			"channelID", request.ChannelID,
-		)
-		channelInfo = &slack.Channel{
-			GroupConversation: slack.GroupConversation{
-				Name: request.ChannelID.String(),
-			},
+	var incident *model.Incident
+	var title string
+
+	if details != nil {
+		// Create incident with detailed information (from modal)
+		title = details.title
+
+		// Get channel info from Slack
+		channelInfo, err := u.slackClient.GetConversationInfo(ctx, request.ChannelID.String(), false)
+		if err != nil {
+			// If we can't get channel info, use channel ID as name
+			ctxlog.From(ctx).Warn("Failed to get conversation info, using channel ID as name",
+				"error", err,
+				"channelID", request.ChannelID,
+			)
+			channelInfo = &slack.Channel{
+				GroupConversation: slack.GroupConversation{
+					Name: request.ChannelID.String(),
+				},
+			}
+		}
+
+		// Create the incident with the provided details
+		incident, err = u.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             details.title,
+			Description:       details.description,
+			CategoryID:        details.categoryID,
+			OriginChannelID:   request.ChannelID.String(),
+			OriginChannelName: channelInfo.Name,
+			CreatedBy:         userID,
+		})
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to create incident")
+		}
+
+		// Send notification to the original channel for detailed incident
+		notificationBlocks := u.blockBuilder.BuildIncidentCreatedBlocks(channelInfo.Name, incident.ChannelID.String(), title, details.categoryID, u.categories)
+		if _, _, err := u.slackClient.PostMessage(
+			ctx,
+			request.ChannelID.String(),
+			slack.MsgOptionBlocks(notificationBlocks...),
+		); err != nil {
+			// Log error but don't fail - the incident was created successfully
+			ctxlog.From(ctx).Warn("Failed to post incident creation notification",
+				"error", err,
+				"channelID", request.ChannelID,
+				"incidentID", incident.ID,
+			)
+		}
+	} else {
+		// Create incident with basic information (from button)
+		title = request.Title
+		incident, err = u.CreateIncidentFromInteraction(ctx, request.ChannelID.String(), request.Title, userID)
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to create incident from interaction")
 		}
 	}
 
-	// Create the incident with the provided title and description
-	incident, err := u.CreateIncident(ctx, title, description, request.ChannelID.String(), channelInfo.Name, userID)
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to create incident")
-	}
-
 	// Update the original message to show incident was declared
-	usedBlocks := u.blockBuilder.BuildIncidentPromptUsedBlocks(title)
-	if _, _, _, err := u.slackClient.UpdateMessage(
-		ctx,
-		request.ChannelID.String(),
-		request.MessageTS.String(),
-		slack.MsgOptionBlocks(usedBlocks...),
-	); err != nil {
-		// Log error but don't fail - the incident was created successfully
-		ctxlog.From(ctx).Warn("Failed to update original message",
-			"error", err,
-			"channelID", request.ChannelID,
-			"messageTS", request.MessageTS,
-		)
-	}
-
-	// Send notification to the original channel
-	notificationBlocks := u.blockBuilder.BuildIncidentCreatedBlocks(channelInfo.Name, incident.ChannelID.String(), title)
-	if _, _, err := u.slackClient.PostMessage(
-		ctx,
-		request.ChannelID.String(),
-		slack.MsgOptionBlocks(notificationBlocks...),
-	); err != nil {
-		// Log error but don't fail - the incident was created successfully
-		ctxlog.From(ctx).Warn("Failed to post incident creation notification",
-			"error", err,
-			"channelID", request.ChannelID,
-			"incidentID", incident.ID,
-		)
-	}
+	u.updateOriginalMessageToDeclared(ctx, request, title)
 
 	// Clean up the request after successful creation
 	if err := u.repo.DeleteIncidentRequest(ctx, types.IncidentRequestID(requestID)); err != nil {
@@ -88,6 +113,33 @@ func (u *Incident) HandleCreateIncidentWithDetails(ctx context.Context, requestI
 	}
 
 	return incident, nil
+}
+
+// updateOriginalMessageToDeclared updates the original message to show incident was declared
+func (u *Incident) updateOriginalMessageToDeclared(ctx context.Context, request *model.IncidentRequest, title string) {
+	ctxlog.From(ctx).Info("Updating original message to show incident declared",
+		"channelID", request.ChannelID,
+		"messageTS", request.MessageTS,
+		"title", title,
+	)
+	usedBlocks := u.blockBuilder.BuildIncidentPromptUsedBlocks(title)
+	if _, _, _, err := u.slackClient.UpdateMessage(
+		ctx,
+		request.ChannelID.String(),
+		request.MessageTS.String(),
+		slack.MsgOptionBlocks(usedBlocks...),
+	); err != nil {
+		ctxlog.From(ctx).Warn("Failed to update original message",
+			"error", err,
+			"channelID", request.ChannelID,
+			"messageTS", request.MessageTS,
+		)
+	} else {
+		ctxlog.From(ctx).Info("Successfully updated original message",
+			"channelID", request.ChannelID,
+			"messageTS", request.MessageTS,
+		)
+	}
 }
 
 // GetIncidentRequest retrieves an incident request by ID
@@ -123,7 +175,12 @@ func (u *Incident) HandleEditIncidentAction(ctx context.Context, requestID, user
 	}
 
 	// Build the edit modal with the existing title and description pre-filled
-	modal := u.blockBuilder.BuildIncidentEditModal(requestID, request.Title, request.Description)
+	ctxlog.From(ctx).Debug("Building edit modal",
+		"requestID", requestID,
+		"categoriesCount", len(u.categories.Categories),
+		"currentCategoryID", request.CategoryID,
+	)
+	modal := u.blockBuilder.BuildIncidentEditModal(requestID, request.Title, request.Description, request.CategoryID, u.categories.Categories)
 
 	// Open the modal
 	_, err = u.slackClient.OpenView(ctx, triggerID, modal)

@@ -4,14 +4,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gollem"
 	"github.com/m-mizutani/gollem/mock"
 	"github.com/m-mizutani/gt"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/service/llm"
 	"github.com/slack-go/slack"
 )
 
-func TestLLMService_GenerateIncidentSummary_Success(t *testing.T) {
+func TestLLMService_AnalyzeIncident_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock LLM client using gollem's built-in mock
@@ -22,7 +24,8 @@ func TestLLMService_GenerateIncidentSummary_Success(t *testing.T) {
 					return &gollem.Response{
 						Texts: []string{`{
 							"title": "Web server outage with 500 errors",
-							"description": "Web server is down and returning 500 errors, preventing users from accessing the application. Multiple users confirmed the issue."
+							"description": "Web server is down and returning 500 errors, preventing users from accessing the application. Multiple users confirmed the issue.",
+							"category_id": "system_outage"
 						}`},
 					}, nil
 				},
@@ -31,6 +34,14 @@ func TestLLMService_GenerateIncidentSummary_Success(t *testing.T) {
 		},
 	}
 	service := llm.NewLLMService(mockClient)
+
+	// Setup test categories
+	categories := &model.CategoriesConfig{
+		Categories: []model.Category{
+			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
+			{ID: "performance", Name: "Performance", Description: "System performance degradation"},
+		},
+	}
 
 	// Setup test messages
 	messages := []slack.Message{
@@ -50,35 +61,27 @@ func TestLLMService_GenerateIncidentSummary_Success(t *testing.T) {
 		},
 	}
 
-	// Test the service
-	summary, err := service.GenerateIncidentSummary(ctx, messages)
+	// Call the method
+	summary, err := service.AnalyzeIncident(ctx, messages, categories)
 
-	gt.NoError(t, err).Required()
-	gt.NotEqual(t, summary, nil)
+	// Verify results
+	gt.NoError(t, err)
+	gt.NotNil(t, summary)
 	gt.Equal(t, summary.Title, "Web server outage with 500 errors")
 	gt.Equal(t, summary.Description, "Web server is down and returning 500 errors, preventing users from accessing the application. Multiple users confirmed the issue.")
+	gt.Equal(t, summary.CategoryID, "system_outage")
 }
 
-func TestLLMService_GenerateIncidentSummary_EmptyMessages(t *testing.T) {
+func TestLLMService_AnalyzeIncident_InvalidJSON(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &mock.LLMClientMock{}
-	service := llm.NewLLMService(mockClient)
 
-	// Test with empty messages
-	messages := []slack.Message{}
-
-	_, err := service.GenerateIncidentSummary(ctx, messages)
-	gt.Error(t, err).Contains("no messages provided")
-}
-
-func TestLLMService_GenerateIncidentSummary_InvalidJSON(t *testing.T) {
-	ctx := context.Background()
+	// Create mock LLM client that returns invalid JSON
 	mockClient := &mock.LLMClientMock{
 		NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
 			mockSession := &mock.SessionMock{
 				GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
 					return &gollem.Response{
-						Texts: []string{"invalid json response"},
+						Texts: []string{"not valid json"},
 					}, nil
 				},
 			}
@@ -86,6 +89,12 @@ func TestLLMService_GenerateIncidentSummary_InvalidJSON(t *testing.T) {
 		},
 	}
 	service := llm.NewLLMService(mockClient)
+
+	categories := &model.CategoriesConfig{
+		Categories: []model.Category{
+			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
+		},
+	}
 
 	messages := []slack.Message{
 		{
@@ -97,19 +106,27 @@ func TestLLMService_GenerateIncidentSummary_InvalidJSON(t *testing.T) {
 		},
 	}
 
-	_, err := service.GenerateIncidentSummary(ctx, messages)
-	gt.Error(t, err).Contains("failed to parse LLM response")
+	// Call the method
+	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+
+	// Verify error occurs with correct tag
+	gt.Error(t, err)
+	gt.B(t, goerr.HasTag(err, llm.ErrTagInvalidJSON)).True()
+	gt.Nil(t, summary)
 }
 
-func TestLLMService_GenerateIncidentSummary_MissingTitle(t *testing.T) {
+func TestLLMService_AnalyzeIncident_MissingTitle(t *testing.T) {
 	ctx := context.Background()
+
+	// Create mock LLM client that returns JSON without title
 	mockClient := &mock.LLMClientMock{
 		NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
 			mockSession := &mock.SessionMock{
 				GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
 					return &gollem.Response{
 						Texts: []string{`{
-							"description": "Some description"
+							"description": "Some description",
+							"category_id": "system_outage"
 						}`},
 					}, nil
 				},
@@ -118,6 +135,12 @@ func TestLLMService_GenerateIncidentSummary_MissingTitle(t *testing.T) {
 		},
 	}
 	service := llm.NewLLMService(mockClient)
+
+	categories := &model.CategoriesConfig{
+		Categories: []model.Category{
+			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
+		},
+	}
 
 	messages := []slack.Message{
 		{
@@ -129,20 +152,31 @@ func TestLLMService_GenerateIncidentSummary_MissingTitle(t *testing.T) {
 		},
 	}
 
-	_, err := service.GenerateIncidentSummary(ctx, messages)
-	gt.Error(t, err).Contains("missing required title")
+	// Call the method
+	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+
+	// Verify error occurs with correct tag and field info
+	gt.Error(t, err)
+	gt.B(t, goerr.HasTag(err, llm.ErrTagMissingField)).True()
+	// Check that the error contains field information
+	values := goerr.Values(err)
+	gt.V(t, values["field"]).Equal("title")
+	gt.Nil(t, summary)
 }
 
-func TestLLMService_BuildConversationText(t *testing.T) {
-	// This is a unit test for the private method via exported behavior
+func TestLLMService_AnalyzeIncident_InvalidCategory(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock LLM client that returns invalid category
 	mockClient := &mock.LLMClientMock{
 		NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
 			mockSession := &mock.SessionMock{
 				GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
 					return &gollem.Response{
 						Texts: []string{`{
-							"title": "Test Title",
-							"description": "Test Description"
+							"title": "Test incident",
+							"description": "Test description",
+							"category_id": "nonexistent_category"
 						}`},
 					}, nil
 				},
@@ -152,45 +186,71 @@ func TestLLMService_BuildConversationText(t *testing.T) {
 	}
 	service := llm.NewLLMService(mockClient)
 
+	categories := &model.CategoriesConfig{
+		Categories: []model.Category{
+			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
+		},
+	}
+
 	messages := []slack.Message{
 		{
 			Msg: slack.Msg{
 				Timestamp: "1234567890.000001",
 				User:      "U123456",
-				Text:      "First message",
-			},
-		},
-		{
-			Msg: slack.Msg{
-				Timestamp: "1234567890.000002",
-				User:      "U789012",
-				Text:      "Second message",
-			},
-		},
-		{
-			Msg: slack.Msg{
-				Timestamp: "", // Empty timestamp
-				User:      "U345678",
-				Text:      "Third message",
-			},
-		},
-		{
-			Msg: slack.Msg{
-				Text: "", // Empty text should be skipped
+				Text:      "Test message",
 			},
 		},
 	}
 
-	ctx := context.Background()
-	_, err := service.GenerateIncidentSummary(ctx, messages)
+	// Call the method
+	summary, err := service.AnalyzeIncident(ctx, messages, categories)
 
-	// Should succeed, indicating the conversation text was built correctly
-	gt.NoError(t, err).Required()
+	// Verify that invalid category falls back to "unknown"
+	gt.NoError(t, err)
+	gt.NotNil(t, summary)
+	gt.Equal(t, summary.CategoryID, "unknown")
 }
 
-func TestNewLLMService(t *testing.T) {
-	mockClient := &mock.LLMClientMock{}
+func TestLLMService_AnalyzeIncident_EmptyResponse(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock LLM client that returns empty response
+	mockClient := &mock.LLMClientMock{
+		NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+			mockSession := &mock.SessionMock{
+				GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+					return &gollem.Response{
+						Texts: []string{},
+					}, nil
+				},
+			}
+			return mockSession, nil
+		},
+	}
 	service := llm.NewLLMService(mockClient)
 
-	gt.NotEqual(t, service, nil)
+	categories := &model.CategoriesConfig{
+		Categories: []model.Category{
+			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
+		},
+	}
+
+	messages := []slack.Message{
+		{
+			Msg: slack.Msg{
+				Timestamp: "1234567890.000001",
+				User:      "U123456",
+				Text:      "Test message",
+			},
+		},
+	}
+
+	// Call the method
+	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+
+	// Verify error occurs with correct tag
+	gt.Error(t, err)
+	gt.B(t, goerr.HasTag(err, llm.ErrTagEmptyResponse)).True()
+	gt.Nil(t, summary)
 }
+

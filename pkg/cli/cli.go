@@ -32,6 +32,7 @@ func Run(ctx context.Context, args []string) error {
 		},
 		Commands: []*cli.Command{
 			cmdServe(),
+			ConfigInitCommand,
 		},
 	}
 

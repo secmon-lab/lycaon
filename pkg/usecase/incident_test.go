@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
@@ -52,18 +53,19 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 
-		// Create use case with mock
-		uc := usecase.NewIncident(repo, mockSlack)
+		// Create use case with mock and default categories
+		categories := model.GetDefaultCategories()
+		uc := usecase.NewIncident(repo, mockSlack, categories)
 
 		// Create an incident
-		incident, err := uc.CreateIncident(
-			ctx,
-			"database outage",
-			"",
-			"C-ORIGIN",
-			"general",
-			"U-CREATOR",
-		)
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "database outage",
+			Description:       "",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-CREATOR",
+		})
 
 		// Verify incident was created successfully
 		gt.NoError(t, err).Required()
@@ -116,20 +118,42 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		uc := usecase.NewIncident(repo, mockSlack)
+		categories := model.GetDefaultCategories()
+		uc := usecase.NewIncident(repo, mockSlack, categories)
 
 		// Create first incident
-		incident1, _ := uc.CreateIncident(ctx, "api error", "", "C1", "channel1", "U1")
+		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "api error",
+			Description:       "",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C1",
+			OriginChannelName: "channel1",
+			CreatedBy:         "U1",
+		})
 		gt.Equal(t, 1, incident1.ID)
 		gt.Equal(t, "inc-1-api-error", incident1.ChannelName)
 
 		// Create second incident
-		incident2, _ := uc.CreateIncident(ctx, "database down", "", "C2", "channel2", "U2")
+		incident2, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "database down",
+			Description:       "",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C2",
+			OriginChannelName: "channel2",
+			CreatedBy:         "U2",
+		})
 		gt.Equal(t, 2, incident2.ID)
 		gt.Equal(t, "inc-2-database-down", incident2.ChannelName)
 
 		// Create third incident
-		incident3, _ := uc.CreateIncident(ctx, "", "", "C3", "channel3", "U3")
+		incident3, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "",
+			Description:       "",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C3",
+			OriginChannelName: "channel3",
+			CreatedBy:         "U3",
+		})
 		gt.Equal(t, 3, incident3.ID)
 		gt.Equal(t, "inc-3", incident3.ChannelName)
 	})
@@ -166,10 +190,18 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		uc := usecase.NewIncident(repo, mockSlack)
+		categories := model.GetDefaultCategories()
+		uc := usecase.NewIncident(repo, mockSlack, categories)
 
 		// Create an incident
-		created, err := uc.CreateIncident(ctx, "test incident", "", "C-TEST", "test-channel", "U-TEST")
+		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "test incident",
+			Description:       "",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-TEST",
+			OriginChannelName: "test-channel",
+			CreatedBy:         "U-TEST",
+		})
 		gt.NoError(t, err).Required()
 
 		// Retrieve the incident
@@ -213,7 +245,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		uc := usecase.NewIncident(repo, mockSlack)
+		categories := model.GetDefaultCategories()
+		uc := usecase.NewIncident(repo, mockSlack, categories)
 
 		// Try to get non-existent incident
 		incident, err := uc.GetIncident(ctx, 999)
@@ -235,10 +268,18 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		mockSlack := &mocks.SlackClientMock{}
-		uc := usecase.NewIncident(mockRepo, mockSlack)
+		categories := model.GetDefaultCategories()
+		uc := usecase.NewIncident(mockRepo, mockSlack, categories)
 
 		// Try to create incident - should fail due to repository error
-		incident, err := uc.CreateIncident(ctx, "test", "", "C1", "channel1", "U1")
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "test",
+			Description:       "",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C1",
+			OriginChannelName: "channel1",
+			CreatedBy:         "U1",
+		})
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
 		gt.S(t, err.Error()).Contains("failed to get next incident number")

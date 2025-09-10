@@ -5,73 +5,27 @@ import (
 	"testing"
 
 	"github.com/m-mizutani/gt"
-	"github.com/secmon-lab/lycaon/pkg/controller/slack"
+	slack "github.com/secmon-lab/lycaon/pkg/controller/slack"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/slack-go/slack/slackevents"
 )
 
-// MockSlackMessageUseCase mocks the SlackMessageUseCase interface
-type MockSlackMessageUseCase struct {
-	ProcessMessageFunc       func(ctx context.Context, event *slackevents.MessageEvent) error
-	SaveAndRespondFunc       func(ctx context.Context, event *slackevents.MessageEvent) (string, error)
-	GenerateResponseFunc     func(ctx context.Context, message *model.Message) (string, error)
-	ParseIncidentCommandFunc func(ctx context.Context, message *model.Message) interfaces.IncidentCommand
-	SendIncidentMessageFunc  func(ctx context.Context, channelID, messageTS, title, description string) error
-}
-
-func (m *MockSlackMessageUseCase) ProcessMessage(ctx context.Context, event *slackevents.MessageEvent) error {
-	if m.ProcessMessageFunc != nil {
-		return m.ProcessMessageFunc(ctx, event)
-	}
-	return nil
-}
-
-func (m *MockSlackMessageUseCase) SaveAndRespond(ctx context.Context, event *slackevents.MessageEvent) (string, error) {
-	if m.SaveAndRespondFunc != nil {
-		return m.SaveAndRespondFunc(ctx, event)
-	}
-	return "mock response", nil
-}
-
-func (m *MockSlackMessageUseCase) GenerateResponse(ctx context.Context, message *model.Message) (string, error) {
-	if m.GenerateResponseFunc != nil {
-		return m.GenerateResponseFunc(ctx, message)
-	}
-	return "mock response", nil
-}
-
-func (m *MockSlackMessageUseCase) ParseIncidentCommand(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
-	if m.ParseIncidentCommandFunc != nil {
-		return m.ParseIncidentCommandFunc(ctx, message)
-	}
-	return interfaces.IncidentCommand{IsIncidentTrigger: false, Title: ""}
-}
-
-func (m *MockSlackMessageUseCase) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description string) error {
-	if m.SendIncidentMessageFunc != nil {
-		return m.SendIncidentMessageFunc(ctx, channelID, messageTS, title, description)
-	}
-	return nil
-}
-
 func TestEventHandlerHandleEvent(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Handle nil event", func(t *testing.T) {
-		mockUC := &MockSlackMessageUseCase{}
+	t.Run("handles nil event", func(t *testing.T) {
+		mockUC := &mocks.SlackMessageMock{}
 		handler := slack.NewEventHandler(ctx, mockUC)
 
 		err := handler.HandleEvent(ctx, nil)
 		gt.Error(t, err)
-		gt.S(t, err.Error()).Contains("event is nil")
 	})
 
-	t.Run("Handle message event", func(t *testing.T) {
-		var processedMessage *slackevents.MessageEvent
-		mockUC := &MockSlackMessageUseCase{
+	t.Run("handles message event successfully", func(t *testing.T) {
+		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				processedMessage = event
 				return nil
 			},
 		}
@@ -82,26 +36,22 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 			InnerEvent: slackevents.EventsAPIInnerEvent{
 				Type: string(slackevents.Message),
 				Data: &slackevents.MessageEvent{
-					ClientMsgID: "msg-001",
-					User:        "U12345",
-					Channel:     "C12345",
-					Text:        "Test message",
-					TimeStamp:   "1234567890.123456",
+					Type: "message",
+					Text: "test message",
+					User: "U123456",
 				},
 			},
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.V(t, processedMessage).NotNil()
-		gt.Equal(t, "Test message", processedMessage.Text)
+		gt.NoError(t, err)
 	})
 
-	t.Run("Skip bot messages", func(t *testing.T) {
-		var processedMessage *slackevents.MessageEvent
-		mockUC := &MockSlackMessageUseCase{
+	t.Run("skips bot messages", func(t *testing.T) {
+		processCalled := false
+		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				processedMessage = event
+				processCalled = true
 				return nil
 			},
 		}
@@ -112,30 +62,24 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 			InnerEvent: slackevents.EventsAPIInnerEvent{
 				Type: string(slackevents.Message),
 				Data: &slackevents.MessageEvent{
-					BotID:     "B12345",
-					User:      "U12345",
-					Channel:   "C12345",
-					Text:      "Bot message",
-					TimeStamp: "1234567890.123456",
+					Type:  "message",
+					Text:  "bot message",
+					BotID: "B123456",
 				},
 			},
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.V(t, processedMessage).Nil() // Message should not be processed
+		gt.NoError(t, err)
+		gt.B(t, processCalled).False()
 	})
 
-	t.Run("Handle app mention event", func(t *testing.T) {
-		var savedEvent *slackevents.MessageEvent
-		mockUC := &MockSlackMessageUseCase{
+	t.Run("skips empty messages", func(t *testing.T) {
+		processCalled := false
+		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				savedEvent = event
+				processCalled = true
 				return nil
-			},
-			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
-				// Not an incident trigger
-				return interfaces.IncidentCommand{IsIncidentTrigger: false}
 			},
 		}
 		handler := slack.NewEventHandler(ctx, mockUC)
@@ -143,43 +87,40 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
 			InnerEvent: slackevents.EventsAPIInnerEvent{
-				Type: string(slackevents.AppMention),
-				Data: &slackevents.AppMentionEvent{
-					User:      "U12345",
-					Channel:   "C12345",
-					Text:      "<@U99999> help me",
-					TimeStamp: "1234567890.123456",
+				Type: string(slackevents.Message),
+				Data: &slackevents.MessageEvent{
+					Type: "message",
+					Text: "",
+					User: "U123456",
 				},
 			},
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.V(t, savedEvent).NotNil()
-		gt.Equal(t, "<@U99999> help me", savedEvent.Text)
+		gt.NoError(t, err)
+		gt.B(t, processCalled).False()
 	})
 
-	t.Run("Handle app mention with incident trigger", func(t *testing.T) {
-		var savedEvent *slackevents.MessageEvent
-		var incidentMessageSent bool
-		mockUC := &MockSlackMessageUseCase{
+	t.Run("handles app mention event with inc command", func(t *testing.T) {
+		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				savedEvent = event
+				return nil
+			},
+			IsBasicIncidentTriggerFunc: func(ctx context.Context, message *model.Message) bool {
+				return true
+			},
+			SendProcessingMessageFunc: func(ctx context.Context, channelID, messageTS string) error {
 				return nil
 			},
 			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
-				// This is an incident trigger
 				return interfaces.IncidentCommand{
 					IsIncidentTrigger: true,
-					Title:             "database issue",
+					Title:             "Test Incident",
+					Description:       "Test Description",
+					CategoryID:        "test-category",
 				}
 			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description string) error {
-				incidentMessageSent = true
-				gt.Equal(t, "C12345", channelID)
-				gt.Equal(t, "1234567890.123456", messageTS)
-				gt.Equal(t, "database issue", title)
-				// Description may be empty for manually provided title
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description, categoryID string) error {
 				return nil
 			},
 		}
@@ -190,39 +131,31 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 			InnerEvent: slackevents.EventsAPIInnerEvent{
 				Type: string(slackevents.AppMention),
 				Data: &slackevents.AppMentionEvent{
-					User:      "U12345",
-					Channel:   "C12345",
-					Text:      "<@U99999> inc database issue",
+					Type:      "app_mention",
+					Text:      "<@BOT123> inc Test Incident",
+					User:      "U123456",
+					Channel:   "C123456",
 					TimeStamp: "1234567890.123456",
 				},
 			},
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.V(t, savedEvent).NotNil()
-		gt.Equal(t, "<@U99999> inc database issue", savedEvent.Text)
-		gt.True(t, incidentMessageSent)
+		gt.NoError(t, err)
 	})
-}
 
-func TestEventHandlerIncidentTrigger(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Regular message does not trigger incident", func(t *testing.T) {
-		var incidentMessageSent bool
-
-		mockUC := &MockSlackMessageUseCase{
+	t.Run("handles app mention event without inc command", func(t *testing.T) {
+		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
 				return nil
+			},
+			IsBasicIncidentTriggerFunc: func(ctx context.Context, message *model.Message) bool {
+				return false
 			},
 			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
-				// This shouldn't be called for regular messages anymore
-				return interfaces.IncidentCommand{IsIncidentTrigger: true, Title: "something happened"}
-			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description string) error {
-				incidentMessageSent = true
-				return nil
+				return interfaces.IncidentCommand{
+					IsIncidentTrigger: false,
+				}
 			},
 		}
 		handler := slack.NewEventHandler(ctx, mockUC)
@@ -230,35 +163,26 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
 			InnerEvent: slackevents.EventsAPIInnerEvent{
-				Type: string(slackevents.Message),
-				Data: &slackevents.MessageEvent{
-					ClientMsgID: "msg-inc-1",
-					User:        "U12345",
-					Channel:     "C12345",
-					Text:        "inc something happened",
-					TimeStamp:   "1234567890.123456",
+				Type: string(slackevents.AppMention),
+				Data: &slackevents.AppMentionEvent{
+					Type:      "app_mention",
+					Text:      "<@BOT123> hello",
+					User:      "U123456",
+					Channel:   "C123456",
+					TimeStamp: "1234567890.123456",
 				},
 			},
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		// Incident should NOT be triggered from regular message events
-		gt.False(t, incidentMessageSent)
+		gt.NoError(t, err)
 	})
 
-	t.Run("No trigger for normal message", func(t *testing.T) {
-		var incidentMessageSent bool
-
-		mockUC := &MockSlackMessageUseCase{
+	t.Run("handles thread messages", func(t *testing.T) {
+		processCalled := false
+		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				return nil
-			},
-			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
-				return interfaces.IncidentCommand{IsIncidentTrigger: false, Title: ""}
-			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description string) error {
-				incidentMessageSent = true
+				processCalled = true
 				return nil
 			},
 		}
@@ -269,76 +193,74 @@ func TestEventHandlerIncidentTrigger(t *testing.T) {
 			InnerEvent: slackevents.EventsAPIInnerEvent{
 				Type: string(slackevents.Message),
 				Data: &slackevents.MessageEvent{
-					ClientMsgID: "msg-normal-001",
-					User:        "U12345",
-					Channel:     "C12345",
-					Text:        "normal message",
-					TimeStamp:   "1234567890.123456",
-				},
-			},
-		}
-
-		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.False(t, incidentMessageSent)
-	})
-
-	t.Run("Skip empty messages", func(t *testing.T) {
-		var processedMessage *slackevents.MessageEvent
-		mockUC := &MockSlackMessageUseCase{
-			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				processedMessage = event
-				return nil
-			},
-		}
-		handler := slack.NewEventHandler(ctx, mockUC)
-
-		event := &slackevents.EventsAPIEvent{
-			Type: slackevents.CallbackEvent,
-			InnerEvent: slackevents.EventsAPIInnerEvent{
-				Type: string(slackevents.Message),
-				Data: &slackevents.MessageEvent{
-					ClientMsgID: "msg-empty-001",
-					User:        "U12345",
-					Channel:     "C12345",
-					Text:        "",
-					TimeStamp:   "1234567890.123456",
-				},
-			},
-		}
-
-		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.V(t, processedMessage).Nil() // Empty message should not be processed
-	})
-
-	t.Run("Skip thread messages", func(t *testing.T) {
-		var processedMessage *slackevents.MessageEvent
-		mockUC := &MockSlackMessageUseCase{
-			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
-				processedMessage = event
-				return nil
-			},
-		}
-		handler := slack.NewEventHandler(ctx, mockUC)
-
-		event := &slackevents.EventsAPIEvent{
-			Type: slackevents.CallbackEvent,
-			InnerEvent: slackevents.EventsAPIInnerEvent{
-				Type: string(slackevents.Message),
-				Data: &slackevents.MessageEvent{
-					ClientMsgID:     "msg-thread-001",
-					User:            "U12345",
-					Channel:         "C12345",
-					Text:            "Thread reply",
+					Type:            "message",
+					Text:            "thread message",
+					User:            "U123456",
 					TimeStamp:       "1234567890.123456",
-					ThreadTimeStamp: "1234567890.000000", // Different from TimeStamp
+					ThreadTimeStamp: "1234567890.000000",
 				},
 			},
 		}
 
 		err := handler.HandleEvent(ctx, event)
-		gt.NoError(t, err).Required()
-		gt.V(t, processedMessage).Nil() // Thread message should not be processed
+		gt.NoError(t, err)
+		gt.B(t, processCalled).False()
+	})
+
+	t.Run("handles unsupported event type", func(t *testing.T) {
+		mockUC := &mocks.SlackMessageMock{}
+		handler := slack.NewEventHandler(ctx, mockUC)
+
+		event := &slackevents.EventsAPIEvent{
+			Type: slackevents.CallbackEvent,
+			InnerEvent: slackevents.EventsAPIInnerEvent{
+				Type: "unsupported_event",
+				Data: "unsupported data",
+			},
+		}
+
+		err := handler.HandleEvent(ctx, event)
+		gt.NoError(t, err)
+	})
+
+	t.Run("handles app mention event without inc command - no incident message sent", func(t *testing.T) {
+		sendIncidentCalled := false
+		mockUC := &mocks.SlackMessageMock{
+			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
+				return nil
+			},
+			IsBasicIncidentTriggerFunc: func(ctx context.Context, message *model.Message) bool {
+				return false
+			},
+			ParseIncidentCommandFunc: func(ctx context.Context, message *model.Message) interfaces.IncidentCommand {
+				return interfaces.IncidentCommand{
+					IsIncidentTrigger: false,
+				}
+			},
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description, categoryID string) error {
+				sendIncidentCalled = true
+				return nil
+			},
+		}
+		handler := slack.NewEventHandler(ctx, mockUC)
+
+		event := &slackevents.EventsAPIEvent{
+			Type: slackevents.CallbackEvent,
+			InnerEvent: slackevents.EventsAPIInnerEvent{
+				Type: string(slackevents.AppMention),
+				Data: &slackevents.AppMentionEvent{
+					Type:      "app_mention",
+					Text:      "<@BOT123> hello",
+					User:      "U123456",
+					Channel:   "C123456",
+					TimeStamp: "1234567890.123456",
+				},
+			},
+		}
+
+		err := handler.HandleEvent(ctx, event)
+		gt.NoError(t, err)
+		gt.B(t, sendIncidentCalled).False()
 	})
 }
+

@@ -23,6 +23,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/controller/slack"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	slackgo "github.com/slack-go/slack"
@@ -54,9 +55,10 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
-	incidentUC := usecase.NewIncident(repo, nil)
+	categories := model.GetDefaultCategories()
+	incidentUC := usecase.NewIncident(repo, nil, categories)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 
@@ -100,9 +102,10 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
-	incidentUC := usecase.NewIncident(repo, nil)
+	categories := model.GetDefaultCategories()
+	incidentUC := usecase.NewIncident(repo, nil, categories)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 
@@ -131,9 +134,10 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
-	incidentUC := usecase.NewIncident(repo, nil)
+	categories := model.GetDefaultCategories()
+	incidentUC := usecase.NewIncident(repo, nil, categories)
 
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
 

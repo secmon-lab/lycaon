@@ -16,32 +16,32 @@ import (
 
 // MockIncidentUseCase mocks the IncidentUseCase interface
 type MockIncidentUseCase struct {
-	CreateIncidentFunc                  func(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error)
+	CreateIncidentFunc                  func(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error)
 	GetIncidentFunc                     func(ctx context.Context, id int) (*model.Incident, error)
 	CreateIncidentFromInteractionFunc   func(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
 	HandleCreateIncidentActionFunc      func(ctx context.Context, requestID, userID string) (*model.Incident, error)
-	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error)
+	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID, title, description, categoryID, userID string) (*model.Incident, error)
 	GetIncidentRequestFunc              func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
 	HandleEditIncidentActionFunc        func(ctx context.Context, requestID, userID, triggerID string) error
 	HandleCreateIncidentActionAsyncFunc func(ctx context.Context, requestID, userID, channelID string)
 }
 
-func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
+func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error) {
 	if m.CreateIncidentFunc != nil {
-		return m.CreateIncidentFunc(ctx, title, description, originChannelID, originChannelName, createdBy)
+		return m.CreateIncidentFunc(ctx, req)
 	}
 
 	channelName := "inc-1"
-	if title != "" {
-		channelName = "inc-1-" + title
+	if req.Title != "" {
+		channelName = "inc-1-" + req.Title
 	}
 
 	return &model.Incident{
 		ID:              1,
-		Title:           title,
+		Title:           req.Title,
 		ChannelName:     types.ChannelName(channelName),
-		OriginChannelID: types.ChannelID(originChannelID),
-		CreatedBy:       types.SlackUserID(createdBy),
+		OriginChannelID: types.ChannelID(req.OriginChannelID),
+		CreatedBy:       types.SlackUserID(req.CreatedBy),
 	}, nil
 }
 
@@ -58,7 +58,14 @@ func (m *MockIncidentUseCase) CreateIncidentFromInteraction(ctx context.Context,
 	}
 
 	// Default to calling CreateIncident with a dummy channel name
-	return m.CreateIncident(ctx, title, "", originChannelID, "general", userID)
+	return m.CreateIncident(ctx, &model.CreateIncidentRequest{
+		Title:             title,
+		Description:       "",
+		CategoryID:        "unknown",
+		OriginChannelID:   originChannelID,
+		OriginChannelName: "general",
+		CreatedBy:         userID,
+	})
 }
 
 func (m *MockIncidentUseCase) HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error) {
@@ -78,9 +85,9 @@ func (m *MockIncidentUseCase) HandleCreateIncidentAction(ctx context.Context, re
 	}, nil
 }
 
-func (m *MockIncidentUseCase) HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, userID string) (*model.Incident, error) {
+func (m *MockIncidentUseCase) HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, categoryID, userID string) (*model.Incident, error) {
 	if m.HandleCreateIncidentWithDetailsFunc != nil {
-		return m.HandleCreateIncidentWithDetailsFunc(ctx, requestID, title, description, userID)
+		return m.HandleCreateIncidentWithDetailsFunc(ctx, requestID, title, description, categoryID, userID)
 	}
 
 	// Default implementation
@@ -379,6 +386,14 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 							"description_input": slackgo.BlockAction{
 								Type:  "plain_text_input",
 								Value: "Test Description",
+							},
+						},
+						"category_block": {
+							"category_select": slackgo.BlockAction{
+								Type: "static_select",
+								SelectedOption: slackgo.OptionBlockObject{
+									Value: "system_failure",
+								},
 							},
 						},
 					},

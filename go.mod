@@ -17,6 +17,7 @@ require (
 	golang.org/x/term v0.35.0
 	google.golang.org/api v0.249.0
 	google.golang.org/grpc v1.75.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

@@ -16,6 +16,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	slackgo "github.com/slack-go/slack"
@@ -40,9 +41,10 @@ func TestServerHealthCheck(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
-	incidentUC := usecase.NewIncident(repo, nil)
+	categories := model.GetDefaultCategories()
+	incidentUC := usecase.NewIncident(repo, nil, categories)
 
 	server, err := controller.NewServer(
 		ctx,
@@ -79,9 +81,10 @@ func TestServerFallbackHome(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack)
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
-	incidentUC := usecase.NewIncident(repo, nil)
+	categories := model.GetDefaultCategories()
+	incidentUC := usecase.NewIncident(repo, nil, categories)
 
 	server, err := controller.NewServer(
 		ctx,

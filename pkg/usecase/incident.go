@@ -17,19 +17,21 @@ type Incident struct {
 	repo         interfaces.Repository
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackSvc.BlockBuilder
+	categories   *model.CategoriesConfig
 }
 
 // NewIncident creates a new Incident instance with a custom SlackClient
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient) *Incident {
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig) *Incident {
 	return &Incident{
 		repo:         repo,
 		slackClient:  slackClient,
 		blockBuilder: slackSvc.NewBlockBuilder(),
+		categories:   categories,
 	}
 }
 
 // CreateIncident creates a new incident
-func (u *Incident) CreateIncident(ctx context.Context, title, description, originChannelID, originChannelName, createdBy string) (*model.Incident, error) {
+func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error) {
 	// Get next incident number
 	incidentNumber, err := u.repo.GetNextIncidentNumber(ctx)
 	if err != nil {
@@ -37,7 +39,7 @@ func (u *Incident) CreateIncident(ctx context.Context, title, description, origi
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(incidentNumber, title, description, types.ChannelID(originChannelID), types.ChannelName(originChannelName), types.SlackUserID(createdBy))
+	incident, err := model.NewIncident(incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), types.SlackUserID(req.CreatedBy))
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}
@@ -54,14 +56,14 @@ func (u *Incident) CreateIncident(ctx context.Context, title, description, origi
 	}
 
 	// Set channel purpose/description if title is provided
-	if title != "" {
-		_, err = u.slackClient.SetPurposeOfConversationContext(ctx, channel.ID, title)
+	if req.Title != "" {
+		_, err = u.slackClient.SetPurposeOfConversationContext(ctx, channel.ID, req.Title)
 		if err != nil {
 			// Log error but don't fail - setting purpose is nice to have but not critical
 			ctxlog.From(ctx).Warn("Failed to set channel purpose",
 				"error", err,
 				"channelID", channel.ID,
-				"title", title,
+				"title", req.Title,
 			)
 		}
 	}
@@ -70,19 +72,19 @@ func (u *Incident) CreateIncident(ctx context.Context, title, description, origi
 	incident.ChannelID = types.ChannelID(channel.ID)
 
 	// Invite creator to the channel
-	_, err = u.slackClient.InviteUsersToConversation(ctx, channel.ID, createdBy)
+	_, err = u.slackClient.InviteUsersToConversation(ctx, channel.ID, req.CreatedBy)
 	if err != nil {
 		// Log error but don't fail - user might already be in channel or invitation might fail for other reasons
 		// The incident is still created successfully
 		ctxlog.From(ctx).Warn("Failed to invite user to incident channel",
 			"error", err,
 			"channelID", channel.ID,
-			"userID", createdBy,
+			"userID", req.CreatedBy,
 		)
 	}
 
 	// Post welcome message to the incident channel
-	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(int(incidentNumber), originChannelName, createdBy, incident.Description)
+	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(int(incidentNumber), req.OriginChannelName, req.CreatedBy, incident.Description, req.CategoryID, u.categories)
 	_, _, err = u.slackClient.PostMessage(
 		ctx,
 		channel.ID,
@@ -132,7 +134,14 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 	}
 
 	// Create the incident (with empty description for backward compatibility)
-	incident, err := u.CreateIncident(ctx, title, "", originChannelID, channelInfo.Name, userID)
+	incident, err := u.CreateIncident(ctx, &model.CreateIncidentRequest{
+		Title:             title,
+		Description:       "",
+		CategoryID:        "unknown",
+		OriginChannelID:   originChannelID,
+		OriginChannelName: channelInfo.Name,
+		CreatedBy:         userID,
+	})
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident")
 	}
@@ -142,6 +151,8 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 		incident.ChannelName.String(),
 		incident.ChannelID.String(),
 		incident.Title,
+		incident.CategoryID,
+		u.categories,
 	)
 	_, _, err = u.slackClient.PostMessage(
 		ctx,
@@ -163,50 +174,5 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 
 // HandleCreateIncidentAction handles the complete flow when a user clicks the create incident button
 func (u *Incident) HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error) {
-	if requestID == "" {
-		return nil, goerr.New("request ID is empty")
-	}
-	if userID == "" {
-		return nil, goerr.New("user ID is empty")
-	}
-
-	// Retrieve the incident request
-	request, err := u.repo.GetIncidentRequest(ctx, types.IncidentRequestID(requestID))
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to get incident request")
-	}
-
-	// Create the incident using the stored request data
-	incident, err := u.CreateIncidentFromInteraction(ctx, request.ChannelID.String(), request.Title, userID)
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to create incident from interaction")
-	}
-
-	// Update the original message to show incident was declared
-	usedBlocks := u.blockBuilder.BuildIncidentPromptUsedBlocks(request.Title)
-	if _, _, _, err := u.slackClient.UpdateMessage(
-		ctx,
-		request.ChannelID.String(),
-		request.MessageTS.String(),
-		slack.MsgOptionBlocks(usedBlocks...),
-	); err != nil {
-		// Log error but don't fail - the incident was created successfully
-		ctxlog.From(ctx).Warn("Failed to update original message",
-			"error", err,
-			"channelID", request.ChannelID,
-			"messageTS", request.MessageTS,
-		)
-	}
-
-	// Clean up the request after successful creation
-	if err := u.repo.DeleteIncidentRequest(ctx, types.IncidentRequestID(requestID)); err != nil {
-		// Log error but don't fail - the incident was created successfully
-		// Just log this as a warning since the request will expire anyway
-		ctxlog.From(ctx).Warn("Failed to delete incident request after creation",
-			"error", err,
-			"requestID", requestID,
-		)
-	}
-
-	return incident, nil
+	return u.handleCreateIncidentFromRequest(ctx, requestID, userID, nil)
 }
