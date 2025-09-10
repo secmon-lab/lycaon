@@ -44,6 +44,9 @@ var _ interfaces.SlackClient = &SlackClientMock{}
 //			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
 //				panic("mock out the PostMessage method")
 //			},
+//			SendContextMessageFunc: func(ctx context.Context, channelID string, messageTS string, contextText string) string {
+//				panic("mock out the SendContextMessage method")
+//			},
 //			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID string, purpose string) (*slack.Channel, error) {
 //				panic("mock out the SetPurposeOfConversationContext method")
 //			},
@@ -80,6 +83,9 @@ type SlackClientMock struct {
 
 	// PostMessageFunc mocks the PostMessage method.
 	PostMessageFunc func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error)
+
+	// SendContextMessageFunc mocks the SendContextMessage method.
+	SendContextMessageFunc func(ctx context.Context, channelID string, messageTS string, contextText string) string
 
 	// SetPurposeOfConversationContextFunc mocks the SetPurposeOfConversationContext method.
 	SetPurposeOfConversationContextFunc func(ctx context.Context, channelID string, purpose string) (*slack.Channel, error)
@@ -151,6 +157,17 @@ type SlackClientMock struct {
 			// Options is the options argument value.
 			Options []slack.MsgOption
 		}
+		// SendContextMessage holds details about calls to the SendContextMessage method.
+		SendContextMessage []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID string
+			// MessageTS is the messageTS argument value.
+			MessageTS string
+			// ContextText is the contextText argument value.
+			ContextText string
+		}
 		// SetPurposeOfConversationContext holds details about calls to the SetPurposeOfConversationContext method.
 		SetPurposeOfConversationContext []struct {
 			// Ctx is the ctx argument value.
@@ -180,6 +197,7 @@ type SlackClientMock struct {
 	lockInviteUsersToConversation       sync.RWMutex
 	lockOpenView                        sync.RWMutex
 	lockPostMessage                     sync.RWMutex
+	lockSendContextMessage              sync.RWMutex
 	lockSetPurposeOfConversationContext sync.RWMutex
 	lockUpdateMessage                   sync.RWMutex
 }
@@ -481,6 +499,50 @@ func (mock *SlackClientMock) PostMessageCalls() []struct {
 	mock.lockPostMessage.RLock()
 	calls = mock.calls.PostMessage
 	mock.lockPostMessage.RUnlock()
+	return calls
+}
+
+// SendContextMessage calls SendContextMessageFunc.
+func (mock *SlackClientMock) SendContextMessage(ctx context.Context, channelID string, messageTS string, contextText string) string {
+	if mock.SendContextMessageFunc == nil {
+		panic("SlackClientMock.SendContextMessageFunc: method is nil but SlackClient.SendContextMessage was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		ChannelID   string
+		MessageTS   string
+		ContextText string
+	}{
+		Ctx:         ctx,
+		ChannelID:   channelID,
+		MessageTS:   messageTS,
+		ContextText: contextText,
+	}
+	mock.lockSendContextMessage.Lock()
+	mock.calls.SendContextMessage = append(mock.calls.SendContextMessage, callInfo)
+	mock.lockSendContextMessage.Unlock()
+	return mock.SendContextMessageFunc(ctx, channelID, messageTS, contextText)
+}
+
+// SendContextMessageCalls gets all the calls that were made to SendContextMessage.
+// Check the length with:
+//
+//	len(mockedSlackClient.SendContextMessageCalls())
+func (mock *SlackClientMock) SendContextMessageCalls() []struct {
+	Ctx         context.Context
+	ChannelID   string
+	MessageTS   string
+	ContextText string
+} {
+	var calls []struct {
+		Ctx         context.Context
+		ChannelID   string
+		MessageTS   string
+		ContextText string
+	}
+	mock.lockSendContextMessage.RLock()
+	calls = mock.calls.SendContextMessage
+	mock.lockSendContextMessage.RUnlock()
 	return calls
 }
 

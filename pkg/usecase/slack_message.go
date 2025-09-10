@@ -381,44 +381,8 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 // sendContextMessage sends a context block message and returns the timestamp
 // This method does not return errors - failures are logged but don't affect the main flow
 func (s *SlackMessage) sendContextMessage(ctx context.Context, channelID, messageTS, contextText string) string {
-	// Try to use the Slack service's SendContextMessage if available
-	if slackService, ok := s.slackClient.(*slackSvc.Service); ok {
-		return slackService.SendContextMessage(ctx, channelID, messageTS, contextText)
-	}
-
-	// Fallback to direct implementation for backward compatibility
-	ctxlog.From(ctx).Info("Sending context message (fallback)",
-		"channelID", channelID,
-		"messageTS", messageTS,
-		"contextText", contextText,
-	)
-
-	contextBlocks := s.blockBuilder.BuildContextBlocks(contextText)
-	channelResp, contextMsgTS, err := s.slackClient.PostMessage(
-		ctx,
-		channelID,
-		slack.MsgOptionBlocks(contextBlocks...),
-		slack.MsgOptionTS(messageTS), // Reply in thread
-	)
-	if err != nil {
-		// Log error but don't fail - context message is not critical
-		ctxlog.From(ctx).Error("Failed to send context message (fallback)",
-			"error", err,
-			"errorType", fmt.Sprintf("%T", err),
-			"channelID", channelID,
-			"messageTS", messageTS,
-			"contextText", contextText,
-		)
-		return ""
-	}
-
-	ctxlog.From(ctx).Info("Context message sent successfully (fallback)",
-		"channelID", channelID,
-		"channelResp", channelResp,
-		"contextMsgTS", contextMsgTS,
-		"contextText", contextText,
-	)
-	return contextMsgTS
+	// Use the interface method directly
+	return s.slackClient.SendContextMessage(ctx, channelID, messageTS, contextText)
 }
 
 // eventToMessage converts a Slack event to our domain model
