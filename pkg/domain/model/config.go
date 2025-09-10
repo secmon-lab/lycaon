@@ -88,11 +88,7 @@ func (c *CategoriesConfig) FindCategoryByIDWithFallback(id string) *Category {
 	if cat := c.FindCategoryByID(id); cat != nil {
 		return cat
 	}
-	if id == "" {
-		// If id is empty, return the official "unknown" category
-		return c.FindCategoryByID("unknown")
-	}
-	// For a non-existent ID, return a temporary category object for display
+	// Return a temporary category object for display
 	return &Category{
 		ID:          id,
 		Name:        fmt.Sprintf("Unknown Category (ID: %s)", id),
