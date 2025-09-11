@@ -106,21 +106,21 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 		return nil, goerr.Wrap(err, "failed to save incident")
 	}
 
-	// カテゴリ別招待処理（直列実行）
-	// 注意：この関数は既にController層でasync.Dispatchされている前提
+	// Category-based invitation process (serial execution)
+	// Note: This function assumes it's already dispatched asynchronously in the Controller layer
 	if incident.CategoryID != "" && u.categories != nil && u.invite != nil {
-		// カテゴリ設定から招待対象を取得
+		// Get invitation targets from category configuration
 		category := u.categories.FindCategoryByID(incident.CategoryID)
 		if category == nil {
-			// カテゴリなしは正常 - ログ出力して継続
+			// No category is normal - log and continue
 			ctxlog.From(ctx).Info("Category not found",
 				"categoryID", incident.CategoryID)
 		} else if len(category.InviteUsers) == 0 && len(category.InviteGroups) == 0 {
-			// 招待設定なしは正常 - ログ出力して継続
+			// No invitation settings is normal - log and continue
 			ctxlog.From(ctx).Info("No invitation settings for category",
 				"categoryID", incident.CategoryID)
 		} else {
-			// 同期的に招待処理実行
+			// Execute invitation synchronously
 			_, err := u.invite.InviteUsersByList(
 				ctx,
 				category.InviteUsers,
@@ -128,7 +128,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 				incident.ChannelID,
 			)
 			if err != nil {
-				// エラーログ出力するが、インシデント作成は継続
+				// Log error but continue with incident creation
 				ctxlog.From(ctx).Error("Category invitation failed",
 					"error", err,
 					"categoryID", incident.CategoryID,

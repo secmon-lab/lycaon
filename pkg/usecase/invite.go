@@ -9,8 +9,6 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
-	slackService "github.com/secmon-lab/lycaon/pkg/service/slack"
-	"github.com/slack-go/slack"
 )
 
 type Invite struct {
@@ -58,31 +56,12 @@ func (u *Invite) InviteUsersByList(ctx context.Context, users []string, groups [
 func (u *Invite) resolveUsers(ctx context.Context, users []string, groups []string) ([]model.InviteDetail, error) {
 	var details []model.InviteDetail
 
-	// Get the underlying Slack client for API calls
-	// We need to cast the interface to access GetClient method
-	service, ok := u.slackClient.(*slackService.Service)
-	if !ok {
-		// If it's not the real service (e.g., in tests with mocks), skip resolution
-		// Just pass through the IDs as-is
-		for _, user := range users {
-			details = append(details, model.InviteDetail{
-				UserID:       user,
-				Username:     user,
-				SourceConfig: user,
-				Status:       "resolved",
-			})
-		}
-		return details, nil
-	}
-
-	client := service.GetClient()
-
 	// Resolve users
 	for _, user := range users {
 		if strings.HasPrefix(user, "@") {
 			// Resolve username to ID
 			// Minimum required: Only resolve UserID for invitation (display name not needed)
-			userID, err := u.resolveUserName(ctx, client, user)
+			userID, err := u.resolveUserName(ctx, user)
 			if err != nil {
 				// Log resolution failure and continue
 				ctxlog.From(ctx).Warn("Failed to resolve user", "user", user, "error", err)
@@ -113,7 +92,7 @@ func (u *Invite) resolveUsers(ctx context.Context, users []string, groups []stri
 			// Bot ID specified - need to resolve to User ID
 			// Bot IDs (B-prefix) cannot be used directly with conversations.invite
 			// We need to find the corresponding User ID (U-prefix)
-			userID, err := u.resolveBotIDToUserID(ctx, client, user)
+			userID, err := u.resolveBotIDToUserID(ctx, user)
 			if err != nil {
 				ctxlog.From(ctx).Warn("Failed to resolve Bot ID to User ID", "botID", user, "error", err)
 				details = append(details, model.InviteDetail{
@@ -136,7 +115,7 @@ func (u *Invite) resolveUsers(ctx context.Context, users []string, groups []stri
 
 	// Resolve groups (only get member UserIDs)
 	for _, group := range groups {
-		memberIDs, err := u.resolveGroupMembers(ctx, client, group)
+		memberIDs, err := u.resolveGroupMembers(ctx, group)
 		if err != nil {
 			ctxlog.From(ctx).Warn("Failed to resolve group", "group", group, "error", err)
 			continue
@@ -155,18 +134,12 @@ func (u *Invite) resolveUsers(ctx context.Context, users []string, groups []stri
 }
 
 // resolveUserName resolves @username to user ID (including bots)
-func (u *Invite) resolveUserName(ctx context.Context, client interface{}, username string) (string, error) {
+func (u *Invite) resolveUserName(ctx context.Context, username string) (string, error) {
 	// Remove @ prefix
 	name := strings.TrimPrefix(username, "@")
 
-	// Cast client to *slack.Client
-	slackClient, ok := client.(*slack.Client)
-	if !ok {
-		return "", goerr.New("invalid slack client")
-	}
-
 	// Get users list (including bots)
-	users, err := slackClient.GetUsersContext(ctx)
+	users, err := u.slackClient.GetUsersContext(ctx)
 	if err != nil {
 		return "", goerr.Wrap(err, "failed to get users")
 	}
@@ -237,15 +210,9 @@ func (u *Invite) resolveUserName(ctx context.Context, client interface{}, userna
 }
 
 // resolveBotIDToUserID resolves Bot ID (B-prefix) to User ID (U-prefix)
-func (u *Invite) resolveBotIDToUserID(ctx context.Context, client interface{}, botID string) (string, error) {
-	// Cast client to *slack.Client
-	slackClient, ok := client.(*slack.Client)
-	if !ok {
-		return "", goerr.New("invalid slack client")
-	}
-
+func (u *Invite) resolveBotIDToUserID(ctx context.Context, botID string) (string, error) {
 	// Get users list (including bots)
-	users, err := slackClient.GetUsersContext(ctx)
+	users, err := u.slackClient.GetUsersContext(ctx)
 	if err != nil {
 		return "", goerr.Wrap(err, "failed to get users")
 	}
@@ -266,12 +233,7 @@ func (u *Invite) resolveBotIDToUserID(ctx context.Context, client interface{}, b
 }
 
 // resolveGroupMembers resolves group to member IDs
-func (u *Invite) resolveGroupMembers(ctx context.Context, client interface{}, group string) ([]string, error) {
-	// Cast client to *slack.Client
-	slackClient, ok := client.(*slack.Client)
-	if !ok {
-		return nil, goerr.New("invalid slack client")
-	}
+func (u *Invite) resolveGroupMembers(ctx context.Context, group string) ([]string, error) {
 
 	var groupID string
 
@@ -279,7 +241,7 @@ func (u *Invite) resolveGroupMembers(ctx context.Context, client interface{}, gr
 		// Group name - need to resolve to ID
 		name := strings.TrimPrefix(group, "@")
 		
-		groups, err := slackClient.GetUserGroupsContext(ctx)
+		groups, err := u.slackClient.GetUserGroupsContext(ctx)
 		if err != nil {
 			return nil, goerr.Wrap(err, "failed to get user groups")
 		}
@@ -302,7 +264,7 @@ func (u *Invite) resolveGroupMembers(ctx context.Context, client interface{}, gr
 	}
 
 	// Get group members
-	members, err := slackClient.GetUserGroupMembersContext(ctx, groupID)
+	members, err := u.slackClient.GetUserGroupMembersContext(ctx, groupID)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to get group members", goerr.V("groupID", groupID))
 	}

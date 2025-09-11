@@ -89,11 +89,14 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 		// Mock that will be called with both users (mocks pass through @-prefixed users)
 		mockSlack := &mocks.SlackClientMock{
 			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				// With mocks, both users are passed through
-				gt.Equal(t, 2, len(users))
+				// Only U123456 should be invited since @unknown-user cannot be resolved
+				gt.Equal(t, 1, len(users))
 				gt.True(t, contains(users, "U123456"))
-				gt.True(t, contains(users, "@unknown-user"))
 				return &slack.Channel{}, nil
+			},
+			GetUsersContextFunc: func(ctx context.Context) ([]slack.User, error) {
+				// Return empty list to simulate user not found
+				return []slack.User{}, nil
 			},
 		}
 
@@ -113,9 +116,14 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 		gt.V(t, result).NotNil()
 		gt.Equal(t, 2, len(result.Details))
 		
-		// Both should be marked as success with mocks
+		// Check status of each user
 		for _, detail := range result.Details {
-			gt.Equal(t, "success", detail.Status)
+			if detail.SourceConfig == "U123456" {
+				gt.Equal(t, "success", detail.Status)
+			} else if detail.SourceConfig == "@unknown-user" {
+				gt.Equal(t, "failed", detail.Status)
+				gt.True(t, detail.Error != "")
+			}
 		}
 	})
 
@@ -150,12 +158,33 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 		// Create mock Slack client
 		mockSlack := &mocks.SlackClientMock{
 			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				// Verify that both regular users and bots are passed
+				// Verify that regular users and resolved bot user IDs are passed
 				gt.Equal(t, 3, len(users))
 				gt.True(t, contains(users, "U123456"))  // Regular user
-				gt.True(t, contains(users, "B09E8M5JSPK"))  // Bot ID
-				gt.True(t, contains(users, "B987654"))  // Another Bot
+				gt.True(t, contains(users, "UBOT1"))    // Resolved from B09E8M5JSPK
+				gt.True(t, contains(users, "UBOT2"))    // Resolved from B987654
 				return &slack.Channel{}, nil
+			},
+			GetUsersContextFunc: func(ctx context.Context) ([]slack.User, error) {
+				// Return bot users for Bot ID resolution
+				return []slack.User{
+					{
+						ID:    "UBOT1",
+						Name:  "bot1",
+						IsBot: true,
+						Profile: slack.UserProfile{
+							BotID: "B09E8M5JSPK",
+						},
+					},
+					{
+						ID:    "UBOT2",
+						Name:  "bot2",
+						IsBot: true,
+						Profile: slack.UserProfile{
+							BotID: "B987654",
+						},
+					},
+				}, nil
 			},
 		}
 
@@ -189,9 +218,14 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 		// Create mock Slack client
 		mockSlack := &mocks.SlackClientMock{
 			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				// Check that we got the expected users
-				gt.Equal(t, 4, len(users))
+				// Only U123456 will be invited (others failed to resolve)
+				gt.Equal(t, 1, len(users))
+				gt.Equal(t, "U123456", users[0])
 				return nil, errors.New("channel_not_found")
+			},
+			GetUsersContextFunc: func(ctx context.Context) ([]slack.User, error) {
+				// Return empty list to simulate users not found
+				return []slack.User{}, nil
 			},
 		}
 
@@ -213,10 +247,15 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 
 		// Check each detail
 		for _, detail := range result.Details {
-			// With mocks, @-prefixed users will be passed through
-			if detail.SourceConfig == "U123456" || detail.SourceConfig == "B09E8M5JSPK" {
+			if detail.SourceConfig == "U123456" {
 				gt.Equal(t, "failed", detail.Status)
 				gt.Equal(t, "channel_not_found", detail.Error)
+			} else if detail.SourceConfig == "B09E8M5JSPK" {
+				gt.Equal(t, "failed", detail.Status)
+				gt.Equal(t, "bot not found", detail.Error)
+			} else if detail.SourceConfig == "@tamamo" || detail.SourceConfig == "@unknown" {
+				gt.Equal(t, "failed", detail.Status)
+				gt.Equal(t, "user not found", detail.Error)
 			}
 		}
 	})
