@@ -19,6 +19,7 @@ type Memory struct {
 	sessions         map[types.SessionID]*model.Session
 	incidents        map[types.IncidentID]*model.Incident
 	incidentRequests map[types.IncidentRequestID]*model.IncidentRequest
+	tasks            map[types.IncidentID]map[types.TaskID]*model.Task
 	incidentCounter  types.IncidentID
 }
 
@@ -30,6 +31,7 @@ func NewMemory() interfaces.Repository {
 		sessions:         make(map[types.SessionID]*model.Session),
 		incidents:        make(map[types.IncidentID]*model.Incident),
 		incidentRequests: make(map[types.IncidentRequestID]*model.IncidentRequest),
+		tasks:            make(map[types.IncidentID]map[types.TaskID]*model.Task),
 		incidentCounter:  0,
 	}
 }
@@ -255,6 +257,27 @@ func (m *Memory) GetIncident(ctx context.Context, id types.IncidentID) (*model.I
 	return &incidentCopy, nil
 }
 
+// GetIncidentByChannelID gets an incident by channel ID from memory
+func (m *Memory) GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+	if channelID == "" {
+		return nil, goerr.New("channel ID is empty")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Search through all incidents to find one with matching channel ID
+	for _, incident := range m.incidents {
+		if incident.ChannelID == channelID {
+			// Return a copy to prevent external modifications
+			incidentCopy := *incident
+			return &incidentCopy, nil
+		}
+	}
+
+	return nil, goerr.Wrap(model.ErrIncidentNotFound, "failed to get incident by channel ID")
+}
+
 // GetNextIncidentNumber returns the next available incident number
 func (m *Memory) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	m.mu.Lock()
@@ -273,6 +296,7 @@ func (m *Memory) Clear() {
 	m.sessions = make(map[types.SessionID]*model.Session)
 	m.incidents = make(map[types.IncidentID]*model.Incident)
 	m.incidentRequests = make(map[types.IncidentRequestID]*model.IncidentRequest)
+	m.tasks = make(map[types.IncidentID]map[types.TaskID]*model.Task)
 	m.incidentCounter = 0
 }
 
@@ -331,6 +355,111 @@ func (m *Memory) Count() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.messages)
+}
+
+// CreateTask creates a new task
+func (m *Memory) CreateTask(ctx context.Context, task *model.Task) error {
+	if task == nil {
+		return goerr.New("task is nil")
+	}
+	if task.ID == "" {
+		return goerr.New("task ID is empty")
+	}
+	if task.IncidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", task.IncidentID))
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Initialize map for incident if not exists
+	if m.tasks[task.IncidentID] == nil {
+		m.tasks[task.IncidentID] = make(map[types.TaskID]*model.Task)
+	}
+
+	// Deep copy to prevent external modifications
+	taskCopy := *task
+	m.tasks[task.IncidentID][task.ID] = &taskCopy
+
+	return nil
+}
+
+// GetTask retrieves a task by ID
+func (m *Memory) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if taskID == "" {
+		return nil, goerr.New("task ID is empty")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Search through all incidents
+	for _, tasks := range m.tasks {
+		if task, exists := tasks[taskID]; exists {
+			// Return a copy to prevent external modifications
+			taskCopy := *task
+			return &taskCopy, nil
+		}
+	}
+
+	return nil, goerr.Wrap(model.ErrTaskNotFound, "failed to get task", goerr.V("taskID", taskID))
+}
+
+// UpdateTask updates an existing task
+func (m *Memory) UpdateTask(ctx context.Context, task *model.Task) error {
+	if task == nil {
+		return goerr.New("task is nil")
+	}
+	if task.ID == "" {
+		return goerr.New("task ID is empty")
+	}
+	if task.IncidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", task.IncidentID))
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check if task exists
+	if m.tasks[task.IncidentID] == nil || m.tasks[task.IncidentID][task.ID] == nil {
+		return goerr.Wrap(model.ErrTaskNotFound, "failed to update task", goerr.V("taskID", task.ID))
+	}
+
+	// Deep copy to prevent external modifications
+	taskCopy := *task
+	m.tasks[task.IncidentID][task.ID] = &taskCopy
+
+	return nil
+}
+
+// ListTasksByIncident retrieves all tasks for an incident
+func (m *Memory) ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+	if incidentID <= 0 {
+		return nil, goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incidentTasks, exists := m.tasks[incidentID]
+	if !exists {
+		// Return empty list if no tasks exist for the incident
+		return []*model.Task{}, nil
+	}
+
+	// Convert map to slice and create copies
+	tasks := make([]*model.Task, 0, len(incidentTasks))
+	for _, task := range incidentTasks {
+		taskCopy := *task
+		tasks = append(tasks, &taskCopy)
+	}
+
+	// Sort by creation time (oldest first)
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+	})
+
+	return tasks, nil
 }
 
 var _ interfaces.Repository = (*Memory)(nil) // Compile-time interface check

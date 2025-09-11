@@ -382,6 +382,52 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		gt.Error(t, err)
 		gt.S(t, err.Error()).Contains("not found")
 	})
+
+	t.Run("GetIncidentByChannelID", func(t *testing.T) {
+		repo := newRepo(t)
+		defer repo.Close()
+
+		ctx := context.Background()
+
+		// Use random IDs to avoid conflicts in parallel tests
+		timestamp := time.Now().UnixNano()
+		channelID := types.ChannelID(fmt.Sprintf("C%d", timestamp))
+
+		// Create and save an incident
+		incident, err := model.NewIncident(
+			1,
+			"Test Incident for Channel",
+			"Description",
+			"category-1",
+			channelID,
+			types.ChannelName("test-channel"),
+			types.SlackUserID("U123456"),
+		)
+		gt.NoError(t, err).Required()
+
+		// Set the channel ID to match what we're searching for
+		incident.ChannelID = channelID
+
+		err = repo.PutIncident(ctx, incident)
+		gt.NoError(t, err).Required()
+
+		// Test finding incident by channel ID
+		foundIncident, err := repo.GetIncidentByChannelID(ctx, channelID)
+		gt.NoError(t, err).Required()
+		gt.V(t, foundIncident).NotNil()
+		gt.Equal(t, incident.ID, foundIncident.ID)
+		gt.Equal(t, incident.ChannelID, foundIncident.ChannelID)
+		gt.Equal(t, incident.Title, foundIncident.Title)
+	})
+
+	t.Run("GetIncidentByChannelIDNotFound", func(t *testing.T) {
+		repo := newRepo(t)
+		defer repo.Close()
+
+		ctx := context.Background()
+		_, err := repo.GetIncidentByChannelID(ctx, types.ChannelID("C999999"))
+		gt.Error(t, err)
+	})
 }
 
 func TestMemoryRepository(t *testing.T) {

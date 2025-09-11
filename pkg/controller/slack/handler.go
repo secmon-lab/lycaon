@@ -26,23 +26,20 @@ type Handler struct {
 	slackConfig        *config.SlackConfig
 	messageUC          interfaces.SlackMessage
 	incidentUC         interfaces.Incident
+	taskUC             interfaces.Task
 	eventHandler       *EventHandler
 	interactionHandler *InteractionHandler
 }
 
 // NewHandler creates a new Slack handler
-func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, repo interfaces.Repository, messageUC interfaces.SlackMessage, incidentUC interfaces.Incident) *Handler {
-	slackToken := ""
-	if slackConfig != nil && slackConfig.OAuthToken != "" {
-		slackToken = slackConfig.OAuthToken
-	}
-
+func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, repo interfaces.Repository, messageUC interfaces.SlackMessage, incidentUC interfaces.Incident, taskUC interfaces.Task, slackInteractionUC interfaces.SlackInteraction, slackClient interfaces.SlackClient) *Handler {
 	return &Handler{
 		slackConfig:        slackConfig,
 		messageUC:          messageUC,
 		incidentUC:         incidentUC,
-		eventHandler:       NewEventHandler(ctx, messageUC),
-		interactionHandler: NewInteractionHandler(ctx, incidentUC, slackToken),
+		taskUC:             taskUC,
+		eventHandler:       NewEventHandler(ctx, messageUC, taskUC, incidentUC, slackClient),
+		interactionHandler: NewInteractionHandler(ctx, slackInteractionUC),
 	}
 }
 

@@ -24,6 +24,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			CloseFunc: func() error {
 //				panic("mock out the Close method")
 //			},
+//			CreateTaskFunc: func(ctx context.Context, task *model.Task) error {
+//				panic("mock out the CreateTask method")
+//			},
 //			DeleteIncidentRequestFunc: func(ctx context.Context, id types.IncidentRequestID) error {
 //				panic("mock out the DeleteIncidentRequest method")
 //			},
@@ -32,6 +35,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			},
 //			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
 //				panic("mock out the GetIncident method")
+//			},
+//			GetIncidentByChannelIDFunc: func(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+//				panic("mock out the GetIncidentByChannelID method")
 //			},
 //			GetIncidentRequestFunc: func(ctx context.Context, id types.IncidentRequestID) (*model.IncidentRequest, error) {
 //				panic("mock out the GetIncidentRequest method")
@@ -45,6 +51,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			GetSessionFunc: func(ctx context.Context, id types.SessionID) (*model.Session, error) {
 //				panic("mock out the GetSession method")
 //			},
+//			GetTaskFunc: func(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the GetTask method")
+//			},
 //			GetUserFunc: func(ctx context.Context, id types.UserID) (*model.User, error) {
 //				panic("mock out the GetUser method")
 //			},
@@ -53,6 +62,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			},
 //			ListMessagesFunc: func(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error) {
 //				panic("mock out the ListMessages method")
+//			},
+//			ListTasksByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+//				panic("mock out the ListTasksByIncident method")
 //			},
 //			PutIncidentFunc: func(ctx context.Context, incident *model.Incident) error {
 //				panic("mock out the PutIncident method")
@@ -69,6 +81,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			SaveUserFunc: func(ctx context.Context, user *model.User) error {
 //				panic("mock out the SaveUser method")
 //			},
+//			UpdateTaskFunc: func(ctx context.Context, task *model.Task) error {
+//				panic("mock out the UpdateTask method")
+//			},
 //		}
 //
 //		// use mockedRepository in code that requires interfaces.Repository
@@ -79,6 +94,9 @@ type RepositoryMock struct {
 	// CloseFunc mocks the Close method.
 	CloseFunc func() error
 
+	// CreateTaskFunc mocks the CreateTask method.
+	CreateTaskFunc func(ctx context.Context, task *model.Task) error
+
 	// DeleteIncidentRequestFunc mocks the DeleteIncidentRequest method.
 	DeleteIncidentRequestFunc func(ctx context.Context, id types.IncidentRequestID) error
 
@@ -87,6 +105,9 @@ type RepositoryMock struct {
 
 	// GetIncidentFunc mocks the GetIncident method.
 	GetIncidentFunc func(ctx context.Context, id types.IncidentID) (*model.Incident, error)
+
+	// GetIncidentByChannelIDFunc mocks the GetIncidentByChannelID method.
+	GetIncidentByChannelIDFunc func(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
 
 	// GetIncidentRequestFunc mocks the GetIncidentRequest method.
 	GetIncidentRequestFunc func(ctx context.Context, id types.IncidentRequestID) (*model.IncidentRequest, error)
@@ -100,6 +121,9 @@ type RepositoryMock struct {
 	// GetSessionFunc mocks the GetSession method.
 	GetSessionFunc func(ctx context.Context, id types.SessionID) (*model.Session, error)
 
+	// GetTaskFunc mocks the GetTask method.
+	GetTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+
 	// GetUserFunc mocks the GetUser method.
 	GetUserFunc func(ctx context.Context, id types.UserID) (*model.User, error)
 
@@ -108,6 +132,9 @@ type RepositoryMock struct {
 
 	// ListMessagesFunc mocks the ListMessages method.
 	ListMessagesFunc func(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error)
+
+	// ListTasksByIncidentFunc mocks the ListTasksByIncident method.
+	ListTasksByIncidentFunc func(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
 
 	// PutIncidentFunc mocks the PutIncident method.
 	PutIncidentFunc func(ctx context.Context, incident *model.Incident) error
@@ -124,10 +151,20 @@ type RepositoryMock struct {
 	// SaveUserFunc mocks the SaveUser method.
 	SaveUserFunc func(ctx context.Context, user *model.User) error
 
+	// UpdateTaskFunc mocks the UpdateTask method.
+	UpdateTaskFunc func(ctx context.Context, task *model.Task) error
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// Close holds details about calls to the Close method.
 		Close []struct {
+		}
+		// CreateTask holds details about calls to the CreateTask method.
+		CreateTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Task is the task argument value.
+			Task *model.Task
 		}
 		// DeleteIncidentRequest holds details about calls to the DeleteIncidentRequest method.
 		DeleteIncidentRequest []struct {
@@ -149,6 +186,13 @@ type RepositoryMock struct {
 			Ctx context.Context
 			// ID is the id argument value.
 			ID types.IncidentID
+		}
+		// GetIncidentByChannelID holds details about calls to the GetIncidentByChannelID method.
+		GetIncidentByChannelID []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
 		}
 		// GetIncidentRequest holds details about calls to the GetIncidentRequest method.
 		GetIncidentRequest []struct {
@@ -176,6 +220,13 @@ type RepositoryMock struct {
 			// ID is the id argument value.
 			ID types.SessionID
 		}
+		// GetTask holds details about calls to the GetTask method.
+		GetTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
 		// GetUser holds details about calls to the GetUser method.
 		GetUser []struct {
 			// Ctx is the ctx argument value.
@@ -198,6 +249,13 @@ type RepositoryMock struct {
 			ChannelID types.ChannelID
 			// Limit is the limit argument value.
 			Limit int
+		}
+		// ListTasksByIncident holds details about calls to the ListTasksByIncident method.
+		ListTasksByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
 		}
 		// PutIncident holds details about calls to the PutIncident method.
 		PutIncident []struct {
@@ -234,23 +292,35 @@ type RepositoryMock struct {
 			// User is the user argument value.
 			User *model.User
 		}
+		// UpdateTask holds details about calls to the UpdateTask method.
+		UpdateTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Task is the task argument value.
+			Task *model.Task
+		}
 	}
-	lockClose                 sync.RWMutex
-	lockDeleteIncidentRequest sync.RWMutex
-	lockDeleteSession         sync.RWMutex
-	lockGetIncident           sync.RWMutex
-	lockGetIncidentRequest    sync.RWMutex
-	lockGetMessage            sync.RWMutex
-	lockGetNextIncidentNumber sync.RWMutex
-	lockGetSession            sync.RWMutex
-	lockGetUser               sync.RWMutex
-	lockGetUserBySlackID      sync.RWMutex
-	lockListMessages          sync.RWMutex
-	lockPutIncident           sync.RWMutex
-	lockSaveIncidentRequest   sync.RWMutex
-	lockSaveMessage           sync.RWMutex
-	lockSaveSession           sync.RWMutex
-	lockSaveUser              sync.RWMutex
+	lockClose                  sync.RWMutex
+	lockCreateTask             sync.RWMutex
+	lockDeleteIncidentRequest  sync.RWMutex
+	lockDeleteSession          sync.RWMutex
+	lockGetIncident            sync.RWMutex
+	lockGetIncidentByChannelID sync.RWMutex
+	lockGetIncidentRequest     sync.RWMutex
+	lockGetMessage             sync.RWMutex
+	lockGetNextIncidentNumber  sync.RWMutex
+	lockGetSession             sync.RWMutex
+	lockGetTask                sync.RWMutex
+	lockGetUser                sync.RWMutex
+	lockGetUserBySlackID       sync.RWMutex
+	lockListMessages           sync.RWMutex
+	lockListTasksByIncident    sync.RWMutex
+	lockPutIncident            sync.RWMutex
+	lockSaveIncidentRequest    sync.RWMutex
+	lockSaveMessage            sync.RWMutex
+	lockSaveSession            sync.RWMutex
+	lockSaveUser               sync.RWMutex
+	lockUpdateTask             sync.RWMutex
 }
 
 // Close calls CloseFunc.
@@ -277,6 +347,42 @@ func (mock *RepositoryMock) CloseCalls() []struct {
 	mock.lockClose.RLock()
 	calls = mock.calls.Close
 	mock.lockClose.RUnlock()
+	return calls
+}
+
+// CreateTask calls CreateTaskFunc.
+func (mock *RepositoryMock) CreateTask(ctx context.Context, task *model.Task) error {
+	if mock.CreateTaskFunc == nil {
+		panic("RepositoryMock.CreateTaskFunc: method is nil but Repository.CreateTask was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Task *model.Task
+	}{
+		Ctx:  ctx,
+		Task: task,
+	}
+	mock.lockCreateTask.Lock()
+	mock.calls.CreateTask = append(mock.calls.CreateTask, callInfo)
+	mock.lockCreateTask.Unlock()
+	return mock.CreateTaskFunc(ctx, task)
+}
+
+// CreateTaskCalls gets all the calls that were made to CreateTask.
+// Check the length with:
+//
+//	len(mockedRepository.CreateTaskCalls())
+func (mock *RepositoryMock) CreateTaskCalls() []struct {
+	Ctx  context.Context
+	Task *model.Task
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Task *model.Task
+	}
+	mock.lockCreateTask.RLock()
+	calls = mock.calls.CreateTask
+	mock.lockCreateTask.RUnlock()
 	return calls
 }
 
@@ -385,6 +491,42 @@ func (mock *RepositoryMock) GetIncidentCalls() []struct {
 	mock.lockGetIncident.RLock()
 	calls = mock.calls.GetIncident
 	mock.lockGetIncident.RUnlock()
+	return calls
+}
+
+// GetIncidentByChannelID calls GetIncidentByChannelIDFunc.
+func (mock *RepositoryMock) GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+	if mock.GetIncidentByChannelIDFunc == nil {
+		panic("RepositoryMock.GetIncidentByChannelIDFunc: method is nil but Repository.GetIncidentByChannelID was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		ChannelID types.ChannelID
+	}{
+		Ctx:       ctx,
+		ChannelID: channelID,
+	}
+	mock.lockGetIncidentByChannelID.Lock()
+	mock.calls.GetIncidentByChannelID = append(mock.calls.GetIncidentByChannelID, callInfo)
+	mock.lockGetIncidentByChannelID.Unlock()
+	return mock.GetIncidentByChannelIDFunc(ctx, channelID)
+}
+
+// GetIncidentByChannelIDCalls gets all the calls that were made to GetIncidentByChannelID.
+// Check the length with:
+//
+//	len(mockedRepository.GetIncidentByChannelIDCalls())
+func (mock *RepositoryMock) GetIncidentByChannelIDCalls() []struct {
+	Ctx       context.Context
+	ChannelID types.ChannelID
+} {
+	var calls []struct {
+		Ctx       context.Context
+		ChannelID types.ChannelID
+	}
+	mock.lockGetIncidentByChannelID.RLock()
+	calls = mock.calls.GetIncidentByChannelID
+	mock.lockGetIncidentByChannelID.RUnlock()
 	return calls
 }
 
@@ -528,6 +670,42 @@ func (mock *RepositoryMock) GetSessionCalls() []struct {
 	return calls
 }
 
+// GetTask calls GetTaskFunc.
+func (mock *RepositoryMock) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if mock.GetTaskFunc == nil {
+		panic("RepositoryMock.GetTaskFunc: method is nil but Repository.GetTask was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}{
+		Ctx:    ctx,
+		TaskID: taskID,
+	}
+	mock.lockGetTask.Lock()
+	mock.calls.GetTask = append(mock.calls.GetTask, callInfo)
+	mock.lockGetTask.Unlock()
+	return mock.GetTaskFunc(ctx, taskID)
+}
+
+// GetTaskCalls gets all the calls that were made to GetTask.
+// Check the length with:
+//
+//	len(mockedRepository.GetTaskCalls())
+func (mock *RepositoryMock) GetTaskCalls() []struct {
+	Ctx    context.Context
+	TaskID types.TaskID
+} {
+	var calls []struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}
+	mock.lockGetTask.RLock()
+	calls = mock.calls.GetTask
+	mock.lockGetTask.RUnlock()
+	return calls
+}
+
 // GetUser calls GetUserFunc.
 func (mock *RepositoryMock) GetUser(ctx context.Context, id types.UserID) (*model.User, error) {
 	if mock.GetUserFunc == nil {
@@ -637,6 +815,42 @@ func (mock *RepositoryMock) ListMessagesCalls() []struct {
 	mock.lockListMessages.RLock()
 	calls = mock.calls.ListMessages
 	mock.lockListMessages.RUnlock()
+	return calls
+}
+
+// ListTasksByIncident calls ListTasksByIncidentFunc.
+func (mock *RepositoryMock) ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+	if mock.ListTasksByIncidentFunc == nil {
+		panic("RepositoryMock.ListTasksByIncidentFunc: method is nil but Repository.ListTasksByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+	}
+	mock.lockListTasksByIncident.Lock()
+	mock.calls.ListTasksByIncident = append(mock.calls.ListTasksByIncident, callInfo)
+	mock.lockListTasksByIncident.Unlock()
+	return mock.ListTasksByIncidentFunc(ctx, incidentID)
+}
+
+// ListTasksByIncidentCalls gets all the calls that were made to ListTasksByIncident.
+// Check the length with:
+//
+//	len(mockedRepository.ListTasksByIncidentCalls())
+func (mock *RepositoryMock) ListTasksByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}
+	mock.lockListTasksByIncident.RLock()
+	calls = mock.calls.ListTasksByIncident
+	mock.lockListTasksByIncident.RUnlock()
 	return calls
 }
 
@@ -817,5 +1031,41 @@ func (mock *RepositoryMock) SaveUserCalls() []struct {
 	mock.lockSaveUser.RLock()
 	calls = mock.calls.SaveUser
 	mock.lockSaveUser.RUnlock()
+	return calls
+}
+
+// UpdateTask calls UpdateTaskFunc.
+func (mock *RepositoryMock) UpdateTask(ctx context.Context, task *model.Task) error {
+	if mock.UpdateTaskFunc == nil {
+		panic("RepositoryMock.UpdateTaskFunc: method is nil but Repository.UpdateTask was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Task *model.Task
+	}{
+		Ctx:  ctx,
+		Task: task,
+	}
+	mock.lockUpdateTask.Lock()
+	mock.calls.UpdateTask = append(mock.calls.UpdateTask, callInfo)
+	mock.lockUpdateTask.Unlock()
+	return mock.UpdateTaskFunc(ctx, task)
+}
+
+// UpdateTaskCalls gets all the calls that were made to UpdateTask.
+// Check the length with:
+//
+//	len(mockedRepository.UpdateTaskCalls())
+func (mock *RepositoryMock) UpdateTaskCalls() []struct {
+	Ctx  context.Context
+	Task *model.Task
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Task *model.Task
+	}
+	mock.lockUpdateTask.RLock()
+	calls = mock.calls.UpdateTask
+	mock.lockUpdateTask.RUnlock()
 	return calls
 }

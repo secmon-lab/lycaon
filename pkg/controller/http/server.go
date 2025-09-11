@@ -37,6 +37,9 @@ func NewServer(
 	authUC interfaces.Auth,
 	messageUC interfaces.SlackMessage,
 	incidentUC interfaces.Incident,
+	taskUC interfaces.Task,
+	slackInteractionUC interfaces.SlackInteraction,
+	slackClient interfaces.SlackClient,
 	frontendURL string,
 ) (*Server, error) {
 	router := chi.NewRouter()
@@ -49,7 +52,7 @@ func NewServer(
 	router.Use(AuthContextMiddleware())
 	router.Use(middleware.Recoverer)
 
-	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC)
+	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, slackClient)
 	authHandler := NewAuthHandler(ctx, slackConfig, authUC, frontendURL)
 
 	// Health check

@@ -253,4 +253,3 @@ func TestLLMService_AnalyzeIncident_EmptyResponse(t *testing.T) {
 	gt.B(t, goerr.HasTag(err, llm.ErrTagEmptyResponse)).True()
 	gt.Nil(t, summary)
 }
-

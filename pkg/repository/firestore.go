@@ -23,6 +23,7 @@ const (
 	incidentsCollection        = "incidents"
 	incidentRequestsCollection = "incident_requests"
 	countersCollection         = "counters"
+	tasksCollection            = "tasks"
 
 	// Document IDs
 	incidentCounterDocID = "incident"
@@ -333,6 +334,32 @@ func (f *Firestore) GetIncident(ctx context.Context, id types.IncidentID) (*mode
 	return &incident, nil
 }
 
+// GetIncidentByChannelID gets an incident by channel ID from Firestore
+func (f *Firestore) GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+	if channelID == "" {
+		return nil, goerr.New("channel ID is empty")
+	}
+
+	// Query for incidents with matching channel ID
+	iter := f.client.Collection(incidentsCollection).Where("ChannelID", "==", channelID).Limit(1).Documents(ctx)
+	defer iter.Stop()
+
+	doc, err := iter.Next()
+	if err != nil {
+		if err == iterator.Done {
+			return nil, goerr.Wrap(model.ErrIncidentNotFound, "failed to get incident by channel ID")
+		}
+		return nil, goerr.Wrap(err, "failed to query incident by channel ID")
+	}
+
+	var incident model.Incident
+	if err := doc.DataTo(&incident); err != nil {
+		return nil, goerr.Wrap(err, "failed to decode incident")
+	}
+
+	return &incident, nil
+}
+
 // GetNextIncidentNumber returns the next available incident number using atomic increment
 func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	counterDoc := f.client.Collection(countersCollection).Doc(incidentCounterDocID)
@@ -437,6 +464,145 @@ func (f *Firestore) DeleteIncidentRequest(ctx context.Context, id types.Incident
 }
 
 // Close closes the Firestore client
+// CreateTask creates a new task in Firestore
+func (f *Firestore) CreateTask(ctx context.Context, task *model.Task) error {
+	if task == nil {
+		return goerr.New("task is nil")
+	}
+	if task.ID == "" {
+		return goerr.New("task ID is empty")
+	}
+	if task.IncidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", task.IncidentID))
+	}
+
+	// Store task as a subcollection under the incident
+	incidentDoc := f.client.Collection(incidentsCollection).Doc(task.IncidentID.String())
+	_, err := incidentDoc.Collection(tasksCollection).Doc(task.ID.String()).Set(ctx, task)
+	if err != nil {
+		return goerr.Wrap(err, "failed to create task in firestore",
+			goerr.V("taskID", task.ID),
+			goerr.V("incidentID", task.IncidentID))
+	}
+
+	return nil
+}
+
+// GetTask retrieves a task by ID
+func (f *Firestore) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if taskID == "" {
+		return nil, goerr.New("task ID is empty")
+	}
+
+	// Search through all incidents for the task
+	// This is inefficient but necessary without knowing the incident ID
+	incidentsIter := f.client.Collection(incidentsCollection).Documents(ctx)
+	defer incidentsIter.Stop()
+
+	for {
+		incidentDoc, err := incidentsIter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to iterate incidents")
+		}
+
+		// Check tasks subcollection for this incident
+		taskDoc, err := incidentDoc.Ref.Collection(tasksCollection).Doc(taskID.String()).Get(ctx)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				continue // Task not found in this incident, try next
+			}
+			return nil, goerr.Wrap(err, "failed to get task from firestore", goerr.V("taskID", taskID))
+		}
+
+		var task model.Task
+		if err := taskDoc.DataTo(&task); err != nil {
+			return nil, goerr.Wrap(err, "failed to unmarshal task", goerr.V("taskID", taskID))
+		}
+
+		return &task, nil
+	}
+
+	return nil, goerr.Wrap(model.ErrTaskNotFound, "failed to get task", goerr.V("taskID", taskID))
+}
+
+// UpdateTask updates an existing task in Firestore
+func (f *Firestore) UpdateTask(ctx context.Context, task *model.Task) error {
+	if task == nil {
+		return goerr.New("task is nil")
+	}
+	if task.ID == "" {
+		return goerr.New("task ID is empty")
+	}
+	if task.IncidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", task.IncidentID))
+	}
+
+	// Update task in the subcollection under the incident
+	incidentDoc := f.client.Collection(incidentsCollection).Doc(task.IncidentID.String())
+	taskDoc := incidentDoc.Collection(tasksCollection).Doc(task.ID.String())
+
+	// Check if task exists
+	_, err := taskDoc.Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return goerr.Wrap(model.ErrTaskNotFound, "failed to update task", goerr.V("taskID", task.ID))
+		}
+		return goerr.Wrap(err, "failed to check task existence", goerr.V("taskID", task.ID))
+	}
+
+	// Update the task
+	_, err = taskDoc.Set(ctx, task)
+	if err != nil {
+		return goerr.Wrap(err, "failed to update task in firestore",
+			goerr.V("taskID", task.ID),
+			goerr.V("incidentID", task.IncidentID))
+	}
+
+	return nil
+}
+
+// ListTasksByIncident retrieves all tasks for an incident from Firestore
+func (f *Firestore) ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+	if incidentID <= 0 {
+		return nil, goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+
+	// Get tasks from the subcollection under the incident
+	incidentDoc := f.client.Collection(incidentsCollection).Doc(incidentID.String())
+	tasksIter := incidentDoc.Collection(tasksCollection).Documents(ctx)
+	defer tasksIter.Stop()
+
+	var tasks []*model.Task
+	for {
+		doc, err := tasksIter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to iterate tasks", goerr.V("incidentID", incidentID))
+		}
+
+		var task model.Task
+		if err := doc.DataTo(&task); err != nil {
+			return nil, goerr.Wrap(err, "failed to unmarshal task",
+				goerr.V("incidentID", incidentID),
+				goerr.V("taskID", doc.Ref.ID))
+		}
+
+		tasks = append(tasks, &task)
+	}
+
+	// Sort by creation time (oldest first)
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+	})
+
+	return tasks, nil
+}
+
 func (f *Firestore) Close() error {
 	if f.client != nil {
 		return f.client.Close()

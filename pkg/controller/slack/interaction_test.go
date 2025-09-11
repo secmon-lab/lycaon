@@ -9,15 +9,98 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/controller/slack"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
+	"github.com/secmon-lab/lycaon/pkg/usecase"
 	slackgo "github.com/slack-go/slack"
 )
+
+// MockTaskUseCase mocks the Task interface
+type MockTaskUseCase struct {
+	CreateTaskFunc     func(ctx context.Context, incidentID types.IncidentID, title string, createdBy types.SlackUserID, channelID types.ChannelID, messageTS string) (*model.Task, error)
+	ListTasksFunc      func(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
+	UpdateTaskFunc     func(ctx context.Context, taskID types.TaskID, req interfaces.TaskUpdateRequest) (*model.Task, error)
+	CompleteTaskFunc   func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+	UncompleteTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+	GetTaskFunc        func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+}
+
+func (m *MockTaskUseCase) CreateTask(ctx context.Context, incidentID types.IncidentID, title string, createdBy types.SlackUserID, channelID types.ChannelID, messageTS string) (*model.Task, error) {
+	if m.CreateTaskFunc != nil {
+		return m.CreateTaskFunc(ctx, incidentID, title, createdBy, channelID, messageTS)
+	}
+	return &model.Task{
+		ID:         types.TaskID("task-1"),
+		IncidentID: incidentID,
+		Title:      title,
+		Status:     model.TaskStatusIncompleted,
+		CreatedBy:  createdBy,
+		CreatedAt:  time.Now(),
+	}, nil
+}
+
+func (m *MockTaskUseCase) ListTasks(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+	if m.ListTasksFunc != nil {
+		return m.ListTasksFunc(ctx, incidentID)
+	}
+	return []*model.Task{}, nil
+}
+
+func (m *MockTaskUseCase) UpdateTask(ctx context.Context, taskID types.TaskID, req interfaces.TaskUpdateRequest) (*model.Task, error) {
+	if m.UpdateTaskFunc != nil {
+		return m.UpdateTaskFunc(ctx, taskID, req)
+	}
+	return &model.Task{
+		ID:        taskID,
+		Title:     "Updated Task",
+		Status:    model.TaskStatusCompleted,
+		CreatedAt: time.Now(),
+	}, nil
+}
+
+func (m *MockTaskUseCase) CompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if m.CompleteTaskFunc != nil {
+		return m.CompleteTaskFunc(ctx, taskID)
+	}
+	return &model.Task{
+		ID:        taskID,
+		Title:     "Completed Task",
+		Status:    model.TaskStatusCompleted,
+		CreatedAt: time.Now(),
+	}, nil
+}
+
+func (m *MockTaskUseCase) UncompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if m.UncompleteTaskFunc != nil {
+		return m.UncompleteTaskFunc(ctx, taskID)
+	}
+	return &model.Task{
+		ID:        taskID,
+		Title:     "Uncompleted Task",
+		Status:    model.TaskStatusIncompleted,
+		CreatedAt: time.Now(),
+	}, nil
+}
+
+func (m *MockTaskUseCase) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if m.GetTaskFunc != nil {
+		return m.GetTaskFunc(ctx, taskID)
+	}
+	return &model.Task{
+		ID:        taskID,
+		Title:     "Test Task",
+		Status:    model.TaskStatusIncompleted,
+		CreatedAt: time.Now(),
+	}, nil
+}
 
 // MockIncidentUseCase mocks the IncidentUseCase interface
 type MockIncidentUseCase struct {
 	CreateIncidentFunc                  func(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error)
 	GetIncidentFunc                     func(ctx context.Context, id int) (*model.Incident, error)
+	GetIncidentByChannelIDFunc          func(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
 	CreateIncidentFromInteractionFunc   func(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
 	HandleCreateIncidentActionFunc      func(ctx context.Context, requestID, userID string) (*model.Incident, error)
 	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID, title, description, categoryID, userID string) (*model.Incident, error)
@@ -48,6 +131,13 @@ func (m *MockIncidentUseCase) CreateIncident(ctx context.Context, req *model.Cre
 func (m *MockIncidentUseCase) GetIncident(ctx context.Context, id int) (*model.Incident, error) {
 	if m.GetIncidentFunc != nil {
 		return m.GetIncidentFunc(ctx, id)
+	}
+	return nil, goerr.New("incident not found")
+}
+
+func (m *MockIncidentUseCase) GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+	if m.GetIncidentByChannelIDFunc != nil {
+		return m.GetIncidentByChannelIDFunc(ctx, channelID)
 	}
 	return nil, goerr.New("incident not found")
 }
@@ -139,7 +229,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle invalid JSON payload", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		invalidPayload := []byte("invalid json")
 		err := handler.HandleInteraction(ctx, invalidPayload)
@@ -165,7 +258,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 			},
 		}
 
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -214,7 +310,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle empty request ID", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -249,7 +348,9 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 		err = handler.HandleInteraction(ctx, payload)
 		gt.Error(t, err)
-		gt.S(t, err.Error()).Contains("empty request ID")
+		if err != nil {
+			gt.S(t, err.Error()).Contains("empty request ID")
+		}
 	})
 
 	t.Run("Handle incident creation failure", func(t *testing.T) {
@@ -261,7 +362,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 			},
 		}
 
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -308,7 +412,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle unknown action", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -341,7 +448,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle shortcut interaction", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type:       slackgo.InteractionTypeShortcut,
@@ -366,7 +476,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle view submission", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewSubmission,
@@ -418,7 +531,10 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle view submission with missing fields", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewSubmission,
@@ -447,12 +563,17 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		// Should handle missing fields gracefully and return error for empty title
 		err = handler.HandleInteraction(ctx, payload)
 		gt.Error(t, err)
-		gt.S(t, err.Error()).Contains("incident title is required")
+		if err != nil {
+			gt.S(t, err.Error()).Contains("incident title is required")
+		}
 	})
 
 	t.Run("Handle view closed", func(t *testing.T) {
 		mockUC := &MockIncidentUseCase{}
-		handler := slack.NewInteractionHandler(ctx, mockUC, "mock-token")
+		mockTaskUC := &MockTaskUseCase{}
+		mockSlack := &mocks.SlackClientMock{}
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockSlack)
+		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewClosed,

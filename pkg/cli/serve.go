@@ -106,6 +106,8 @@ func cmdServe() *cli.Command {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
 			incidentUC := usecase.NewIncident(repo, slackClient, categories)
+			taskUC := usecase.NewTaskUseCase(repo, slackClient)
+			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, slackClient)
 
 			// Create HTTP server
 			server, err := controller.NewServer(
@@ -116,6 +118,9 @@ func cmdServe() *cli.Command {
 				authUC,
 				messageUC,
 				incidentUC,
+				taskUC,
+				slackInteractionUC,
+				slackClient,
 				serverCfg.FrontendURL,
 			)
 			if err != nil {
