@@ -1,7 +1,4 @@
-# Lycaon [![Unit test](https://github.com/secmon-lab/lycaon/actions/workflows/test.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/test.yml)
-[![Lint](https://github.com/secmon-lab/lycaon/actions/workflows/lint.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/lint.yml)
-[![Gosec](https://github.com/secmon-lab/lycaon/actions/workflows/gosec.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/gosec.yml)
-[![Trivy](https://github.com/secmon-lab/lycaon/actions/workflows/trivy.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/trivy.yml)
+# Lycaon [![Unit test](https://github.com/secmon-lab/lycaon/actions/workflows/test.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/test.yml) [![Lint](https://github.com/secmon-lab/lycaon/actions/workflows/lint.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/lint.yml) [![Gosec](https://github.com/secmon-lab/lycaon/actions/workflows/gosec.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/gosec.yml) [![Trivy](https://github.com/secmon-lab/lycaon/actions/workflows/trivy.yml/badge.svg)](https://github.com/secmon-lab/lycaon/actions/workflows/trivy.yml)
 
 <p align="center">
   <img src="./docs/images/logo_v0.png" height="128" />
