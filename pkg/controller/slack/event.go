@@ -16,6 +16,13 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
+var (
+	// taskCommandPattern matches task command patterns like "<@BOT123> t" or "<@BOT123> task" or "@lycaon t" or "@lycaon task"
+	taskCommandPattern = regexp.MustCompile(`(<@\w+>|@\w+)\s+(t|task)(\s|$)`)
+	// taskTitlePattern matches task commands with titles like "<@BOT123> t 'task title'" or "<@BOT123> task 'task title'"
+	taskTitlePattern = regexp.MustCompile(`(<@\w+>|@\w+)\s+(t|task)\s+(.+)`)
+)
+
 // EventHandler handles Slack events
 type EventHandler struct {
 	messageUC   interfaces.SlackMessage
@@ -215,8 +222,7 @@ func (h *EventHandler) processAppMentionAsync(ctx context.Context, event *slacke
 // isTaskCommand checks if the message is a task command
 func (h *EventHandler) isTaskCommand(text string) bool {
 	// Match patterns like "<@BOT123> t" or "<@BOT123> task" or "@lycaon t" or "@lycaon task"
-	taskPattern := regexp.MustCompile(`(<@\w+>|@\w+)\s+(t|task)(\s|$)`)
-	return taskPattern.MatchString(text)
+	return taskCommandPattern.MatchString(text)
 }
 
 // handleTaskCommand handles task-related commands
@@ -251,8 +257,7 @@ func (h *EventHandler) findIncidentByChannel(ctx context.Context, channelID type
 func (h *EventHandler) parseTaskTitle(text string) string {
 	// Remove mentions and task command, extract the title
 	// Pattern: <@BOT123> t "task title" or <@BOT123> task "task title" or @lycaon t "task title" or @lycaon task "task title"
-	taskPattern := regexp.MustCompile(`(<@\w+>|@\w+)\s+(t|task)\s+(.+)`)
-	matches := taskPattern.FindStringSubmatch(text)
+	matches := taskTitlePattern.FindStringSubmatch(text)
 	if len(matches) > 3 {
 		title := strings.TrimSpace(matches[3])
 		// Remove quotes if present

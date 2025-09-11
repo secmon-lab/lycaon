@@ -54,6 +54,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			GetTaskFunc: func(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
 //				panic("mock out the GetTask method")
 //			},
+//			GetTaskByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the GetTaskByIncident method")
+//			},
 //			GetUserFunc: func(ctx context.Context, id types.UserID) (*model.User, error) {
 //				panic("mock out the GetUser method")
 //			},
@@ -123,6 +126,9 @@ type RepositoryMock struct {
 
 	// GetTaskFunc mocks the GetTask method.
 	GetTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+
+	// GetTaskByIncidentFunc mocks the GetTaskByIncident method.
+	GetTaskByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
 
 	// GetUserFunc mocks the GetUser method.
 	GetUserFunc func(ctx context.Context, id types.UserID) (*model.User, error)
@@ -227,6 +233,15 @@ type RepositoryMock struct {
 			// TaskID is the taskID argument value.
 			TaskID types.TaskID
 		}
+		// GetTaskByIncident holds details about calls to the GetTaskByIncident method.
+		GetTaskByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
 		// GetUser holds details about calls to the GetUser method.
 		GetUser []struct {
 			// Ctx is the ctx argument value.
@@ -311,6 +326,7 @@ type RepositoryMock struct {
 	lockGetNextIncidentNumber  sync.RWMutex
 	lockGetSession             sync.RWMutex
 	lockGetTask                sync.RWMutex
+	lockGetTaskByIncident      sync.RWMutex
 	lockGetUser                sync.RWMutex
 	lockGetUserBySlackID       sync.RWMutex
 	lockListMessages           sync.RWMutex
@@ -703,6 +719,46 @@ func (mock *RepositoryMock) GetTaskCalls() []struct {
 	mock.lockGetTask.RLock()
 	calls = mock.calls.GetTask
 	mock.lockGetTask.RUnlock()
+	return calls
+}
+
+// GetTaskByIncident calls GetTaskByIncidentFunc.
+func (mock *RepositoryMock) GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	if mock.GetTaskByIncidentFunc == nil {
+		panic("RepositoryMock.GetTaskByIncidentFunc: method is nil but Repository.GetTaskByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
+	}
+	mock.lockGetTaskByIncident.Lock()
+	mock.calls.GetTaskByIncident = append(mock.calls.GetTaskByIncident, callInfo)
+	mock.lockGetTaskByIncident.Unlock()
+	return mock.GetTaskByIncidentFunc(ctx, incidentID, taskID)
+}
+
+// GetTaskByIncidentCalls gets all the calls that were made to GetTaskByIncident.
+// Check the length with:
+//
+//	len(mockedRepository.GetTaskByIncidentCalls())
+func (mock *RepositoryMock) GetTaskByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}
+	mock.lockGetTaskByIncident.RLock()
+	calls = mock.calls.GetTaskByIncident
+	mock.lockGetTaskByIncident.RUnlock()
 	return calls
 }
 

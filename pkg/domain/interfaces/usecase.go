@@ -140,10 +140,18 @@ type Task interface {
 	ListTasks(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
 	// UpdateTask updates an existing task
 	UpdateTask(ctx context.Context, taskID types.TaskID, updates TaskUpdateRequest) (*model.Task, error)
+	// UpdateTaskByIncident updates an existing task efficiently using incident ID
+	UpdateTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates TaskUpdateRequest) (*model.Task, error)
 	// CompleteTask marks a task as completed
 	CompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+	// CompleteTaskByIncident marks a task as completed efficiently using incident ID
+	CompleteTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
 	// UncompleteTask marks a task as incomplete
 	UncompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+	// UncompleteTaskByIncident marks a task as incomplete efficiently using incident ID
+	UncompleteTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
 	// GetTask retrieves a task by ID
 	GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+	// GetTaskByIncident retrieves a task by incident ID and task ID efficiently
+	GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
 }

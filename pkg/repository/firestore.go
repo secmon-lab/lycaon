@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"cloud.google.com/go/firestore"
@@ -526,6 +527,43 @@ func (f *Firestore) GetTask(ctx context.Context, taskID types.TaskID) (*model.Ta
 	}
 
 	return nil, goerr.Wrap(model.ErrTaskNotFound, "failed to get task", goerr.V("taskID", taskID))
+}
+
+// GetTaskByIncident retrieves a task by incident ID and task ID efficiently
+func (f *Firestore) GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	if incidentID <= 0 {
+		return nil, goerr.New("incident ID is invalid", goerr.V("incidentID", incidentID))
+	}
+	if taskID == "" {
+		return nil, goerr.New("task ID is empty")
+	}
+
+	// Direct access to the specific task document
+	taskDoc, err := f.client.Collection(incidentsCollection).
+		Doc(fmt.Sprintf("%d", incidentID)).
+		Collection(tasksCollection).
+		Doc(string(taskID)).
+		Get(ctx)
+
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+				goerr.V("incidentID", incidentID),
+				goerr.V("taskID", taskID))
+		}
+		return nil, goerr.Wrap(err, "failed to get task", 
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	var task model.Task
+	if err := taskDoc.DataTo(&task); err != nil {
+		return nil, goerr.Wrap(err, "failed to unmarshal task", 
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	return &task, nil
 }
 
 // UpdateTask updates an existing task in Firestore

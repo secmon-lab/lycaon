@@ -158,4 +158,37 @@ func TestTaskRepository(t *testing.T) {
 		gt.Equal(t, len(tasks2), 1)
 		gt.Equal(t, tasks2[0].ID, task2.ID)
 	})
+
+	t.Run("GetTaskByIncident", func(t *testing.T) {
+		incidentID := types.IncidentID(time.Now().UnixNano() % 1000000)
+		task, err := model.NewTask(incidentID, "Test task", "U123456")
+		gt.NoError(t, err)
+
+		// Create task
+		err = repo.CreateTask(ctx, task)
+		gt.NoError(t, err)
+
+		// Get task by incident efficiently
+		retrievedTask, err := repo.GetTaskByIncident(ctx, incidentID, task.ID)
+		gt.NoError(t, err)
+		gt.NotNil(t, retrievedTask)
+		gt.Equal(t, retrievedTask.ID, task.ID)
+		gt.Equal(t, retrievedTask.IncidentID, incidentID)
+		gt.Equal(t, retrievedTask.Title, "Test task")
+		gt.Equal(t, retrievedTask.CreatedBy, types.SlackUserID("U123456"))
+	})
+
+	t.Run("GetTaskByIncident_NotFound", func(t *testing.T) {
+		incidentID := types.IncidentID(time.Now().UnixNano() % 1000000)
+		nonExistentTaskID := types.NewTaskID()
+
+		_, err := repo.GetTaskByIncident(ctx, incidentID, nonExistentTaskID)
+		gt.Error(t, err)
+	})
+
+	t.Run("GetTaskByIncident_InvalidIncidentID", func(t *testing.T) {
+		taskID := types.NewTaskID()
+		_, err := repo.GetTaskByIncident(ctx, 0, taskID)
+		gt.Error(t, err)
+	})
 }

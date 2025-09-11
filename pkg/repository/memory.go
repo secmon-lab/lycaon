@@ -405,6 +405,38 @@ func (m *Memory) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task,
 	return nil, goerr.Wrap(model.ErrTaskNotFound, "failed to get task", goerr.V("taskID", taskID))
 }
 
+// GetTaskByIncident retrieves a task by incident ID and task ID efficiently
+func (m *Memory) GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	if incidentID <= 0 {
+		return nil, goerr.New("incident ID is invalid", goerr.V("incidentID", incidentID))
+	}
+	if taskID == "" {
+		return nil, goerr.New("task ID is empty")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Direct access to the specific incident's tasks
+	incidentTasks, exists := m.tasks[incidentID]
+	if !exists {
+		return nil, goerr.Wrap(model.ErrTaskNotFound, "incident not found", 
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	task, exists := incidentTasks[taskID]
+	if !exists {
+		return nil, goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Return a copy to prevent external modifications
+	taskCopy := *task
+	return &taskCopy, nil
+}
+
 // UpdateTask updates an existing task
 func (m *Memory) UpdateTask(ctx context.Context, task *model.Task) error {
 	if task == nil {

@@ -322,14 +322,31 @@ func (s *SlackInteraction) handleTaskAction(ctx context.Context, interaction *sl
 	return nil
 }
 
+// getIncidentIDByChannel gets incident ID from channel ID for efficient task operations
+func (s *SlackInteraction) getIncidentIDByChannel(ctx context.Context, channelID string) (types.IncidentID, error) {
+	incident, err := s.incidentUC.GetIncidentByChannelID(ctx, types.ChannelID(channelID))
+	if err != nil {
+		return 0, goerr.Wrap(err, "failed to get incident by channel", 
+			goerr.V("channelID", channelID))
+	}
+	return incident.ID, nil
+}
+
 // handleTaskComplete handles task completion
 func (s *SlackInteraction) handleTaskComplete(ctx context.Context, interaction *slack.InteractionCallback, taskID types.TaskID) error {
 	logger := ctxlog.From(ctx)
 
-	// Complete the task
-	task, err := s.taskUC.CompleteTask(ctx, taskID)
+	// Get incident ID from channel for efficient task lookup
+	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
 	if err != nil {
-		logger.Error("Failed to complete task", "error", err, "taskID", taskID)
+		logger.Error("Failed to get incident for task completion", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
+		return goerr.Wrap(err, "failed to get incident for task completion")
+	}
+
+	// Complete the task efficiently
+	task, err := s.taskUC.CompleteTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		logger.Error("Failed to complete task", "error", err, "incidentID", incidentID, "taskID", taskID)
 		return goerr.Wrap(err, "failed to complete task")
 	}
 
@@ -356,10 +373,17 @@ func (s *SlackInteraction) handleTaskComplete(ctx context.Context, interaction *
 func (s *SlackInteraction) handleTaskUncomplete(ctx context.Context, interaction *slack.InteractionCallback, taskID types.TaskID) error {
 	logger := ctxlog.From(ctx)
 
-	// Uncomplete the task
-	task, err := s.taskUC.UncompleteTask(ctx, taskID)
+	// Get incident ID from channel for efficient task lookup
+	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
 	if err != nil {
-		logger.Error("Failed to uncomplete task", "error", err, "taskID", taskID)
+		logger.Error("Failed to get incident for task uncompletion", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
+		return goerr.Wrap(err, "failed to get incident for task uncompletion")
+	}
+
+	// Uncomplete the task efficiently
+	task, err := s.taskUC.UncompleteTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		logger.Error("Failed to uncomplete task", "error", err, "incidentID", incidentID, "taskID", taskID)
 		return goerr.Wrap(err, "failed to uncomplete task")
 	}
 
@@ -386,10 +410,17 @@ func (s *SlackInteraction) handleTaskUncomplete(ctx context.Context, interaction
 func (s *SlackInteraction) handleTaskEdit(ctx context.Context, interaction *slack.InteractionCallback, taskID types.TaskID) error {
 	logger := ctxlog.From(ctx)
 
-	// Get the task
-	task, err := s.taskUC.GetTask(ctx, taskID)
+	// Get incident ID from channel for efficient task lookup
+	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
 	if err != nil {
-		logger.Error("Failed to get task for editing", "error", err, "taskID", taskID)
+		logger.Error("Failed to get incident for task editing", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
+		return goerr.Wrap(err, "failed to get incident for task editing")
+	}
+
+	// Get the task efficiently using incident ID
+	task, err := s.taskUC.GetTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		logger.Error("Failed to get task for editing", "error", err, "incidentID", incidentID, "taskID", taskID)
 		return goerr.Wrap(err, "failed to get task for editing")
 	}
 
@@ -452,10 +483,17 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 		}
 	}
 
-	// Update the task
-	updatedTask, err := s.taskUC.UpdateTask(ctx, taskID, updates)
+	// Get incident ID from channel for efficient task update
+	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
 	if err != nil {
-		logger.Error("Failed to update task", "error", err, "taskID", taskID)
+		logger.Error("Failed to get incident for task update", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
+		return goerr.Wrap(err, "failed to get incident for task update")
+	}
+
+	// Update the task efficiently
+	updatedTask, err := s.taskUC.UpdateTaskByIncident(ctx, incidentID, taskID, updates)
+	if err != nil {
+		logger.Error("Failed to update task", "error", err, "incidentID", incidentID, "taskID", taskID)
 		return goerr.Wrap(err, "failed to update task")
 	}
 

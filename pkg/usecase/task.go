@@ -121,6 +121,60 @@ func (u *TaskUseCase) UpdateTask(ctx context.Context, taskID types.TaskID, updat
 	return task, nil
 }
 
+// UpdateTaskByIncident updates an existing task efficiently using incident ID
+func (u *TaskUseCase) UpdateTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error) {
+	// Get existing task efficiently
+	task, err := u.repo.GetTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get task by incident",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Apply updates
+	if updates.Title != nil {
+		if err := task.UpdateTitle(*updates.Title); err != nil {
+			return nil, goerr.Wrap(err, "failed to update title",
+				goerr.V("incidentID", incidentID),
+				goerr.V("taskID", taskID))
+		}
+	}
+
+	if updates.Description != nil {
+		task.UpdateDescription(*updates.Description)
+	}
+
+	if updates.Status != nil {
+		if err := task.UpdateStatus(*updates.Status); err != nil {
+			return nil, goerr.Wrap(err, "failed to update status",
+				goerr.V("incidentID", incidentID),
+				goerr.V("taskID", taskID),
+				goerr.V("status", *updates.Status))
+		}
+	}
+
+	if updates.AssigneeID != nil {
+		task.Assign(*updates.AssigneeID)
+	}
+
+	if updates.MessageTS != nil {
+		task.SetMessageTS(*updates.MessageTS)
+	}
+
+	if updates.ChannelID != nil {
+		task.SetChannelID(*updates.ChannelID)
+	}
+
+	// Save updated task
+	if err := u.repo.UpdateTask(ctx, task); err != nil {
+		return nil, goerr.Wrap(err, "failed to save updated task",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	return task, nil
+}
+
 // CompleteTask marks a task as completed
 func (u *TaskUseCase) CompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
 	// Get existing task
@@ -139,6 +193,33 @@ func (u *TaskUseCase) CompleteTask(ctx context.Context, taskID types.TaskID) (*m
 	// Save updated task
 	if err := u.repo.UpdateTask(ctx, task); err != nil {
 		return nil, goerr.Wrap(err, "failed to save completed task",
+			goerr.V("taskID", taskID))
+	}
+
+	return task, nil
+}
+
+// CompleteTaskByIncident marks a task as completed efficiently using incident ID
+func (u *TaskUseCase) CompleteTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	// Get existing task efficiently
+	task, err := u.repo.GetTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get task by incident",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Mark as completed
+	if err := task.Complete(); err != nil {
+		return nil, goerr.Wrap(err, "failed to complete task",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Save updated task
+	if err := u.repo.UpdateTask(ctx, task); err != nil {
+		return nil, goerr.Wrap(err, "failed to save completed task",
+			goerr.V("incidentID", incidentID),
 			goerr.V("taskID", taskID))
 	}
 
@@ -169,11 +250,50 @@ func (u *TaskUseCase) UncompleteTask(ctx context.Context, taskID types.TaskID) (
 	return task, nil
 }
 
+// UncompleteTaskByIncident marks a task as incomplete efficiently using incident ID
+func (u *TaskUseCase) UncompleteTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	// Get existing task efficiently
+	task, err := u.repo.GetTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get task by incident",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Mark as incomplete
+	if err := task.Uncomplete(); err != nil {
+		return nil, goerr.Wrap(err, "failed to uncomplete task",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Save updated task
+	if err := u.repo.UpdateTask(ctx, task); err != nil {
+		return nil, goerr.Wrap(err, "failed to save uncompleted task",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	return task, nil
+}
+
 // GetTask retrieves a task by ID
 func (u *TaskUseCase) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
 	task, err := u.repo.GetTask(ctx, taskID)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to get task",
+			goerr.V("taskID", taskID))
+	}
+
+	return task, nil
+}
+
+// GetTaskByIncident retrieves a task by incident ID and task ID efficiently
+func (u *TaskUseCase) GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	task, err := u.repo.GetTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get task by incident",
+			goerr.V("incidentID", incidentID),
 			goerr.V("taskID", taskID))
 	}
 
