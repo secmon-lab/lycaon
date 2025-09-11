@@ -41,6 +41,7 @@ func TestTaskUseCase_CreateTask(t *testing.T) {
 		gt.Equal(t, task.Title, "Test task")
 		gt.Equal(t, task.IncidentID, incidentID)
 		gt.Equal(t, task.CreatedBy, types.SlackUserID("U123456"))
+		gt.Equal(t, task.ChannelID, types.ChannelID("C123456"))
 		gt.Equal(t, task.MessageTS, "1234567890.123456")
 		gt.Equal(t, task.Status, model.TaskStatusIncompleted)
 

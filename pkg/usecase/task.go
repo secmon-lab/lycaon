@@ -38,7 +38,8 @@ func (u *TaskUseCase) CreateTask(ctx context.Context, incidentID types.IncidentI
 		return nil, goerr.Wrap(err, "failed to create task")
 	}
 
-	// Set message timestamp for link generation
+	// Set channel ID and message timestamp for link generation
+	task.SetChannelID(channelID)
 	if messageTS != "" {
 		task.SetMessageTS(messageTS)
 	}

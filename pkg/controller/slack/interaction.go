@@ -12,7 +12,7 @@ import (
 )
 
 // InteractionHandler handles Slack interactions
-// Responsibility: Parse Slack messages, extract necessary information, 
+// Responsibility: Parse Slack messages, extract necessary information,
 // prepare data for usecase, and control async dispatch
 type InteractionHandler struct {
 	slackUC interfaces.SlackInteraction
@@ -44,11 +44,11 @@ func (h *InteractionHandler) HandleInteraction(ctx context.Context, payload []by
 
 	// Prepare interaction data for usecase
 	interactionData := &interfaces.SlackInteractionData{
-		Type:      string(interaction.Type),
-		UserID:    interaction.User.ID,
-		TeamID:    interaction.Team.ID,
-		ChannelID: interaction.Channel.ID,
-		TriggerID: interaction.TriggerID,
+		Type:       string(interaction.Type),
+		UserID:     interaction.User.ID,
+		TeamID:     interaction.Team.ID,
+		ChannelID:  interaction.Channel.ID,
+		TriggerID:  interaction.TriggerID,
 		RawPayload: payload,
 	}
 
@@ -77,7 +77,7 @@ func (h *InteractionHandler) HandleInteraction(ctx context.Context, payload []by
 					return goerr.New("incident title is required")
 				}
 			} else {
-				return goerr.New("incident title is required") 
+				return goerr.New("incident title is required")
 			}
 		}
 		return h.handleAsync(ctx, interactionData, h.slackUC.HandleViewSubmission)
@@ -100,10 +100,10 @@ func (h *InteractionHandler) HandleInteraction(ctx context.Context, payload []by
 // Controller responsibility: Dispatch usecase processing and return immediate response
 func (h *InteractionHandler) handleAsync(ctx context.Context, data *interfaces.SlackInteractionData, usecaseHandler func(context.Context, *interfaces.SlackInteractionData) error) error {
 	logger := ctxlog.From(ctx)
-	
+
 	// Create background context for async processing
 	backgroundCtx := async.NewBackgroundContext(ctx)
-	
+
 	// Dispatch usecase processing asynchronously
 	async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
 		if err := usecaseHandler(asyncCtx, data); err != nil {
@@ -115,14 +115,14 @@ func (h *InteractionHandler) handleAsync(ctx context.Context, data *interfaces.S
 			// Log error but don't propagate - async processing
 			return nil
 		}
-		
+
 		logger.Debug("UseCase processing completed",
 			"interactionType", data.Type,
 			"user", data.UserID,
 		)
 		return nil
 	})
-	
+
 	// Return immediately to send 200 response to Slack
 	logger.Debug("Interaction dispatched for async processing",
 		"interactionType", data.Type,
@@ -130,4 +130,3 @@ func (h *InteractionHandler) handleAsync(ctx context.Context, data *interfaces.S
 	)
 	return nil
 }
-

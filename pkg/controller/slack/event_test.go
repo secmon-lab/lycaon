@@ -297,7 +297,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 	t.Run("handles task command in non-incident channel - sends thread error", func(t *testing.T) {
 		errorMessageSent := false
 		var sentChannel, sentThreadTS, sentMessage string
-		
+
 		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
 				return nil
@@ -351,10 +351,10 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 
 		err := handler.HandleEvent(ctx, event)
 		gt.NoError(t, err)
-		
+
 		// Wait a bit for async processing to complete
 		time.Sleep(200 * time.Millisecond)
-		
+
 		gt.B(t, errorMessageSent).True()
 		gt.Equal(t, sentChannel, "C123456")
 		gt.Equal(t, sentMessage, "Please create an incident first.")
@@ -364,7 +364,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 	t.Run("handles task list command in non-incident channel - sends thread error", func(t *testing.T) {
 		errorMessageSent := false
 		var sentChannel, sentMessage string
-		
+
 		mockUC := &mocks.SlackMessageMock{
 			ProcessMessageFunc: func(ctx context.Context, event *slackevents.MessageEvent) error {
 				return nil
@@ -400,7 +400,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 			InnerEvent: slackevents.EventsAPIInnerEvent{
 				Type: string(slackevents.AppMention),
 				Data: &slackevents.AppMentionEvent{
-					Type:      "app_mention", 
+					Type:      "app_mention",
 					Text:      "<@BOT123> task",
 					User:      "U123456",
 					Channel:   "C123456",
@@ -411,10 +411,10 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 
 		err := handler.HandleEvent(ctx, event)
 		gt.NoError(t, err)
-		
+
 		// Wait a bit for async processing to complete
 		time.Sleep(200 * time.Millisecond)
-		
+
 		gt.B(t, errorMessageSent).True()
 		gt.Equal(t, sentChannel, "C123456")
 		gt.Equal(t, sentMessage, "Please create an incident first.")

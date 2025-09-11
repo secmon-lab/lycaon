@@ -326,7 +326,7 @@ func (s *SlackInteraction) handleTaskAction(ctx context.Context, interaction *sl
 func (s *SlackInteraction) getIncidentIDByChannel(ctx context.Context, channelID string) (types.IncidentID, error) {
 	incident, err := s.incidentUC.GetIncidentByChannelID(ctx, types.ChannelID(channelID))
 	if err != nil {
-		return 0, goerr.Wrap(err, "failed to get incident by channel", 
+		return 0, goerr.Wrap(err, "failed to get incident by channel",
 			goerr.V("channelID", channelID))
 	}
 	return incident.ID, nil
@@ -502,7 +502,7 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 		"messageTS", updatedTask.MessageTS,
 		"channelID", updatedTask.ChannelID,
 		"taskID", taskID)
-	
+
 	if updatedTask.MessageTS != "" {
 		// Determine the channel ID to use
 		channelID := updatedTask.ChannelID
@@ -516,14 +516,14 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 			channelID = incident.ChannelID
 			logger.Debug("Using incident channel as fallback", "channelID", channelID)
 		}
-		
+
 		logger.Info("Updating task message in Slack",
 			"taskID", taskID,
 			"channelID", channelID,
 			"messageTS", updatedTask.MessageTS)
-		
+
 		blocks := slackblocks.BuildTaskMessage(updatedTask, "")
-		
+
 		_, _, _, err = s.slackClient.UpdateMessage(
 			ctx,
 			string(channelID),
@@ -531,8 +531,8 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 			slack.MsgOptionBlocks(blocks...),
 		)
 		if err != nil {
-			logger.Warn("Failed to update task message after edit", 
-				"error", err, 
+			logger.Warn("Failed to update task message after edit",
+				"error", err,
 				"taskID", taskID,
 				"channelID", channelID,
 				"messageTS", updatedTask.MessageTS)

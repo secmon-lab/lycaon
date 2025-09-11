@@ -420,14 +420,14 @@ func (m *Memory) GetTaskByIncident(ctx context.Context, incidentID types.Inciden
 	// Direct access to the specific incident's tasks
 	incidentTasks, exists := m.tasks[incidentID]
 	if !exists {
-		return nil, goerr.Wrap(model.ErrTaskNotFound, "incident not found", 
+		return nil, goerr.Wrap(model.ErrTaskNotFound, "incident not found",
 			goerr.V("incidentID", incidentID),
 			goerr.V("taskID", taskID))
 	}
 
 	task, exists := incidentTasks[taskID]
 	if !exists {
-		return nil, goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+		return nil, goerr.Wrap(model.ErrTaskNotFound, "task not found",
 			goerr.V("incidentID", incidentID),
 			goerr.V("taskID", taskID))
 	}

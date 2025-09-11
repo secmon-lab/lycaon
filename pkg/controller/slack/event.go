@@ -72,7 +72,7 @@ func (h *EventHandler) HandleEvent(ctx context.Context, event *slackevents.Event
 // Controller responsibility: Basic validation, then async dispatch for processing
 func (h *EventHandler) handleMessageEvent(ctx context.Context, event *slackevents.MessageEvent) error {
 	logger := ctxlog.From(ctx)
-	
+
 	// Skip bot messages to prevent loops
 	if event.BotID != "" {
 		logger.Debug("Skipping bot message", "botID", event.BotID)
@@ -127,7 +127,7 @@ func (h *EventHandler) handleMessageEvent(ctx context.Context, event *slackevent
 // Controller responsibility: Basic validation, then async dispatch for all processing
 func (h *EventHandler) handleAppMentionEvent(ctx context.Context, event *slackevents.AppMentionEvent) error {
 	logger := ctxlog.From(ctx)
-	
+
 	logger.Info("App mentioned",
 		"user", event.User,
 		"channel", event.Channel,
@@ -313,14 +313,12 @@ func (h *EventHandler) createTask(ctx context.Context, event *slackevents.AppMen
 		return goerr.Wrap(err, "failed to post task message")
 	}
 
-	// Update task with message timestamp and channel ID for link generation
-	channelID := types.ChannelID(event.Channel)
+	// Update task with message timestamp for link generation
 	updateReq := interfaces.TaskUpdateRequest{
 		MessageTS: &timestamp,
-		ChannelID: &channelID,
 	}
 	if _, err := h.taskUC.UpdateTask(ctx, task.ID, updateReq); err != nil {
-		logger.Warn("Failed to update task with message timestamp and channel", "error", err, "taskID", task.ID)
+		logger.Warn("Failed to update task with message timestamp", "error", err, "taskID", task.ID)
 	}
 
 	logger.Info("Task created successfully", "taskID", task.ID, "title", title, "incidentID", incident.ID)
@@ -329,7 +327,7 @@ func (h *EventHandler) createTask(ctx context.Context, event *slackevents.AppMen
 
 // sendTaskErrorMessage sends an error message for task operations as a thread reply
 func (h *EventHandler) sendTaskErrorMessage(ctx context.Context, channel, threadTS, message string) error {
-	_, _, err := h.slackClient.PostMessage(ctx, channel, 
+	_, _, err := h.slackClient.PostMessage(ctx, channel,
 		slack.MsgOptionText(message, false),
 		slack.MsgOptionTS(threadTS),
 	)

@@ -547,18 +547,18 @@ func (f *Firestore) GetTaskByIncident(ctx context.Context, incidentID types.Inci
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+			return nil, goerr.Wrap(model.ErrTaskNotFound, "task not found",
 				goerr.V("incidentID", incidentID),
 				goerr.V("taskID", taskID))
 		}
-		return nil, goerr.Wrap(err, "failed to get task", 
+		return nil, goerr.Wrap(err, "failed to get task",
 			goerr.V("incidentID", incidentID),
 			goerr.V("taskID", taskID))
 	}
 
 	var task model.Task
 	if err := taskDoc.DataTo(&task); err != nil {
-		return nil, goerr.Wrap(err, "failed to unmarshal task", 
+		return nil, goerr.Wrap(err, "failed to unmarshal task",
 			goerr.V("incidentID", incidentID),
 			goerr.V("taskID", taskID))
 	}

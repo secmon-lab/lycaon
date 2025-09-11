@@ -57,10 +57,10 @@ type SlackMessage interface {
 type SlackInteraction interface {
 	// HandleBlockActions handles block action interactions (buttons)
 	HandleBlockActions(ctx context.Context, data *SlackInteractionData) error
-	
+
 	// HandleViewSubmission handles modal/view submission interactions
 	HandleViewSubmission(ctx context.Context, data *SlackInteractionData) error
-	
+
 	// HandleShortcut handles shortcut interactions
 	HandleShortcut(ctx context.Context, data *SlackInteractionData) error
 }

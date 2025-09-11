@@ -15,8 +15,6 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
-
-
 func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	ctx := context.Background()
 

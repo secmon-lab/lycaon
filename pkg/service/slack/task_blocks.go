@@ -14,7 +14,7 @@ func BuildTaskMessage(task *model.Task, assigneeUsername string) []slack.Block {
 
 	// Header section with title and minimal details
 	headerText := fmt.Sprintf("*%s*", task.Title)
-	
+
 	// Build status and assignee line
 	var statusLine string
 	if task.Status == model.TaskStatusCompleted {
@@ -22,14 +22,14 @@ func BuildTaskMessage(task *model.Task, assigneeUsername string) []slack.Block {
 	} else {
 		statusLine = "🔄 In Progress"
 	}
-	
+
 	// Add assignee
 	if assigneeUsername != "" {
 		statusLine += fmt.Sprintf(" • @%s", assigneeUsername)
 	} else if task.AssigneeID != "" {
 		statusLine += fmt.Sprintf(" • <@%s>", task.AssigneeID)
 	}
-	
+
 	// Create a single section with title and status line
 	blocks = append(blocks, slack.NewSectionBlock(
 		slack.NewTextBlockObject(slack.MarkdownType, fmt.Sprintf("%s\n_%s_", headerText, statusLine), false, false),
@@ -118,7 +118,7 @@ func BuildTaskListMessage(tasks []*model.Task, incident *model.Incident) []slack
 		if channelID == "" {
 			channelID = incident.ChannelID
 		}
-		
+
 		if task.MessageTS != "" && channelID != "" {
 			url := task.GetSlackMessageURL(channelID)
 			taskText = fmt.Sprintf("%s <%s|%s>", statusEmoji, url, task.Title)
