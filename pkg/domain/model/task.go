@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/m-mizutani/goerr/v2"
@@ -163,17 +164,8 @@ func (t *Task) GetSlackMessageURL(channelID types.ChannelID) string {
 
 	// Convert message timestamp to permalink format
 	// Remove the dot from the timestamp for the URL
-	formattedTS := t.MessageTS
-	if len(formattedTS) > 0 {
-		// Replace the dot with empty string for URL format
-		// e.g., "1234567890.123456" becomes "1234567890123456"
-		for i := 0; i < len(formattedTS); i++ {
-			if formattedTS[i] == '.' {
-				formattedTS = formattedTS[:i] + formattedTS[i+1:]
-				break
-			}
-		}
-	}
+	// e.g., "1234567890.123456" becomes "1234567890123456"
+	formattedTS := strings.Replace(t.MessageTS, ".", "", 1)
 
 	return "https://slack.com/archives/" + string(channelID) + "/p" + formattedTS
 }
