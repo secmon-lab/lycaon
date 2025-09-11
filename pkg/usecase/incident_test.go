@@ -55,7 +55,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Create use case with mock and default categories
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -119,7 +119,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
 
 		// Create first incident
 		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -191,7 +191,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
 
 		// Create an incident
 		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -246,7 +246,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
 
 		// Try to get non-existent incident
 		incident, err := uc.GetIncident(ctx, 999)
@@ -269,7 +269,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		mockSlack := &mocks.SlackClientMock{}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(mockRepo, mockSlack, categories)
+		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil)
 
 		// Try to create incident - should fail due to repository error
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -283,5 +283,177 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
 		gt.S(t, err.Error()).Contains("failed to get next incident number")
+	})
+
+	t.Run("Create incident with category invitations", func(t *testing.T) {
+		// Use memory repository for testing
+		repo := repository.NewMemory()
+
+		// Track invited users
+		var invitedUsers []string
+
+		// Create mock Slack client
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-INCIDENT-WITH-INVITES",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				// Capture invited users
+				invitedUsers = append(invitedUsers, users...)
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
+
+		// Create mock Invite that tracks invitations
+		mockInvite := &mocks.InviteMock{
+			InviteUsersByListFunc: func(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error) {
+				// Verify correct category invitations are passed
+				gt.Equal(t, 1, len(users))
+				gt.Equal(t, "@security-lead", users[0])
+				gt.Equal(t, 1, len(groups))
+				gt.Equal(t, "@security-team", groups[0])
+				
+				return &model.InvitationResult{
+					Details: []model.InviteDetail{
+						{
+							UserID:       "U-SECURITY-LEAD",
+							Username:     "@security-lead",
+							SourceConfig: "@security-lead",
+							Status:       "success",
+						},
+						{
+							UserID:       "U-SECURITY-MEMBER1",
+							Username:     "",
+							SourceConfig: "@security-team",
+							Status:       "success",
+						},
+					},
+				}, nil
+			},
+		}
+
+		// Create categories with invitations
+		categories := &model.CategoriesConfig{
+			Categories: []model.Category{
+				{
+					ID:           "security_incident",
+					Name:         "Security Incident",
+					Description:  "Security-related incidents",
+					InviteUsers:  []string{"@security-lead"},
+					InviteGroups: []string{"@security-team"},
+				},
+				{
+					ID:          "unknown",
+					Name:        "Unknown",
+					Description: "Unknown incidents",
+				},
+			},
+		}
+
+		// Create use case with mock invite
+		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite)
+
+		// Create an incident with security_incident category
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "security breach",
+			Description:       "Potential security incident detected",
+			CategoryID:        "security_incident",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-CREATOR",
+		})
+
+		// Verify incident was created successfully
+		gt.NoError(t, err).Required()
+		gt.V(t, incident).NotNil()
+		gt.Equal(t, "security_incident", incident.CategoryID)
+
+		// Verify invite was called with correct parameters
+		gt.Equal(t, 1, len(mockInvite.InviteUsersByListCalls()))
+		inviteCall := mockInvite.InviteUsersByListCalls()[0]
+		gt.Equal(t, []string{"@security-lead"}, inviteCall.Users)
+		gt.Equal(t, []string{"@security-team"}, inviteCall.Groups)
+		gt.Equal(t, incident.ChannelID, inviteCall.ChannelID)
+	})
+
+	t.Run("Create incident with no category invitations", func(t *testing.T) {
+		// Use memory repository for testing
+		repo := repository.NewMemory()
+
+		// Create mock Slack client
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-INCIDENT-NO-INVITES",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
+
+		// Create mock Invite that should NOT be called
+		mockInvite := &mocks.InviteMock{
+			InviteUsersByListFunc: func(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error) {
+				t.Fatal("InviteUsersByList should not be called for unknown category")
+				return nil, nil
+			},
+		}
+
+		// Create categories without invitations for unknown
+		categories := &model.CategoriesConfig{
+			Categories: []model.Category{
+				{
+					ID:          "unknown",
+					Name:        "Unknown",
+					Description: "Unknown incidents",
+				},
+			},
+		}
+
+		// Create use case with mock invite
+		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite)
+
+		// Create an incident with unknown category (no invitations)
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "unknown issue",
+			Description:       "Some unknown issue",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-CREATOR",
+		})
+
+		// Verify incident was created successfully
+		gt.NoError(t, err).Required()
+		gt.V(t, incident).NotNil()
+		gt.Equal(t, "unknown", incident.CategoryID)
+
+		// Verify invite was NOT called
+		gt.Equal(t, 0, len(mockInvite.InviteUsersByListCalls()))
 	})
 }

@@ -115,29 +115,43 @@ func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestI
 	return incident, nil
 }
 
-// updateOriginalMessageToDeclared updates the original message to show incident was declared
+// updateOriginalMessageToDeclared updates the bot's prompt message to show incident was declared
 func (u *Incident) updateOriginalMessageToDeclared(ctx context.Context, request *model.IncidentRequest, title string) {
-	ctxlog.From(ctx).Info("Updating original message to show incident declared",
+	// Update the bot's message, not the original user message
+	messageToUpdate := request.BotMessageTS
+	if messageToUpdate == "" {
+		// Fallback to original message timestamp if bot message timestamp is not available
+		messageToUpdate = request.MessageTS
+		ctxlog.From(ctx).Warn("Bot message timestamp not available, falling back to original message",
+			"channelID", request.ChannelID,
+			"originalMessageTS", request.MessageTS,
+		)
+	}
+
+	ctxlog.From(ctx).Info("Updating bot message to show incident declared",
 		"channelID", request.ChannelID,
-		"messageTS", request.MessageTS,
+		"botMessageTS", messageToUpdate,
+		"originalMessageTS", request.MessageTS,
 		"title", title,
 	)
+	
 	usedBlocks := u.blockBuilder.BuildIncidentPromptUsedBlocks(title)
 	if _, _, _, err := u.slackClient.UpdateMessage(
 		ctx,
 		request.ChannelID.String(),
-		request.MessageTS.String(),
+		messageToUpdate.String(),
 		slack.MsgOptionBlocks(usedBlocks...),
 	); err != nil {
-		ctxlog.From(ctx).Warn("Failed to update original message",
+		ctxlog.From(ctx).Warn("Failed to update bot message",
 			"error", err,
 			"channelID", request.ChannelID,
-			"messageTS", request.MessageTS,
+			"messageTS", messageToUpdate,
+			"originalMessageTS", request.MessageTS,
 		)
 	} else {
-		ctxlog.From(ctx).Info("Successfully updated original message",
+		ctxlog.From(ctx).Info("Successfully updated bot message",
 			"channelID", request.ChannelID,
-			"messageTS", request.MessageTS,
+			"messageTS", messageToUpdate,
 		)
 	}
 }

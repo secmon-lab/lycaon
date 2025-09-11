@@ -8,14 +8,15 @@ import (
 
 // IncidentRequest represents a temporary incident creation request
 type IncidentRequest struct {
-	ID          types.IncidentRequestID // UUID
-	ChannelID   types.ChannelID         // Origin channel ID
-	MessageTS   types.MessageTS         // Message timestamp
-	Title       string                  // Incident title
-	Description string                  // Incident description (optional)
-	CategoryID  string                  // Incident category ID (selected by LLM)
-	RequestedBy types.SlackUserID       // User ID who requested
-	CreatedAt   time.Time               // When the request was created
+	ID               types.IncidentRequestID // UUID
+	ChannelID        types.ChannelID         // Origin channel ID
+	MessageTS        types.MessageTS         // Original user message timestamp
+	BotMessageTS     types.MessageTS         // Bot's prompt message timestamp
+	Title            string                  // Incident title
+	Description      string                  // Incident description (optional)
+	CategoryID       string                  // Incident category ID (selected by LLM)
+	RequestedBy      types.SlackUserID       // User ID who requested
+	CreatedAt        time.Time               // When the request was created
 }
 
 // NewIncidentRequest creates a new incident request

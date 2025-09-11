@@ -18,15 +18,17 @@ type Incident struct {
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackSvc.BlockBuilder
 	categories   *model.CategoriesConfig
+	invite       interfaces.Invite
 }
 
 // NewIncident creates a new Incident instance with a custom SlackClient
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig) *Incident {
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite) *Incident {
 	return &Incident{
 		repo:         repo,
 		slackClient:  slackClient,
 		blockBuilder: slackSvc.NewBlockBuilder(),
 		categories:   categories,
+		invite:       invite,
 	}
 }
 
@@ -102,6 +104,37 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	// Save incident to repository
 	if err := u.repo.PutIncident(ctx, incident); err != nil {
 		return nil, goerr.Wrap(err, "failed to save incident")
+	}
+
+	// カテゴリ別招待処理（直列実行）
+	// 注意：この関数は既にController層でasync.Dispatchされている前提
+	if incident.CategoryID != "" && u.categories != nil && u.invite != nil {
+		// カテゴリ設定から招待対象を取得
+		category := u.categories.FindCategoryByID(incident.CategoryID)
+		if category == nil {
+			// カテゴリなしは正常 - ログ出力して継続
+			ctxlog.From(ctx).Info("Category not found",
+				"categoryID", incident.CategoryID)
+		} else if len(category.InviteUsers) == 0 && len(category.InviteGroups) == 0 {
+			// 招待設定なしは正常 - ログ出力して継続
+			ctxlog.From(ctx).Info("No invitation settings for category",
+				"categoryID", incident.CategoryID)
+		} else {
+			// 同期的に招待処理実行
+			_, err := u.invite.InviteUsersByList(
+				ctx,
+				category.InviteUsers,
+				category.InviteGroups,
+				incident.ChannelID,
+			)
+			if err != nil {
+				// エラーログ出力するが、インシデント作成は継続
+				ctxlog.From(ctx).Error("Category invitation failed",
+					"error", err,
+					"categoryID", incident.CategoryID,
+					"incidentID", incident.ID)
+			}
+		}
 	}
 
 	return incident, nil

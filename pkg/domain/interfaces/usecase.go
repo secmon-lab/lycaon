@@ -1,6 +1,6 @@
 package interfaces
 
-//go:generate moq -out mocks/usecase_mock.go -pkg mocks . SlackMessage Incident Task
+//go:generate moq -out mocks/usecase_mock.go -pkg mocks . SlackMessage Incident Task Invite
 
 import (
 	"context"
@@ -154,4 +154,13 @@ type Task interface {
 	GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
 	// GetTaskByIncident retrieves a task by incident ID and task ID efficiently
 	GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
+}
+
+// Invite defines the interface for generic invitation functionality
+type Invite interface {
+	// InviteUsersByList invites users and groups to a channel
+	InviteUsersByList(ctx context.Context,
+		users []string, // User ID or @username list
+		groups []string, // Group ID or @groupname list
+		channelID types.ChannelID) (*model.InvitationResult, error)
 }

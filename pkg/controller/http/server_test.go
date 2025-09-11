@@ -44,7 +44,7 @@ func TestServerHealthCheck(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, mockSlack)
 
@@ -89,7 +89,7 @@ func TestServerFallbackHome(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, mockSlack)
 

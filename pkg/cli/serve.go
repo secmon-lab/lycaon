@@ -105,7 +105,8 @@ func cmdServe() *cli.Command {
 			if err != nil {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
-			incidentUC := usecase.NewIncident(repo, slackClient, categories)
+			inviteUC := usecase.NewInvite(slackClient)
+			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
 			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, slackClient)
 

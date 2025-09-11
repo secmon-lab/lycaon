@@ -4,9 +4,11 @@ import "github.com/m-mizutani/goerr/v2"
 
 // Category represents an incident category
 type Category struct {
-	ID          string `yaml:"id"`          // Unique identifier (e.g., "security_incident")
-	Name        string `yaml:"name"`        // Display name
-	Description string `yaml:"description"` // Description for selection help
+	ID           string   `yaml:"id"`                        // Unique identifier (e.g., "security_incident")
+	Name         string   `yaml:"name"`                      // Display name
+	Description  string   `yaml:"description"`               // Description for selection help
+	InviteUsers  []string `yaml:"invite_users,omitempty"`   // User IDs or @usernames to invite
+	InviteGroups []string `yaml:"invite_groups,omitempty"` // Group IDs or @groupnames to invite
 }
 
 // Validate validates the category
