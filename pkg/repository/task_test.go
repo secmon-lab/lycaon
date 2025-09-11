@@ -67,10 +67,10 @@ func TestTaskRepository(t *testing.T) {
 		gt.NoError(t, err)
 
 		// Update task
-		task.UpdateTitle("Updated title")
+		gt.NoError(t, task.UpdateTitle("Updated title"))
 		task.UpdateDescription("New description")
 		task.Assign("U999999")
-		task.Complete()
+		gt.NoError(t, task.Complete())
 
 		err = repo.UpdateTask(ctx, task)
 		gt.NoError(t, err)

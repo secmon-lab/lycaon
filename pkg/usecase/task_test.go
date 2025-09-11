@@ -230,7 +230,7 @@ func TestTaskUseCase_CompleteTask(t *testing.T) {
 		taskID := types.NewTaskID()
 		existingTask, _ := model.NewTask(1, "Test task", "U123456")
 		existingTask.ID = taskID
-		existingTask.Complete() // Already completed
+		_ = existingTask.Complete() // Already completed
 
 		// Setup mocks
 		repo := &mocks.RepositoryMock{
