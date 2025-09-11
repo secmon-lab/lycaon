@@ -7,6 +7,7 @@ import (
 	"context"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/slack-go/slack/slackevents"
 	"sync"
 )
@@ -432,6 +433,9 @@ var _ interfaces.Incident = &IncidentMock{}
 //			GetIncidentFunc: func(ctx context.Context, id int) (*model.Incident, error) {
 //				panic("mock out the GetIncident method")
 //			},
+//			GetIncidentByChannelIDFunc: func(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+//				panic("mock out the GetIncidentByChannelID method")
+//			},
 //			GetIncidentRequestFunc: func(ctx context.Context, requestID string) (*model.IncidentRequest, error) {
 //				panic("mock out the GetIncidentRequest method")
 //			},
@@ -462,6 +466,9 @@ type IncidentMock struct {
 
 	// GetIncidentFunc mocks the GetIncident method.
 	GetIncidentFunc func(ctx context.Context, id int) (*model.Incident, error)
+
+	// GetIncidentByChannelIDFunc mocks the GetIncidentByChannelID method.
+	GetIncidentByChannelIDFunc func(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
 
 	// GetIncidentRequestFunc mocks the GetIncidentRequest method.
 	GetIncidentRequestFunc func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
@@ -504,6 +511,13 @@ type IncidentMock struct {
 			Ctx context.Context
 			// ID is the id argument value.
 			ID int
+		}
+		// GetIncidentByChannelID holds details about calls to the GetIncidentByChannelID method.
+		GetIncidentByChannelID []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
 		}
 		// GetIncidentRequest holds details about calls to the GetIncidentRequest method.
 		GetIncidentRequest []struct {
@@ -562,6 +576,7 @@ type IncidentMock struct {
 	lockCreateIncident                  sync.RWMutex
 	lockCreateIncidentFromInteraction   sync.RWMutex
 	lockGetIncident                     sync.RWMutex
+	lockGetIncidentByChannelID          sync.RWMutex
 	lockGetIncidentRequest              sync.RWMutex
 	lockHandleCreateIncidentAction      sync.RWMutex
 	lockHandleCreateIncidentActionAsync sync.RWMutex
@@ -682,6 +697,42 @@ func (mock *IncidentMock) GetIncidentCalls() []struct {
 	mock.lockGetIncident.RLock()
 	calls = mock.calls.GetIncident
 	mock.lockGetIncident.RUnlock()
+	return calls
+}
+
+// GetIncidentByChannelID calls GetIncidentByChannelIDFunc.
+func (mock *IncidentMock) GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+	if mock.GetIncidentByChannelIDFunc == nil {
+		panic("IncidentMock.GetIncidentByChannelIDFunc: method is nil but Incident.GetIncidentByChannelID was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		ChannelID types.ChannelID
+	}{
+		Ctx:       ctx,
+		ChannelID: channelID,
+	}
+	mock.lockGetIncidentByChannelID.Lock()
+	mock.calls.GetIncidentByChannelID = append(mock.calls.GetIncidentByChannelID, callInfo)
+	mock.lockGetIncidentByChannelID.Unlock()
+	return mock.GetIncidentByChannelIDFunc(ctx, channelID)
+}
+
+// GetIncidentByChannelIDCalls gets all the calls that were made to GetIncidentByChannelID.
+// Check the length with:
+//
+//	len(mockedIncident.GetIncidentByChannelIDCalls())
+func (mock *IncidentMock) GetIncidentByChannelIDCalls() []struct {
+	Ctx       context.Context
+	ChannelID types.ChannelID
+} {
+	var calls []struct {
+		Ctx       context.Context
+		ChannelID types.ChannelID
+	}
+	mock.lockGetIncidentByChannelID.RLock()
+	calls = mock.calls.GetIncidentByChannelID
+	mock.lockGetIncidentByChannelID.RUnlock()
 	return calls
 }
 
@@ -898,5 +949,587 @@ func (mock *IncidentMock) HandleEditIncidentActionCalls() []struct {
 	mock.lockHandleEditIncidentAction.RLock()
 	calls = mock.calls.HandleEditIncidentAction
 	mock.lockHandleEditIncidentAction.RUnlock()
+	return calls
+}
+
+// Ensure, that TaskMock does implement interfaces.Task.
+// If this is not the case, regenerate this file with moq.
+var _ interfaces.Task = &TaskMock{}
+
+// TaskMock is a mock implementation of interfaces.Task.
+//
+//	func TestSomethingThatUsesTask(t *testing.T) {
+//
+//		// make and configure a mocked interfaces.Task
+//		mockedTask := &TaskMock{
+//			CompleteTaskFunc: func(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the CompleteTask method")
+//			},
+//			CompleteTaskByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the CompleteTaskByIncident method")
+//			},
+//			CreateTaskFunc: func(ctx context.Context, incidentID types.IncidentID, title string, userID types.SlackUserID, channelID types.ChannelID, messageTS string) (*model.Task, error) {
+//				panic("mock out the CreateTask method")
+//			},
+//			GetTaskFunc: func(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the GetTask method")
+//			},
+//			GetTaskByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the GetTaskByIncident method")
+//			},
+//			ListTasksFunc: func(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+//				panic("mock out the ListTasks method")
+//			},
+//			UncompleteTaskFunc: func(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the UncompleteTask method")
+//			},
+//			UncompleteTaskByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+//				panic("mock out the UncompleteTaskByIncident method")
+//			},
+//			UpdateTaskFunc: func(ctx context.Context, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error) {
+//				panic("mock out the UpdateTask method")
+//			},
+//			UpdateTaskByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error) {
+//				panic("mock out the UpdateTaskByIncident method")
+//			},
+//		}
+//
+//		// use mockedTask in code that requires interfaces.Task
+//		// and then make assertions.
+//
+//	}
+type TaskMock struct {
+	// CompleteTaskFunc mocks the CompleteTask method.
+	CompleteTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+
+	// CompleteTaskByIncidentFunc mocks the CompleteTaskByIncident method.
+	CompleteTaskByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
+
+	// CreateTaskFunc mocks the CreateTask method.
+	CreateTaskFunc func(ctx context.Context, incidentID types.IncidentID, title string, userID types.SlackUserID, channelID types.ChannelID, messageTS string) (*model.Task, error)
+
+	// GetTaskFunc mocks the GetTask method.
+	GetTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+
+	// GetTaskByIncidentFunc mocks the GetTaskByIncident method.
+	GetTaskByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
+
+	// ListTasksFunc mocks the ListTasks method.
+	ListTasksFunc func(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
+
+	// UncompleteTaskFunc mocks the UncompleteTask method.
+	UncompleteTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+
+	// UncompleteTaskByIncidentFunc mocks the UncompleteTaskByIncident method.
+	UncompleteTaskByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
+
+	// UpdateTaskFunc mocks the UpdateTask method.
+	UpdateTaskFunc func(ctx context.Context, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error)
+
+	// UpdateTaskByIncidentFunc mocks the UpdateTaskByIncident method.
+	UpdateTaskByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CompleteTask holds details about calls to the CompleteTask method.
+		CompleteTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
+		// CompleteTaskByIncident holds details about calls to the CompleteTaskByIncident method.
+		CompleteTaskByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
+		// CreateTask holds details about calls to the CreateTask method.
+		CreateTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// Title is the title argument value.
+			Title string
+			// UserID is the userID argument value.
+			UserID types.SlackUserID
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
+			// MessageTS is the messageTS argument value.
+			MessageTS string
+		}
+		// GetTask holds details about calls to the GetTask method.
+		GetTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
+		// GetTaskByIncident holds details about calls to the GetTaskByIncident method.
+		GetTaskByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
+		// ListTasks holds details about calls to the ListTasks method.
+		ListTasks []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+		}
+		// UncompleteTask holds details about calls to the UncompleteTask method.
+		UncompleteTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
+		// UncompleteTaskByIncident holds details about calls to the UncompleteTaskByIncident method.
+		UncompleteTaskByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+		}
+		// UpdateTask holds details about calls to the UpdateTask method.
+		UpdateTask []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+			// Updates is the updates argument value.
+			Updates interfaces.TaskUpdateRequest
+		}
+		// UpdateTaskByIncident holds details about calls to the UpdateTaskByIncident method.
+		UpdateTaskByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+			// Updates is the updates argument value.
+			Updates interfaces.TaskUpdateRequest
+		}
+	}
+	lockCompleteTask             sync.RWMutex
+	lockCompleteTaskByIncident   sync.RWMutex
+	lockCreateTask               sync.RWMutex
+	lockGetTask                  sync.RWMutex
+	lockGetTaskByIncident        sync.RWMutex
+	lockListTasks                sync.RWMutex
+	lockUncompleteTask           sync.RWMutex
+	lockUncompleteTaskByIncident sync.RWMutex
+	lockUpdateTask               sync.RWMutex
+	lockUpdateTaskByIncident     sync.RWMutex
+}
+
+// CompleteTask calls CompleteTaskFunc.
+func (mock *TaskMock) CompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if mock.CompleteTaskFunc == nil {
+		panic("TaskMock.CompleteTaskFunc: method is nil but Task.CompleteTask was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}{
+		Ctx:    ctx,
+		TaskID: taskID,
+	}
+	mock.lockCompleteTask.Lock()
+	mock.calls.CompleteTask = append(mock.calls.CompleteTask, callInfo)
+	mock.lockCompleteTask.Unlock()
+	return mock.CompleteTaskFunc(ctx, taskID)
+}
+
+// CompleteTaskCalls gets all the calls that were made to CompleteTask.
+// Check the length with:
+//
+//	len(mockedTask.CompleteTaskCalls())
+func (mock *TaskMock) CompleteTaskCalls() []struct {
+	Ctx    context.Context
+	TaskID types.TaskID
+} {
+	var calls []struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}
+	mock.lockCompleteTask.RLock()
+	calls = mock.calls.CompleteTask
+	mock.lockCompleteTask.RUnlock()
+	return calls
+}
+
+// CompleteTaskByIncident calls CompleteTaskByIncidentFunc.
+func (mock *TaskMock) CompleteTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	if mock.CompleteTaskByIncidentFunc == nil {
+		panic("TaskMock.CompleteTaskByIncidentFunc: method is nil but Task.CompleteTaskByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
+	}
+	mock.lockCompleteTaskByIncident.Lock()
+	mock.calls.CompleteTaskByIncident = append(mock.calls.CompleteTaskByIncident, callInfo)
+	mock.lockCompleteTaskByIncident.Unlock()
+	return mock.CompleteTaskByIncidentFunc(ctx, incidentID, taskID)
+}
+
+// CompleteTaskByIncidentCalls gets all the calls that were made to CompleteTaskByIncident.
+// Check the length with:
+//
+//	len(mockedTask.CompleteTaskByIncidentCalls())
+func (mock *TaskMock) CompleteTaskByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}
+	mock.lockCompleteTaskByIncident.RLock()
+	calls = mock.calls.CompleteTaskByIncident
+	mock.lockCompleteTaskByIncident.RUnlock()
+	return calls
+}
+
+// CreateTask calls CreateTaskFunc.
+func (mock *TaskMock) CreateTask(ctx context.Context, incidentID types.IncidentID, title string, userID types.SlackUserID, channelID types.ChannelID, messageTS string) (*model.Task, error) {
+	if mock.CreateTaskFunc == nil {
+		panic("TaskMock.CreateTaskFunc: method is nil but Task.CreateTask was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		Title      string
+		UserID     types.SlackUserID
+		ChannelID  types.ChannelID
+		MessageTS  string
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		Title:      title,
+		UserID:     userID,
+		ChannelID:  channelID,
+		MessageTS:  messageTS,
+	}
+	mock.lockCreateTask.Lock()
+	mock.calls.CreateTask = append(mock.calls.CreateTask, callInfo)
+	mock.lockCreateTask.Unlock()
+	return mock.CreateTaskFunc(ctx, incidentID, title, userID, channelID, messageTS)
+}
+
+// CreateTaskCalls gets all the calls that were made to CreateTask.
+// Check the length with:
+//
+//	len(mockedTask.CreateTaskCalls())
+func (mock *TaskMock) CreateTaskCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	Title      string
+	UserID     types.SlackUserID
+	ChannelID  types.ChannelID
+	MessageTS  string
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		Title      string
+		UserID     types.SlackUserID
+		ChannelID  types.ChannelID
+		MessageTS  string
+	}
+	mock.lockCreateTask.RLock()
+	calls = mock.calls.CreateTask
+	mock.lockCreateTask.RUnlock()
+	return calls
+}
+
+// GetTask calls GetTaskFunc.
+func (mock *TaskMock) GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if mock.GetTaskFunc == nil {
+		panic("TaskMock.GetTaskFunc: method is nil but Task.GetTask was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}{
+		Ctx:    ctx,
+		TaskID: taskID,
+	}
+	mock.lockGetTask.Lock()
+	mock.calls.GetTask = append(mock.calls.GetTask, callInfo)
+	mock.lockGetTask.Unlock()
+	return mock.GetTaskFunc(ctx, taskID)
+}
+
+// GetTaskCalls gets all the calls that were made to GetTask.
+// Check the length with:
+//
+//	len(mockedTask.GetTaskCalls())
+func (mock *TaskMock) GetTaskCalls() []struct {
+	Ctx    context.Context
+	TaskID types.TaskID
+} {
+	var calls []struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}
+	mock.lockGetTask.RLock()
+	calls = mock.calls.GetTask
+	mock.lockGetTask.RUnlock()
+	return calls
+}
+
+// GetTaskByIncident calls GetTaskByIncidentFunc.
+func (mock *TaskMock) GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	if mock.GetTaskByIncidentFunc == nil {
+		panic("TaskMock.GetTaskByIncidentFunc: method is nil but Task.GetTaskByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
+	}
+	mock.lockGetTaskByIncident.Lock()
+	mock.calls.GetTaskByIncident = append(mock.calls.GetTaskByIncident, callInfo)
+	mock.lockGetTaskByIncident.Unlock()
+	return mock.GetTaskByIncidentFunc(ctx, incidentID, taskID)
+}
+
+// GetTaskByIncidentCalls gets all the calls that were made to GetTaskByIncident.
+// Check the length with:
+//
+//	len(mockedTask.GetTaskByIncidentCalls())
+func (mock *TaskMock) GetTaskByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}
+	mock.lockGetTaskByIncident.RLock()
+	calls = mock.calls.GetTaskByIncident
+	mock.lockGetTaskByIncident.RUnlock()
+	return calls
+}
+
+// ListTasks calls ListTasksFunc.
+func (mock *TaskMock) ListTasks(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
+	if mock.ListTasksFunc == nil {
+		panic("TaskMock.ListTasksFunc: method is nil but Task.ListTasks was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+	}
+	mock.lockListTasks.Lock()
+	mock.calls.ListTasks = append(mock.calls.ListTasks, callInfo)
+	mock.lockListTasks.Unlock()
+	return mock.ListTasksFunc(ctx, incidentID)
+}
+
+// ListTasksCalls gets all the calls that were made to ListTasks.
+// Check the length with:
+//
+//	len(mockedTask.ListTasksCalls())
+func (mock *TaskMock) ListTasksCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}
+	mock.lockListTasks.RLock()
+	calls = mock.calls.ListTasks
+	mock.lockListTasks.RUnlock()
+	return calls
+}
+
+// UncompleteTask calls UncompleteTaskFunc.
+func (mock *TaskMock) UncompleteTask(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
+	if mock.UncompleteTaskFunc == nil {
+		panic("TaskMock.UncompleteTaskFunc: method is nil but Task.UncompleteTask was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}{
+		Ctx:    ctx,
+		TaskID: taskID,
+	}
+	mock.lockUncompleteTask.Lock()
+	mock.calls.UncompleteTask = append(mock.calls.UncompleteTask, callInfo)
+	mock.lockUncompleteTask.Unlock()
+	return mock.UncompleteTaskFunc(ctx, taskID)
+}
+
+// UncompleteTaskCalls gets all the calls that were made to UncompleteTask.
+// Check the length with:
+//
+//	len(mockedTask.UncompleteTaskCalls())
+func (mock *TaskMock) UncompleteTaskCalls() []struct {
+	Ctx    context.Context
+	TaskID types.TaskID
+} {
+	var calls []struct {
+		Ctx    context.Context
+		TaskID types.TaskID
+	}
+	mock.lockUncompleteTask.RLock()
+	calls = mock.calls.UncompleteTask
+	mock.lockUncompleteTask.RUnlock()
+	return calls
+}
+
+// UncompleteTaskByIncident calls UncompleteTaskByIncidentFunc.
+func (mock *TaskMock) UncompleteTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error) {
+	if mock.UncompleteTaskByIncidentFunc == nil {
+		panic("TaskMock.UncompleteTaskByIncidentFunc: method is nil but Task.UncompleteTaskByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
+	}
+	mock.lockUncompleteTaskByIncident.Lock()
+	mock.calls.UncompleteTaskByIncident = append(mock.calls.UncompleteTaskByIncident, callInfo)
+	mock.lockUncompleteTaskByIncident.Unlock()
+	return mock.UncompleteTaskByIncidentFunc(ctx, incidentID, taskID)
+}
+
+// UncompleteTaskByIncidentCalls gets all the calls that were made to UncompleteTaskByIncident.
+// Check the length with:
+//
+//	len(mockedTask.UncompleteTaskByIncidentCalls())
+func (mock *TaskMock) UncompleteTaskByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+	}
+	mock.lockUncompleteTaskByIncident.RLock()
+	calls = mock.calls.UncompleteTaskByIncident
+	mock.lockUncompleteTaskByIncident.RUnlock()
+	return calls
+}
+
+// UpdateTask calls UpdateTaskFunc.
+func (mock *TaskMock) UpdateTask(ctx context.Context, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error) {
+	if mock.UpdateTaskFunc == nil {
+		panic("TaskMock.UpdateTaskFunc: method is nil but Task.UpdateTask was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		TaskID  types.TaskID
+		Updates interfaces.TaskUpdateRequest
+	}{
+		Ctx:     ctx,
+		TaskID:  taskID,
+		Updates: updates,
+	}
+	mock.lockUpdateTask.Lock()
+	mock.calls.UpdateTask = append(mock.calls.UpdateTask, callInfo)
+	mock.lockUpdateTask.Unlock()
+	return mock.UpdateTaskFunc(ctx, taskID, updates)
+}
+
+// UpdateTaskCalls gets all the calls that were made to UpdateTask.
+// Check the length with:
+//
+//	len(mockedTask.UpdateTaskCalls())
+func (mock *TaskMock) UpdateTaskCalls() []struct {
+	Ctx     context.Context
+	TaskID  types.TaskID
+	Updates interfaces.TaskUpdateRequest
+} {
+	var calls []struct {
+		Ctx     context.Context
+		TaskID  types.TaskID
+		Updates interfaces.TaskUpdateRequest
+	}
+	mock.lockUpdateTask.RLock()
+	calls = mock.calls.UpdateTask
+	mock.lockUpdateTask.RUnlock()
+	return calls
+}
+
+// UpdateTaskByIncident calls UpdateTaskByIncidentFunc.
+func (mock *TaskMock) UpdateTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error) {
+	if mock.UpdateTaskByIncidentFunc == nil {
+		panic("TaskMock.UpdateTaskByIncidentFunc: method is nil but Task.UpdateTaskByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+		Updates    interfaces.TaskUpdateRequest
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
+		Updates:    updates,
+	}
+	mock.lockUpdateTaskByIncident.Lock()
+	mock.calls.UpdateTaskByIncident = append(mock.calls.UpdateTaskByIncident, callInfo)
+	mock.lockUpdateTaskByIncident.Unlock()
+	return mock.UpdateTaskByIncidentFunc(ctx, incidentID, taskID, updates)
+}
+
+// UpdateTaskByIncidentCalls gets all the calls that were made to UpdateTaskByIncident.
+// Check the length with:
+//
+//	len(mockedTask.UpdateTaskByIncidentCalls())
+func (mock *TaskMock) UpdateTaskByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
+	Updates    interfaces.TaskUpdateRequest
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+		Updates    interfaces.TaskUpdateRequest
+	}
+	mock.lockUpdateTaskByIncident.RLock()
+	calls = mock.calls.UpdateTaskByIncident
+	mock.lockUpdateTaskByIncident.RUnlock()
 	return calls
 }

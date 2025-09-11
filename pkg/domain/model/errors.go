@@ -6,4 +6,5 @@ import "github.com/m-mizutani/goerr/v2"
 var (
 	ErrIncidentRequestNotFound = goerr.New("incident request not found")
 	ErrIncidentNotFound        = goerr.New("incident not found")
+	ErrTaskNotFound            = goerr.New("task not found")
 )

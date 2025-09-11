@@ -116,6 +116,15 @@ func (u *Incident) GetIncident(ctx context.Context, id int) (*model.Incident, er
 	return incident, nil
 }
 
+// GetIncidentByChannelID gets an incident by channel ID
+func (u *Incident) GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error) {
+	incident, err := u.repo.GetIncidentByChannelID(ctx, channelID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident by channel ID")
+	}
+	return incident, nil
+}
+
 // CreateIncidentFromInteraction handles the complete incident creation flow from a Slack interaction
 func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error) {
 	// Get channel info from Slack

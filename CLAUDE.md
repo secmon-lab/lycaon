@@ -103,17 +103,83 @@ LYCAON_LOG_LEVEL=info
 - Never use `os.Getenv()` directly except in tests. All environment variable access must go through cli/v3 flags
 - Use cli/v3 flag definitions with `EnvVars` field for environment variable support
 
-### Controller Layer Responsibilities
-- Controllers must only route requests and call ONE usecase method per flow
-- Controllers must not contain business logic, error formatting, or UI building
-- All business logic, data validation, and error handling must be in usecase layer
+### Controller Layer Responsibilities (Clean Architecture)
+
+Controllers serve as the interface adapters between external requests and business logic. Their responsibilities are strictly limited:
+
+#### Primary Responsibilities
+- **Request Parsing**: Decompose Slack messages and extract necessary information
+- **Data Preparation**: Organize data needed for usecase processing
+- **Async Control**: ALL UseCase calls MUST be dispatched via async.Dispatch
+- **Immediate Response**: Return 200 status immediately after successful parsing
+- **Single UseCase Call**: Call exactly ONE usecase method per workflow
+- **Response Formatting**: Format and return responses appropriately
+
+#### Specific Implementation Patterns
 - Controllers should only:
   1. Parse/validate request format (JSON, etc.)
-  2. Extract parameters from request
-  3. Call exactly ONE usecase method
-  4. Return the result
-- Example violation: Controller getting data, building UI blocks, handling errors separately
-- Example correct: Controller calls `usecase.HandleCreateIncident()` and returns result
+  2. Extract parameters from request and organize into structured data
+  3. Create background context via `async.NewBackgroundContext(ctx)`
+  4. Dispatch usecase call via `async.Dispatch(backgroundCtx, func...)`
+  5. Return nil immediately to send 200 response to Slack
+- **CRITICAL**: ALL UseCase calls must be async dispatched - NO synchronous calls
+- **CRITICAL**: Return 200 immediately after successful message interpretation
+- **CRITICAL**: Each interaction workflow must call exactly ONE usecase method
+- **CRITICAL**: Never call multiple usecases from a single controller method
+- **CRITICAL**: Never mix incident and task operations in the same controller method
+- **CRITICAL**: Controllers must NOT contain business logic, error formatting, or UI building
+
+#### Examples
+- ✅ **Correct**: `interaction.go` parses Slack payload, extracts data, dispatches via `async.Dispatch`, returns nil immediately
+- ✅ **Correct**: `event.go` validates message, dispatches via `async.Dispatch`, returns nil to send 200 response
+- ✅ **Correct**: ALL usecase calls wrapped in `async.Dispatch(backgroundCtx, func...)`
+- ✅ **Correct**: Structured data types like `SlackInteractionData` for clean controller-usecase interface
+- ❌ **Violation**: Direct synchronous usecase calls (causes Slack timeouts)
+- ❌ **Violation**: Waiting for usecase completion before returning response
+- ❌ **Violation**: Controller getting data, building UI blocks, handling errors separately
+- ❌ **Violation**: Controller calling both incidentUC and taskUC in same method
+- ❌ **Violation**: Controller implementing business validation logic
+- ❌ **Violation**: Passing raw `[]byte` payload directly to usecase without parsing
+
+#### UseCase Layer Boundaries
+- **UseCase Responsibility**: Business logic execution, domain model manipulation, error handling, UI component building
+- **Controller Responsibility**: Request decomposition, data preparation, usecase orchestration, async dispatch control
+
+### Async Processing Principles
+
+All controller methods that handle Slack events and interactions MUST follow async processing patterns to prevent timeouts:
+
+#### Mandatory Async Dispatch Pattern
+```go
+// REQUIRED pattern for ALL controller methods
+func (h *Handler) HandleRequest(ctx context.Context, payload []byte) error {
+    // 1. Parse and validate request format
+    // 2. Extract necessary data
+    // 3. Create background context
+    backgroundCtx := async.NewBackgroundContext(ctx)
+    
+    // 4. Dispatch usecase processing asynchronously
+    async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
+        // Call exactly ONE usecase method
+        return h.usecase.ProcessRequest(asyncCtx, data)
+    })
+    
+    // 5. Return immediately to send 200 response
+    return nil
+}
+```
+
+#### Critical Requirements
+- **NEVER** call usecases synchronously in controllers
+- **ALWAYS** use `async.Dispatch` for usecase calls
+- **ALWAYS** return immediately after dispatching
+- **ALWAYS** use `async.NewBackgroundContext(ctx)` for background processing
+- **ONE** usecase method call per workflow
+- Controllers must send 200 response immediately after successful data interpretation
+
+#### Files Following This Pattern
+- `pkg/controller/slack/event.go` - All message and mention event handlers
+- `pkg/controller/slack/interaction.go` - All interaction handlers (buttons, modals, shortcuts)
 
 ### Slack Integration
 - Always verify Slack signatures (X-Slack-Signature)
@@ -136,6 +202,30 @@ CI/CD workflows in `.github/workflows/`:
 - `lint.yml`: golangci-lint
 - `build.yml`: Build verification
 - `frontend.yml`: Frontend build and checks
+
+## Clean Architecture Reference Implementation
+
+### Controller Layer Example
+See `pkg/controller/slack/interaction.go` for proper controller implementation:
+- Parses Slack interaction payload into structured data
+- Extracts necessary information for usecase processing  
+- Manages sync vs async processing based on interaction type
+- Calls single usecase method per interaction type
+- Returns immediate responses where required
+
+### UseCase Layer Example
+See `pkg/usecase/slack_interaction.go` for proper usecase implementation:
+- Receives structured data from controller
+- Executes business logic and domain operations
+- Handles error conditions and validation
+- Manages cross-cutting concerns (logging, metrics)
+- Returns results in domain-appropriate format
+
+### Interface Design
+See `pkg/domain/interfaces/usecase.go` for clean interface boundaries:
+- `SlackInteractionData` struct for controller-usecase data transfer
+- Separate methods for different interaction types (HandleBlockActions, HandleViewSubmission, etc.)
+- Clear separation of concerns between parsing (controller) and processing (usecase)
 
 ## Restrictions and Rules
 

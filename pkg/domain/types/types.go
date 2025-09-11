@@ -130,3 +130,16 @@ func (id IncidentRequestID) String() string {
 func NewIncidentRequestID() IncidentRequestID {
 	return IncidentRequestID(uuid.New().String())
 }
+
+// TaskID represents a task identifier
+type TaskID string
+
+// String returns the string representation
+func (id TaskID) String() string {
+	return string(id)
+}
+
+// NewTaskID creates a new TaskID
+func NewTaskID() TaskID {
+	return TaskID(uuid.New().String())
+}

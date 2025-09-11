@@ -29,12 +29,20 @@ type Repository interface {
 	// Incident operations
 	PutIncident(ctx context.Context, incident *model.Incident) error
 	GetIncident(ctx context.Context, id types.IncidentID) (*model.Incident, error)
+	GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
 	GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error)
 
 	// Incident request operations
 	SaveIncidentRequest(ctx context.Context, request *model.IncidentRequest) error
 	GetIncidentRequest(ctx context.Context, id types.IncidentRequestID) (*model.IncidentRequest, error)
 	DeleteIncidentRequest(ctx context.Context, id types.IncidentRequestID) error
+
+	// Task operations
+	CreateTask(ctx context.Context, task *model.Task) error
+	GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
+	GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
+	UpdateTask(ctx context.Context, task *model.Task) error
+	ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
 
 	// Close closes the repository connection
 	Close() error
