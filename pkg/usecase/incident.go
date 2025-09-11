@@ -18,15 +18,17 @@ type Incident struct {
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackSvc.BlockBuilder
 	categories   *model.CategoriesConfig
+	invite       interfaces.Invite
 }
 
 // NewIncident creates a new Incident instance with a custom SlackClient
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig) *Incident {
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite) *Incident {
 	return &Incident{
 		repo:         repo,
 		slackClient:  slackClient,
 		blockBuilder: slackSvc.NewBlockBuilder(),
 		categories:   categories,
+		invite:       invite,
 	}
 }
 
@@ -102,6 +104,37 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	// Save incident to repository
 	if err := u.repo.PutIncident(ctx, incident); err != nil {
 		return nil, goerr.Wrap(err, "failed to save incident")
+	}
+
+	// Category-based invitation process (serial execution)
+	// Note: This function assumes it's already dispatched asynchronously in the Controller layer
+	if incident.CategoryID != "" && u.categories != nil && u.invite != nil {
+		// Get invitation targets from category configuration
+		category := u.categories.FindCategoryByID(incident.CategoryID)
+		if category == nil {
+			// No category is normal - log and continue
+			ctxlog.From(ctx).Info("Category not found",
+				"categoryID", incident.CategoryID)
+		} else if len(category.InviteUsers) == 0 && len(category.InviteGroups) == 0 {
+			// No invitation settings is normal - log and continue
+			ctxlog.From(ctx).Info("No invitation settings for category",
+				"categoryID", incident.CategoryID)
+		} else {
+			// Execute invitation synchronously
+			_, err := u.invite.InviteUsersByList(
+				ctx,
+				category.InviteUsers,
+				category.InviteGroups,
+				incident.ChannelID,
+			)
+			if err != nil {
+				// Log error but continue with incident creation
+				ctxlog.From(ctx).Error("Category invitation failed",
+					"error", err,
+					"categoryID", incident.CategoryID,
+					"incidentID", incident.ID)
+			}
+		}
 	}
 
 	return incident, nil

@@ -48,14 +48,18 @@ func GetDefaultCategories() *CategoriesConfig {
 	return &CategoriesConfig{
 		Categories: []Category{
 			{
-				ID:          "security_incident",
-				Name:        "Security Incident",
-				Description: "Security-related incidents including unauthorized access and malware infections",
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
 			},
 			{
-				ID:          "system_failure",
-				Name:        "System Failure",
-				Description: "System or service failures and outages",
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
 			},
 			{
 				ID:          "performance_issue",

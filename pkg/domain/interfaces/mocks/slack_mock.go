@@ -35,6 +35,15 @@ var _ interfaces.SlackClient = &SlackClientMock{}
 //			GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
 //				panic("mock out the GetConversationRepliesContext method")
 //			},
+//			GetUserGroupMembersContextFunc: func(ctx context.Context, groupID string) ([]string, error) {
+//				panic("mock out the GetUserGroupMembersContext method")
+//			},
+//			GetUserGroupsContextFunc: func(ctx context.Context) ([]slack.UserGroup, error) {
+//				panic("mock out the GetUserGroupsContext method")
+//			},
+//			GetUsersContextFunc: func(ctx context.Context) ([]slack.User, error) {
+//				panic("mock out the GetUsersContext method")
+//			},
 //			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
 //				panic("mock out the InviteUsersToConversation method")
 //			},
@@ -74,6 +83,15 @@ type SlackClientMock struct {
 
 	// GetConversationRepliesContextFunc mocks the GetConversationRepliesContext method.
 	GetConversationRepliesContextFunc func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error)
+
+	// GetUserGroupMembersContextFunc mocks the GetUserGroupMembersContext method.
+	GetUserGroupMembersContextFunc func(ctx context.Context, groupID string) ([]string, error)
+
+	// GetUserGroupsContextFunc mocks the GetUserGroupsContext method.
+	GetUserGroupsContextFunc func(ctx context.Context) ([]slack.UserGroup, error)
+
+	// GetUsersContextFunc mocks the GetUsersContext method.
+	GetUsersContextFunc func(ctx context.Context) ([]slack.User, error)
 
 	// InviteUsersToConversationFunc mocks the InviteUsersToConversation method.
 	InviteUsersToConversationFunc func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error)
@@ -129,6 +147,23 @@ type SlackClientMock struct {
 			Ctx context.Context
 			// Params is the params argument value.
 			Params *slack.GetConversationRepliesParameters
+		}
+		// GetUserGroupMembersContext holds details about calls to the GetUserGroupMembersContext method.
+		GetUserGroupMembersContext []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// GroupID is the groupID argument value.
+			GroupID string
+		}
+		// GetUserGroupsContext holds details about calls to the GetUserGroupsContext method.
+		GetUserGroupsContext []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+		}
+		// GetUsersContext holds details about calls to the GetUsersContext method.
+		GetUsersContext []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 		}
 		// InviteUsersToConversation holds details about calls to the InviteUsersToConversation method.
 		InviteUsersToConversation []struct {
@@ -194,6 +229,9 @@ type SlackClientMock struct {
 	lockGetConversationHistoryContext   sync.RWMutex
 	lockGetConversationInfo             sync.RWMutex
 	lockGetConversationRepliesContext   sync.RWMutex
+	lockGetUserGroupMembersContext      sync.RWMutex
+	lockGetUserGroupsContext            sync.RWMutex
+	lockGetUsersContext                 sync.RWMutex
 	lockInviteUsersToConversation       sync.RWMutex
 	lockOpenView                        sync.RWMutex
 	lockPostMessage                     sync.RWMutex
@@ -379,6 +417,106 @@ func (mock *SlackClientMock) GetConversationRepliesContextCalls() []struct {
 	mock.lockGetConversationRepliesContext.RLock()
 	calls = mock.calls.GetConversationRepliesContext
 	mock.lockGetConversationRepliesContext.RUnlock()
+	return calls
+}
+
+// GetUserGroupMembersContext calls GetUserGroupMembersContextFunc.
+func (mock *SlackClientMock) GetUserGroupMembersContext(ctx context.Context, groupID string) ([]string, error) {
+	if mock.GetUserGroupMembersContextFunc == nil {
+		panic("SlackClientMock.GetUserGroupMembersContextFunc: method is nil but SlackClient.GetUserGroupMembersContext was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		GroupID string
+	}{
+		Ctx:     ctx,
+		GroupID: groupID,
+	}
+	mock.lockGetUserGroupMembersContext.Lock()
+	mock.calls.GetUserGroupMembersContext = append(mock.calls.GetUserGroupMembersContext, callInfo)
+	mock.lockGetUserGroupMembersContext.Unlock()
+	return mock.GetUserGroupMembersContextFunc(ctx, groupID)
+}
+
+// GetUserGroupMembersContextCalls gets all the calls that were made to GetUserGroupMembersContext.
+// Check the length with:
+//
+//	len(mockedSlackClient.GetUserGroupMembersContextCalls())
+func (mock *SlackClientMock) GetUserGroupMembersContextCalls() []struct {
+	Ctx     context.Context
+	GroupID string
+} {
+	var calls []struct {
+		Ctx     context.Context
+		GroupID string
+	}
+	mock.lockGetUserGroupMembersContext.RLock()
+	calls = mock.calls.GetUserGroupMembersContext
+	mock.lockGetUserGroupMembersContext.RUnlock()
+	return calls
+}
+
+// GetUserGroupsContext calls GetUserGroupsContextFunc.
+func (mock *SlackClientMock) GetUserGroupsContext(ctx context.Context) ([]slack.UserGroup, error) {
+	if mock.GetUserGroupsContextFunc == nil {
+		panic("SlackClientMock.GetUserGroupsContextFunc: method is nil but SlackClient.GetUserGroupsContext was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	mock.lockGetUserGroupsContext.Lock()
+	mock.calls.GetUserGroupsContext = append(mock.calls.GetUserGroupsContext, callInfo)
+	mock.lockGetUserGroupsContext.Unlock()
+	return mock.GetUserGroupsContextFunc(ctx)
+}
+
+// GetUserGroupsContextCalls gets all the calls that were made to GetUserGroupsContext.
+// Check the length with:
+//
+//	len(mockedSlackClient.GetUserGroupsContextCalls())
+func (mock *SlackClientMock) GetUserGroupsContextCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	mock.lockGetUserGroupsContext.RLock()
+	calls = mock.calls.GetUserGroupsContext
+	mock.lockGetUserGroupsContext.RUnlock()
+	return calls
+}
+
+// GetUsersContext calls GetUsersContextFunc.
+func (mock *SlackClientMock) GetUsersContext(ctx context.Context) ([]slack.User, error) {
+	if mock.GetUsersContextFunc == nil {
+		panic("SlackClientMock.GetUsersContextFunc: method is nil but SlackClient.GetUsersContext was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	mock.lockGetUsersContext.Lock()
+	mock.calls.GetUsersContext = append(mock.calls.GetUsersContext, callInfo)
+	mock.lockGetUsersContext.Unlock()
+	return mock.GetUsersContextFunc(ctx)
+}
+
+// GetUsersContextCalls gets all the calls that were made to GetUsersContext.
+// Check the length with:
+//
+//	len(mockedSlackClient.GetUsersContextCalls())
+func (mock *SlackClientMock) GetUsersContextCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	mock.lockGetUsersContext.RLock()
+	calls = mock.calls.GetUsersContext
+	mock.lockGetUsersContext.RUnlock()
 	return calls
 }
 

@@ -1533,3 +1533,87 @@ func (mock *TaskMock) UpdateTaskByIncidentCalls() []struct {
 	mock.lockUpdateTaskByIncident.RUnlock()
 	return calls
 }
+
+// Ensure, that InviteMock does implement interfaces.Invite.
+// If this is not the case, regenerate this file with moq.
+var _ interfaces.Invite = &InviteMock{}
+
+// InviteMock is a mock implementation of interfaces.Invite.
+//
+//	func TestSomethingThatUsesInvite(t *testing.T) {
+//
+//		// make and configure a mocked interfaces.Invite
+//		mockedInvite := &InviteMock{
+//			InviteUsersByListFunc: func(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error) {
+//				panic("mock out the InviteUsersByList method")
+//			},
+//		}
+//
+//		// use mockedInvite in code that requires interfaces.Invite
+//		// and then make assertions.
+//
+//	}
+type InviteMock struct {
+	// InviteUsersByListFunc mocks the InviteUsersByList method.
+	InviteUsersByListFunc func(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// InviteUsersByList holds details about calls to the InviteUsersByList method.
+		InviteUsersByList []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Users is the users argument value.
+			Users []string
+			// Groups is the groups argument value.
+			Groups []string
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
+		}
+	}
+	lockInviteUsersByList sync.RWMutex
+}
+
+// InviteUsersByList calls InviteUsersByListFunc.
+func (mock *InviteMock) InviteUsersByList(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error) {
+	if mock.InviteUsersByListFunc == nil {
+		panic("InviteMock.InviteUsersByListFunc: method is nil but Invite.InviteUsersByList was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Users     []string
+		Groups    []string
+		ChannelID types.ChannelID
+	}{
+		Ctx:       ctx,
+		Users:     users,
+		Groups:    groups,
+		ChannelID: channelID,
+	}
+	mock.lockInviteUsersByList.Lock()
+	mock.calls.InviteUsersByList = append(mock.calls.InviteUsersByList, callInfo)
+	mock.lockInviteUsersByList.Unlock()
+	return mock.InviteUsersByListFunc(ctx, users, groups, channelID)
+}
+
+// InviteUsersByListCalls gets all the calls that were made to InviteUsersByList.
+// Check the length with:
+//
+//	len(mockedInvite.InviteUsersByListCalls())
+func (mock *InviteMock) InviteUsersByListCalls() []struct {
+	Ctx       context.Context
+	Users     []string
+	Groups    []string
+	ChannelID types.ChannelID
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Users     []string
+		Groups    []string
+		ChannelID types.ChannelID
+	}
+	mock.lockInviteUsersByList.RLock()
+	calls = mock.calls.InviteUsersByList
+	mock.lockInviteUsersByList.RUnlock()
+	return calls
+}

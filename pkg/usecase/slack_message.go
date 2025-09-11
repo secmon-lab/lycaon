@@ -363,7 +363,7 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 	promptBlocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title)
 
 	// Send incident prompt message
-	_, _, err := s.slackClient.PostMessage(
+	_, botMessageTS, err := s.slackClient.PostMessage(
 		ctx,
 		channelID,
 		slack.MsgOptionBlocks(promptBlocks...),
@@ -373,6 +373,16 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 		// Clean up the request if we failed to send the message
 		_ = s.repo.DeleteIncidentRequest(ctx, request.ID)
 		return goerr.Wrap(err, "failed to send incident prompt message")
+	}
+
+	// Update the request with the bot message timestamp
+	request.BotMessageTS = types.MessageTS(botMessageTS)
+	if err := s.repo.SaveIncidentRequest(ctx, request); err != nil {
+		ctxlog.From(ctx).Warn("Failed to update incident request with bot message timestamp",
+			"error", err,
+			"requestID", request.ID,
+			"botMessageTS", botMessageTS,
+		)
 	}
 
 	return nil

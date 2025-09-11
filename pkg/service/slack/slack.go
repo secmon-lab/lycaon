@@ -203,3 +203,30 @@ func (s *Service) SendContextMessage(ctx context.Context, channelID, messageTS, 
 	)
 	return contextMsgTS
 }
+
+// GetUsersContext retrieves the list of users (including bots) from the workspace
+func (s *Service) GetUsersContext(ctx context.Context) ([]slack.User, error) {
+	users, err := s.client.GetUsersContext(ctx)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get users")
+	}
+	return users, nil
+}
+
+// GetUserGroupsContext retrieves the list of user groups from the workspace
+func (s *Service) GetUserGroupsContext(ctx context.Context) ([]slack.UserGroup, error) {
+	groups, err := s.client.GetUserGroupsContext(ctx)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get user groups")
+	}
+	return groups, nil
+}
+
+// GetUserGroupMembersContext retrieves the member IDs of a user group
+func (s *Service) GetUserGroupMembersContext(ctx context.Context, groupID string) ([]string, error) {
+	members, err := s.client.GetUserGroupMembersContext(ctx, groupID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get user group members", goerr.V("groupID", groupID))
+	}
+	return members, nil
+}
