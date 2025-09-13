@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { IncidentStatus, StatusHistory, getStatusConfig } from '../../types/incident';
 import StatusBadge from '../IncidentList/StatusBadge';
 import StatusIcon from '../common/StatusIcon';
@@ -11,29 +12,6 @@ interface StatusSectionProps {
   statusHistories: StatusHistory[];
   className?: string;
 }
-
-// Helper function to format relative time
-const formatRelativeTime = (dateString: string): string => {
-  const now = new Date();
-  const date = new Date(dateString);
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
-  if (diffInSeconds < 60) return 'just now';
-  
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-  
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours}h ago`;
-  
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 7) return `${diffInDays}d ago`;
-  
-  const diffInWeeks = Math.floor(diffInDays / 7);
-  if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
-  
-  return date.toLocaleDateString();
-};
 
 export const StatusSection: React.FC<StatusSectionProps> = ({
   incidentId,
@@ -119,7 +97,7 @@ export const StatusSection: React.FC<StatusSectionProps> = ({
                       <div className="flex items-center gap-2 mb-1">
                         <StatusBadge status={history.status} size="sm" />
                         <span className="text-sm text-gray-500">
-                          {formatRelativeTime(history.changedAt)}
+                          {formatDistanceToNow(new Date(history.changedAt), { addSuffix: true })}
                         </span>
                       </div>
                       

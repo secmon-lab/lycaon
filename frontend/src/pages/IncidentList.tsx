@@ -71,6 +71,8 @@ const IncidentList: React.FC = () => {
         first: rowsPerPage,
         after: null,
       },
+      fetchPolicy: 'cache-and-network',
+      notifyOnNetworkStatusChange: true,
     }
   );
 

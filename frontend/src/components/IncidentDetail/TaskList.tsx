@@ -3,6 +3,7 @@ import { useMutation } from '@apollo/client/react';
 import { Task, TaskStatus } from '../../types/incident';
 import { CREATE_TASK, UPDATE_TASK, DELETE_TASK } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
+import ConfirmationModal from '../common/ConfirmationModal';
 import {
   Plus,
   CheckCircle2,
@@ -83,15 +84,19 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
     await handleUpdateTask(task.id, { status: newStatus });
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+
+  const confirmDeleteTask = async () => {
+    if (!deletingTaskId) return;
     
     try {
       await deleteTask({
-        variables: { id: taskId }
+        variables: { id: deletingTaskId }
       });
+      setDeletingTaskId(null);
     } catch (error) {
       console.error('Failed to delete task:', error);
+      setDeletingTaskId(null);
     }
   };
 
@@ -169,7 +174,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
       <div className={`group border border-slate-200 rounded-lg bg-white hover:border-slate-300 hover:shadow-sm transition-all ${
         isCompleted ? 'bg-slate-50 border-slate-100' : ''
       }`}>
-        <div className="flex items-start gap-3 p-3">
+        <div className="flex items-start gap-2 p-3">
           <button
             onClick={() => handleToggleTaskStatus(task)}
             className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-blue-600 transition-colors"
@@ -181,7 +186,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
             )}
           </button>
           
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 mr-2">
             <h4 className={`text-sm font-medium ${isCompleted ? 'line-through text-slate-400' : 'text-slate-900'}`}>
               {task.title}
             </h4>
@@ -218,7 +223,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             <button
               onClick={() => setEditingTask(task.id)}
               className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -227,7 +232,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
               <Edit3 className="h-3 w-3" />
             </button>
             <button
-              onClick={() => handleDeleteTask(task.id)}
+              onClick={() => setDeletingTaskId(task.id)}
               className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
               title="Delete task"
             >
@@ -316,6 +321,17 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      <ConfirmationModal
+        isOpen={!!deletingTaskId}
+        onClose={() => setDeletingTaskId(null)}
+        onConfirm={confirmDeleteTask}
+        title="Delete Task"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 };

@@ -28,11 +28,17 @@ const client = new ApolloClient({
         fields: {
           incidents: {
             // Define merge function for pagination
-            keyArgs: false,
-            merge(existing, incoming) {
+            keyArgs: ['first', 'after'],
+            merge(existing, incoming, { args }) {
+              // If this is a fresh query (no 'after' cursor), replace entirely
+              if (!args?.after) {
+                return incoming;
+              }
+              
+              // If no existing data, return incoming
               if (!existing) return incoming;
               
-              // Handle pagination merge
+              // For pagination, merge edges
               const merged = {
                 ...incoming,
                 edges: [...(existing.edges || []), ...(incoming.edges || [])],

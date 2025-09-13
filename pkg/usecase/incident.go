@@ -104,8 +104,9 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 		Note:       "Incident created",
 	}
 	if err := u.repo.AddStatusHistory(ctx, initialHistory); err != nil {
-		// Log error but don't fail - incident was created successfully
+		// Log error and fail the operation to prevent inconsistent data
 		apperr.Handle(ctx, err)
+		return nil, goerr.Wrap(err, "failed to save initial status history")
 	}
 
 	// Category-based invitation process (serial execution)
