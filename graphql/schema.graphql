@@ -1,0 +1,104 @@
+scalar Time
+
+type Incident {
+  id: ID!
+  channelId: String!
+  channelName: String!
+  title: String!
+  description: String!
+  categoryId: String!
+  categoryName: String!
+  status: String!
+  originChannelId: String!
+  originChannelName: String!
+  createdBy: String!
+  createdAt: Time!
+  updatedAt: Time!
+  tasks: [Task!]!
+}
+
+type Task {
+  id: ID!
+  incidentId: ID!
+  title: String!
+  description: String!
+  status: TaskStatus!
+  assigneeId: String
+  createdBy: String!
+  channelId: String!
+  messageTs: String!
+  createdAt: Time!
+  updatedAt: Time!
+  completedAt: Time
+}
+
+enum TaskStatus {
+  INCOMPLETED
+  COMPLETED
+}
+
+type IncidentConnection {
+  edges: [IncidentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type IncidentEdge {
+  node: Incident!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type Query {
+  # Get paginated list of incidents
+  incidents(first: Int, after: String): IncidentConnection!
+  
+  # Get a specific incident by ID
+  incident(id: ID!): Incident
+  
+  # Get tasks for a specific incident
+  tasks(incidentId: ID!): [Task!]!
+  
+  # Get a specific task
+  task(id: ID!): Task
+}
+
+type Mutation {
+  # Update incident
+  updateIncident(id: ID!, input: UpdateIncidentInput!): Incident!
+  
+  # Create a new task
+  createTask(input: CreateTaskInput!): Task!
+  
+  # Update a task
+  updateTask(id: ID!, input: UpdateTaskInput!): Task!
+  
+  # Delete a task
+  deleteTask(id: ID!): Boolean!
+}
+
+input UpdateIncidentInput {
+  title: String
+  description: String
+  status: String
+}
+
+input CreateTaskInput {
+  incidentId: ID!
+  title: String!
+  description: String
+  assigneeId: String
+}
+
+input UpdateTaskInput {
+  title: String
+  description: String
+  status: TaskStatus
+  assigneeId: String
+}

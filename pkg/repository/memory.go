@@ -278,6 +278,26 @@ func (m *Memory) GetIncidentByChannelID(ctx context.Context, channelID types.Cha
 	return nil, goerr.Wrap(model.ErrIncidentNotFound, "failed to get incident by channel ID")
 }
 
+// ListIncidents retrieves all incidents from memory
+func (m *Memory) ListIncidents(ctx context.Context) ([]*model.Incident, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incidents := make([]*model.Incident, 0, len(m.incidents))
+	for _, incident := range m.incidents {
+		// Return a copy to prevent external modifications
+		incidentCopy := *incident
+		incidents = append(incidents, &incidentCopy)
+	}
+
+	// Sort by creation time (newest first)
+	sort.Slice(incidents, func(i, j int) bool {
+		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
+	})
+
+	return incidents, nil
+}
+
 // GetNextIncidentNumber returns the next available incident number
 func (m *Memory) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	m.mu.Lock()
@@ -462,6 +482,26 @@ func (m *Memory) UpdateTask(ctx context.Context, task *model.Task) error {
 	m.tasks[task.IncidentID][task.ID] = &taskCopy
 
 	return nil
+}
+
+// DeleteTask deletes a task from memory
+func (m *Memory) DeleteTask(ctx context.Context, taskID types.TaskID) error {
+	if taskID == "" {
+		return goerr.New("task ID is empty")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Search through all incidents to find the task
+	for _, tasks := range m.tasks {
+		if _, exists := tasks[taskID]; exists {
+			delete(tasks, taskID)
+			return nil
+		}
+	}
+
+	return goerr.Wrap(model.ErrTaskNotFound, "failed to delete task", goerr.V("taskID", taskID))
 }
 
 // ListTasksByIncident retrieves all tasks for an incident

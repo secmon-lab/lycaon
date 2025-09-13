@@ -6,14 +6,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/frontend"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
+	"github.com/secmon-lab/lycaon/pkg/controller/graphql"
 	slackCtrl "github.com/secmon-lab/lycaon/pkg/controller/slack"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 )
 
 // Server represents the HTTP server
@@ -33,6 +37,7 @@ func NewServer(
 	ctx context.Context,
 	addr string,
 	slackConfig *config.SlackConfig,
+	categories *model.CategoriesConfig,
 	repo interfaces.Repository,
 	authUC interfaces.Auth,
 	messageUC interfaces.SlackMessage,
@@ -73,6 +78,22 @@ func NewServer(
 			r.Get("/me", authHandler.HandleUserMe)
 		})
 	})
+
+	// GraphQL endpoint
+	if repo != nil && incidentUC != nil && taskUC != nil {
+		graphqlHandler := createGraphQLHandler(repo, slackClient, incidentUC, taskUC, categories)
+
+		router.Route("/graphql", func(r chi.Router) {
+			// Apply authentication middleware to GraphQL
+			// Note: This ensures GraphQL is protected by authentication
+			r.Use(authMiddleware.RequireAuth)
+			r.Handle("/", graphqlHandler)
+		})
+
+		// GraphQL Playground (development only)
+		// Enable playground in development mode
+		router.Handle("/playground", playground.Handler("GraphQL playground", "/graphql"))
+	}
 
 	// Slack webhook routes
 	router.Route("/hooks/slack", func(r chi.Router) {
@@ -175,6 +196,22 @@ func handleFallbackHome(w http.ResponseWriter, r *http.Request) {
 </html>`)); err != nil {
 		ctxlog.From(r.Context()).Error("Failed to write fallback home page", "error", err)
 	}
+}
+
+// createGraphQLHandler creates a GraphQL handler with dependencies
+func createGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, incidentUC interfaces.Incident, taskUC interfaces.Task, categories *model.CategoriesConfig) http.Handler {
+	useCases := &graphql.UseCases{
+		IncidentUC: incidentUC,
+		TaskUC:     taskUC,
+	}
+
+	resolver := graphql.NewResolver(repo, slackClient, useCases, categories)
+	srv := handler.NewDefaultServer(
+		graphql.NewExecutableSchema(graphql.Config{Resolvers: resolver}),
+	)
+
+	// TODO: Add DataLoader middleware here when implemented
+	return srv
 }
 
 // writeError writes an error response

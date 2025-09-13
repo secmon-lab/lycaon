@@ -38,6 +38,18 @@ tasks:
     cmds:
       - go generate ./...
 
+  graphql:
+    desc: "Generate GraphQL code"
+    cmds:
+      - go run github.com/99designs/gqlgen generate
+    sources:
+      - graphql/*.graphql
+      - gqlgen.yml
+    generates:
+      - pkg/controller/graphql/generated.go
+      - pkg/controller/graphql/schema.resolvers.go
+      - pkg/domain/model/graphql/models_gen.go
+
   run:
     desc: "Run the server"
     deps: [build]

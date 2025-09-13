@@ -29,6 +29,8 @@ export default defineConfig({
     ],
     proxy: {
       "/api": "http://localhost:8080",
+      "/graphql": "http://localhost:8080",
+      "/playground": "http://localhost:8080",
       "/hooks": "http://localhost:8080",
       "/ws": {
         target: "http://localhost:8080",

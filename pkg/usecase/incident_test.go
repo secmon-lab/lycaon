@@ -325,7 +325,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 				gt.Equal(t, "@security-lead", users[0])
 				gt.Equal(t, 1, len(groups))
 				gt.Equal(t, "@security-team", groups[0])
-				
+
 				return &model.InvitationResult{
 					Details: []model.InviteDetail{
 						{

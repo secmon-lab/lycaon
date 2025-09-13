@@ -84,7 +84,7 @@ func (u *Invite) resolveUsers(ctx context.Context, users []string, groups []stri
 			// Direct UserID (regular user) - No API call needed
 			details = append(details, model.InviteDetail{
 				UserID:       user,
-				Username:     "",  // No API call needed for display name
+				Username:     "", // No API call needed for display name
 				SourceConfig: user,
 				Status:       "resolved",
 			})
@@ -158,7 +158,7 @@ func (u *Invite) resolveUserName(ctx context.Context, username string) (string, 
 				"searching", name,
 			)
 		}
-		
+
 		// Check both user name and real name
 		// For bots, the Name field usually contains the bot name
 		if user.Name == name || user.RealName == name {
@@ -171,7 +171,7 @@ func (u *Invite) resolveUserName(ctx context.Context, username string) (string, 
 			}
 			return user.ID, nil
 		}
-		
+
 		// Also check profile display name
 		if user.Profile.DisplayName == name {
 			if user.IsBot {
@@ -183,7 +183,7 @@ func (u *Invite) resolveUserName(ctx context.Context, username string) (string, 
 			}
 			return user.ID, nil
 		}
-		
+
 		// Check if this is a bot and match bot name
 		if user.IsBot && (user.Profile.BotID != "" || user.Profile.ApiAppID != "") {
 			// For bots, sometimes the name is stored differently
@@ -240,7 +240,7 @@ func (u *Invite) resolveGroupMembers(ctx context.Context, group string) ([]strin
 	if strings.HasPrefix(group, "@") {
 		// Group name - need to resolve to ID
 		name := strings.TrimPrefix(group, "@")
-		
+
 		groups, err := u.slackClient.GetUserGroupsContext(ctx)
 		if err != nil {
 			return nil, goerr.Wrap(err, "failed to get user groups")
@@ -293,7 +293,7 @@ func (u *Invite) executeBatchInvitation(ctx context.Context, channelID types.Cha
 			details = append(details, detail)
 			continue
 		}
-		
+
 		if err != nil {
 			detail.Status = "failed"
 			detail.Error = err.Error()
