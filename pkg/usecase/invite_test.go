@@ -174,7 +174,7 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 		gt.NoError(t, err).Required()
 		gt.V(t, result).NotNil()
 		gt.Equal(t, 2, len(result.Details))
-		
+
 		// Check status of each user
 		for _, detail := range result.Details {
 			if detail.SourceConfig == "U123456" {
@@ -278,9 +278,9 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
 				// Should receive user IDs, not bot IDs
 				gt.Equal(t, 3, len(users))
-				gt.True(t, contains(users, "U123456"))  // Regular user
-				gt.True(t, contains(users, "UBOT1"))    // Resolved from B09E8M5JSPK
-				gt.True(t, contains(users, "UBOT2"))    // Resolved from B987654
+				gt.True(t, contains(users, "U123456")) // Regular user
+				gt.True(t, contains(users, "UBOT1"))   // Resolved from B09E8M5JSPK
+				gt.True(t, contains(users, "UBOT2"))   // Resolved from B987654
 				return &slack.Channel{}, nil
 			},
 			GetUsersContextFunc: func(ctx context.Context) ([]slack.User, error) {
@@ -410,7 +410,7 @@ func TestInviteUseCaseInviteUsersByList(t *testing.T) {
 			},
 		}
 
-		// Create use case  
+		// Create use case
 		uc := usecase.NewInvite(mockSlack)
 
 		// Test with mixed IDs

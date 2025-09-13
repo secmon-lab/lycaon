@@ -115,6 +115,7 @@ func cmdServe() *cli.Command {
 				ctx,
 				serverCfg.Addr,
 				&slackCfg,
+				categories,
 				repo,
 				authUC,
 				messageUC,

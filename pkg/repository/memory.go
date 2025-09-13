@@ -278,6 +278,94 @@ func (m *Memory) GetIncidentByChannelID(ctx context.Context, channelID types.Cha
 	return nil, goerr.Wrap(model.ErrIncidentNotFound, "failed to get incident by channel ID")
 }
 
+// ListIncidents retrieves all incidents from memory
+func (m *Memory) ListIncidents(ctx context.Context) ([]*model.Incident, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incidents := make([]*model.Incident, 0, len(m.incidents))
+	for _, incident := range m.incidents {
+		// Return a copy to prevent external modifications
+		incidentCopy := *incident
+		incidents = append(incidents, &incidentCopy)
+	}
+
+	// Sort by creation time (newest first)
+	sort.Slice(incidents, func(i, j int) bool {
+		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
+	})
+
+	return incidents, nil
+}
+
+// ListIncidentsPaginated retrieves incidents from memory with pagination
+func (m *Memory) ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Default limit if not specified
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100 // Cap at 100
+	}
+
+	// Convert map to slice and sort by ID descending (newest first)
+	allIncidents := make([]*model.Incident, 0, len(m.incidents))
+	for _, incident := range m.incidents {
+		// Create a copy to prevent external modifications
+		incidentCopy := *incident
+		allIncidents = append(allIncidents, &incidentCopy)
+	}
+
+	// Sort by ID descending (newest first)
+	sort.Slice(allIncidents, func(i, j int) bool {
+		return allIncidents[i].ID > allIncidents[j].ID
+	})
+
+	// Apply cursor filtering if provided
+	startIndex := 0
+	if opts.After != nil {
+		// Find the index after the cursor
+		for i, incident := range allIncidents {
+			if incident.ID < *opts.After {
+				startIndex = i
+				break
+			}
+		}
+		// If cursor not found or at the end, return empty
+		if startIndex == 0 && (len(allIncidents) == 0 || allIncidents[0].ID >= *opts.After) {
+			return []*model.Incident{}, &types.PaginationResult{
+				HasNextPage:     false,
+				HasPreviousPage: true,
+				TotalCount:      len(allIncidents),
+			}, nil
+		}
+	}
+
+	// Calculate end index
+	endIndex := startIndex + limit
+	hasNextPage := false
+	if endIndex < len(allIncidents) {
+		hasNextPage = true
+	} else {
+		endIndex = len(allIncidents)
+	}
+
+	// Get the page of incidents
+	pageIncidents := allIncidents[startIndex:endIndex]
+
+	result := &types.PaginationResult{
+		HasNextPage:     hasNextPage,
+		HasPreviousPage: opts.After != nil,
+		TotalCount:      len(allIncidents),
+	}
+
+	return pageIncidents, result, nil
+}
+
 // GetNextIncidentNumber returns the next available incident number
 func (m *Memory) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	m.mu.Lock()
@@ -461,6 +549,34 @@ func (m *Memory) UpdateTask(ctx context.Context, task *model.Task) error {
 	taskCopy := *task
 	m.tasks[task.IncidentID][task.ID] = &taskCopy
 
+	return nil
+}
+
+// DeleteTask deletes a task from memory using direct access with incidentID
+func (m *Memory) DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+	if taskID == "" {
+		return goerr.New("task ID is empty")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Direct access using incidentID
+	tasks, exists := m.tasks[incidentID]
+	if !exists {
+		return goerr.Wrap(model.ErrTaskNotFound, "incident not found", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+	}
+
+	if _, exists := tasks[taskID]; !exists {
+		return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+	}
+
+	delete(tasks, taskID)
 	return nil
 }
 

@@ -134,7 +134,7 @@ func (u *Incident) updateOriginalMessageToDeclared(ctx context.Context, request 
 		"originalMessageTS", request.MessageTS,
 		"title", title,
 	)
-	
+
 	usedBlocks := u.blockBuilder.BuildIncidentPromptUsedBlocks(title)
 	if _, _, _, err := u.slackClient.UpdateMessage(
 		ctx,

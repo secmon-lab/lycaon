@@ -143,3 +143,21 @@ func (id TaskID) String() string {
 func NewTaskID() TaskID {
 	return TaskID(uuid.New().String())
 }
+
+// PaginationOptions represents pagination parameters for list operations
+type PaginationOptions struct {
+	// Limit is the maximum number of items to return
+	Limit int
+	// After is the cursor to start after (for forward pagination)
+	After *IncidentID
+}
+
+// PaginationResult represents pagination information for a result set
+type PaginationResult struct {
+	// HasNextPage indicates if there are more items after this page
+	HasNextPage bool
+	// HasPreviousPage indicates if there are items before this page
+	HasPreviousPage bool
+	// TotalCount is the total number of items (may be estimated)
+	TotalCount int
+}

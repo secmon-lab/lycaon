@@ -361,6 +361,109 @@ func (f *Firestore) GetIncidentByChannelID(ctx context.Context, channelID types.
 	return &incident, nil
 }
 
+// ListIncidents retrieves all incidents from Firestore
+func (f *Firestore) ListIncidents(ctx context.Context) ([]*model.Incident, error) {
+	iter := f.client.Collection(incidentsCollection).OrderBy("CreatedAt", firestore.Desc).Documents(ctx)
+	defer iter.Stop()
+
+	var incidents []*model.Incident
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to iterate incidents")
+		}
+
+		var incident model.Incident
+		if err := doc.DataTo(&incident); err != nil {
+			return nil, goerr.Wrap(err, "failed to unmarshal incident")
+		}
+
+		incidents = append(incidents, &incident)
+	}
+
+	return incidents, nil
+}
+
+// ListIncidentsPaginated retrieves incidents from Firestore with pagination
+func (f *Firestore) ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error) {
+	// Default limit if not specified
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100 // Cap at 100 to prevent excessive data fetching
+	}
+
+	// Start with base query ordered by ID descending (newest first)
+	query := f.client.Collection(incidentsCollection).OrderBy("ID", firestore.Desc)
+
+	// Apply cursor if provided
+	if opts.After != nil {
+		// Start after the provided cursor
+		query = query.Where("ID", "<", int(*opts.After))
+	}
+
+	// Fetch limit+1 to determine if there's a next page
+	query = query.Limit(limit + 1)
+
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	var incidents []*model.Incident
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, nil, goerr.Wrap(err, "failed to iterate incidents")
+		}
+
+		var incident model.Incident
+		if err := doc.DataTo(&incident); err != nil {
+			return nil, nil, goerr.Wrap(err, "failed to unmarshal incident")
+		}
+
+		incidents = append(incidents, &incident)
+	}
+
+	// Determine pagination info
+	hasNextPage := false
+	if len(incidents) > limit {
+		hasNextPage = true
+		incidents = incidents[:limit] // Remove the extra item
+	}
+
+	// For total count, we need a separate query (expensive operation)
+	// Consider caching this or making it optional
+	totalCount := 0
+	countQuery := f.client.Collection(incidentsCollection).Documents(ctx)
+	defer countQuery.Stop()
+	for {
+		_, err := countQuery.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			// Log but don't fail - total count is optional
+			break
+		}
+		totalCount++
+	}
+
+	result := &types.PaginationResult{
+		HasNextPage:     hasNextPage,
+		HasPreviousPage: opts.After != nil, // If we have a cursor, there are previous items
+		TotalCount:      totalCount,
+	}
+
+	return incidents, result, nil
+}
+
 // GetNextIncidentNumber returns the next available incident number using atomic increment
 func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	counterDoc := f.client.Collection(countersCollection).Doc(incidentCounterDocID)
@@ -602,6 +705,40 @@ func (f *Firestore) UpdateTask(ctx context.Context, task *model.Task) error {
 	return nil
 }
 
+// DeleteTask deletes a task from Firestore using direct path with incidentID
+func (f *Firestore) DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+	if taskID == "" {
+		return goerr.New("task ID is empty")
+	}
+
+	// Directly construct the path to the task document
+	taskDoc := f.client.Collection(incidentsCollection).Doc(incidentID.String()).
+		Collection(tasksCollection).Doc(taskID.String())
+
+	// Check if task exists
+	_, err := taskDoc.Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+		return goerr.Wrap(err, "failed to check task existence", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+	}
+
+	// Delete the task
+	_, err = taskDoc.Delete(ctx)
+	if err != nil {
+		return goerr.Wrap(err, "failed to delete task from firestore", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+	}
+
+	return nil
+}
+
 // ListTasksByIncident retrieves all tasks for an incident from Firestore
 func (f *Firestore) ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error) {
 	if incidentID <= 0 {
@@ -639,6 +776,84 @@ func (f *Firestore) ListTasksByIncident(ctx context.Context, incidentID types.In
 	})
 
 	return tasks, nil
+}
+
+// UpdateIncidentAtomic updates an incident atomically using a transaction
+func (f *Firestore) UpdateIncidentAtomic(ctx context.Context, incidentID types.IncidentID, updateFn func(*model.Incident) error) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+
+	docRef := f.client.Collection(incidentsCollection).Doc(incidentID.String())
+	
+	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		// Get the current incident within the transaction
+		doc, err := tx.Get(docRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return goerr.Wrap(model.ErrIncidentNotFound, "incident not found", goerr.V("incidentID", incidentID))
+			}
+			return goerr.Wrap(err, "failed to get incident in transaction", goerr.V("incidentID", incidentID))
+		}
+
+		var incident model.Incident
+		if err := doc.DataTo(&incident); err != nil {
+			return goerr.Wrap(err, "failed to unmarshal incident", goerr.V("incidentID", incidentID))
+		}
+
+		// Apply the update function
+		if err := updateFn(&incident); err != nil {
+			return goerr.Wrap(err, "failed to update incident", goerr.V("incidentID", incidentID))
+		}
+
+		// Write the updated incident back
+		return tx.Set(docRef, &incident)
+	})
+}
+
+// UpdateTaskAtomic updates a task atomically using a transaction
+func (f *Firestore) UpdateTaskAtomic(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updateFn func(*model.Task) error) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+	if taskID == "" {
+		return goerr.New("task ID is empty")
+	}
+
+	taskDocRef := f.client.Collection(incidentsCollection).Doc(incidentID.String()).
+		Collection(tasksCollection).Doc(taskID.String())
+	
+	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		// Get the current task within the transaction
+		doc, err := tx.Get(taskDocRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+					goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+			}
+			return goerr.Wrap(err, "failed to get task in transaction", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+
+		var task model.Task
+		if err := doc.DataTo(&task); err != nil {
+			return goerr.Wrap(err, "failed to unmarshal task", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+
+		// Apply the update function
+		if err := updateFn(&task); err != nil {
+			return goerr.Wrap(err, "failed to update task", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+
+		// Ensure IncidentID and ID remain unchanged
+		task.IncidentID = incidentID
+		task.ID = taskID
+
+		// Write the updated task back
+		return tx.Set(taskDocRef, &task)
+	})
 }
 
 func (f *Firestore) Close() error {

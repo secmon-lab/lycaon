@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -427,6 +428,180 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		ctx := context.Background()
 		_, err := repo.GetIncidentByChannelID(ctx, types.ChannelID("C999999"))
 		gt.Error(t, err)
+	})
+
+	// Pagination tests
+	t.Run("ListIncidentsPaginated", func(t *testing.T) {
+		t.Run("BasicPagination", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Create test incidents with unique IDs
+			now := time.Now()
+			baseID := now.UnixNano() / 1000000 // millisecond precision
+			var incidents []*model.Incident
+			incidentCount := 25
+			for i := 1; i <= incidentCount; i++ {
+				incident := &model.Incident{
+					ID:          types.IncidentID(baseID + int64(i)),
+					ChannelID:   types.ChannelID(fmt.Sprintf("test-channel-%d", baseID)),
+					ChannelName: types.ChannelName("test-channel"),
+					Title:       fmt.Sprintf("Test Incident %d", i),
+					Description: "Test Description",
+					CategoryID:  "test",
+					CreatedBy:   types.SlackUserID("test-user"),
+					CreatedAt:   now.Add(time.Duration(-i) * time.Hour),
+				}
+				gt.NoError(t, repo.PutIncident(ctx, incident))
+				incidents = append(incidents, incident)
+			}
+
+			// Sort incidents by ID descending (as the pagination does)
+			sort.Slice(incidents, func(i, j int) bool {
+				return incidents[i].ID > incidents[j].ID
+			})
+
+			// Test pagination with our created incidents
+			opts := types.PaginationOptions{
+				Limit: 10,
+				After: nil,
+			}
+			
+			// First page
+			result, pageInfo, err := repo.ListIncidentsPaginated(ctx, opts)
+			gt.NoError(t, err).Required()
+			gt.Equal(t, 10, len(result))
+			gt.True(t, pageInfo.HasNextPage)
+			gt.False(t, pageInfo.HasPreviousPage)
+
+			// Verify that our highest ID incident appears in results
+			// (it should be one of the first since we just created it)
+			foundHighest := false
+			for _, inc := range result {
+				if inc.ID == incidents[0].ID {
+					foundHighest = true
+					break
+				}
+			}
+			gt.True(t, foundHighest) // Should find our highest ID incident in first page
+
+			// Verify ordering - each ID should be less than the previous
+			for i := 1; i < len(result); i++ {
+				gt.True(t, result[i].ID < result[i-1].ID) // IDs should be in descending order
+			}
+
+			// Test pagination with cursor
+			cursor := result[9].ID
+			opts = types.PaginationOptions{
+				Limit: 10,
+				After: &cursor,
+			}
+			result2, pageInfo2, err := repo.ListIncidentsPaginated(ctx, opts)
+			gt.NoError(t, err).Required()
+			gt.True(t, len(result2) <= 10)
+			gt.True(t, pageInfo2.HasPreviousPage)
+
+			// Verify that all IDs in second page are less than cursor
+			for _, inc := range result2 {
+				gt.True(t, inc.ID < cursor) // All IDs in second page should be less than cursor
+			}
+
+			// Verify ordering in second page
+			for i := 1; i < len(result2); i++ {
+				gt.True(t, result2[i].ID < result2[i-1].ID) // IDs should be in descending order
+			}
+
+			// Test that we can find all our created incidents somewhere in pagination
+			allFoundIDs := make(map[types.IncidentID]bool)
+			
+			// Keep paginating until we've seen all our incidents or run out of pages
+			var lastCursor *types.IncidentID
+			for pagesChecked := 0; pagesChecked < 10; pagesChecked++ {
+				opts := types.PaginationOptions{
+					Limit: 50,
+					After: lastCursor,
+				}
+				pageResult, pageInfo, err := repo.ListIncidentsPaginated(ctx, opts)
+				gt.NoError(t, err).Required()
+				
+				for _, inc := range pageResult {
+					for _, created := range incidents {
+						if inc.ID == created.ID {
+							allFoundIDs[created.ID] = true
+						}
+					}
+				}
+				
+				if !pageInfo.HasNextPage || len(pageResult) == 0 {
+					break
+				}
+				cursor := pageResult[len(pageResult)-1].ID
+				lastCursor = &cursor
+			}
+			
+			// We should find all our created incidents
+			gt.Equal(t, incidentCount, len(allFoundIDs)) // Should find all created incidents
+		})
+
+		t.Run("EmptyResult", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Use a cursor that's beyond all existing incidents
+			veryLargeCursor := types.IncidentID(1)
+			opts := types.PaginationOptions{
+				Limit: 10,
+				After: &veryLargeCursor,
+			}
+			result, pageInfo, err := repo.ListIncidentsPaginated(ctx, opts)
+			gt.NoError(t, err).Required()
+			gt.Equal(t, 0, len(result))
+			gt.False(t, pageInfo.HasNextPage)
+		})
+
+		t.Run("LimitEnforcement", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Create 5 incidents with unique IDs
+			now := time.Now()
+			baseID := now.UnixNano() / 1000000
+			for i := 1; i <= 5; i++ {
+				incident := &model.Incident{
+					ID:          types.IncidentID(baseID + int64(i)),
+					ChannelID:   types.ChannelID(fmt.Sprintf("test-channel-%d", baseID)),
+					ChannelName: types.ChannelName("test-channel"),
+					Title:       fmt.Sprintf("Test Incident %d", i),
+					Description: "Test Description",
+					CategoryID:  "test",
+					CreatedBy:   types.SlackUserID("test-user"),
+					CreatedAt:   now,
+				}
+				gt.NoError(t, repo.PutIncident(ctx, incident))
+			}
+
+			// Test with limit larger than available items
+			opts := types.PaginationOptions{
+				Limit: 10,
+				After: nil,
+			}
+			result, _, err := repo.ListIncidentsPaginated(ctx, opts)
+			gt.NoError(t, err).Required()
+			// Should get at least our 5 incidents
+			gt.True(t, len(result) >= 5)
+			
+			// Test with zero limit (should use default)
+			opts = types.PaginationOptions{
+				Limit: 0,
+				After: nil,
+			}
+			result, _, err = repo.ListIncidentsPaginated(ctx, opts)
+			gt.NoError(t, err).Required()
+			gt.True(t, len(result) > 0)
+		})
 	})
 }
 

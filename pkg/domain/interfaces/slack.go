@@ -21,9 +21,10 @@ type SlackClient interface {
 	GetConversationHistoryContext(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error)
 	GetConversationRepliesContext(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error)
 	SendContextMessage(ctx context.Context, channelID, messageTS, contextText string) string
-	
+
 	// User and group resolution methods
 	GetUsersContext(ctx context.Context) ([]slack.User, error)
+	GetUserInfoContext(ctx context.Context, userID string) (*slack.User, error)
 	GetUserGroupsContext(ctx context.Context) ([]slack.UserGroup, error)
 	GetUserGroupMembersContext(ctx context.Context, groupID string) ([]string, error)
 }

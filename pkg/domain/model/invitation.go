@@ -13,4 +13,3 @@ type InviteDetail struct {
 	SourceConfig string // Original config value (@username, U123456, etc.)
 	Error        string // Error message if failed
 }
-

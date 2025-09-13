@@ -30,6 +30,8 @@ type Repository interface {
 	PutIncident(ctx context.Context, incident *model.Incident) error
 	GetIncident(ctx context.Context, id types.IncidentID) (*model.Incident, error)
 	GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
+	ListIncidents(ctx context.Context) ([]*model.Incident, error)
+	ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error)
 	GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error)
 
 	// Incident request operations
@@ -42,6 +44,7 @@ type Repository interface {
 	GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
 	GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
 	UpdateTask(ctx context.Context, task *model.Task) error
+	DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error
 	ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
 
 	// Close closes the repository connection
