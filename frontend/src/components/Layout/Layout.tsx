@@ -5,7 +5,7 @@ import Sidebar from './Sidebar';
 import { Button } from '../ui/Button';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Avatar from '@radix-ui/react-avatar';
-import { getCurrentUser } from '../../api/auth';
+import { getCurrentUser, logout } from '../../api/auth';
 import { LogOut, User, Menu } from 'lucide-react';
 
 interface UserData {
@@ -15,38 +15,6 @@ interface UserData {
   slack_user_id: string;
   avatar_url?: string;
 }
-
-// Cache for user data
-const USER_CACHE_KEY = 'lycaon_user_cache';
-const USER_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
-
-const getUserFromCache = (): UserData | null => {
-  try {
-    const cached = localStorage.getItem(USER_CACHE_KEY);
-    if (cached) {
-      const { data, expiry } = JSON.parse(cached);
-      if (Date.now() < expiry) {
-        return data;
-      }
-      localStorage.removeItem(USER_CACHE_KEY);
-    }
-  } catch (error) {
-    console.error('Error reading user cache:', error);
-  }
-  return null;
-};
-
-const setUserCache = (user: UserData) => {
-  try {
-    const cacheData = {
-      data: user,
-      expiry: Date.now() + USER_CACHE_EXPIRY,
-    };
-    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(cacheData));
-  } catch (error) {
-    console.error('Error setting user cache:', error);
-  }
-};
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -58,19 +26,10 @@ const Layout: React.FC = () => {
   }, []);
 
   const loadUser = async () => {
-    // Check cache first
-    const cachedUser = getUserFromCache();
-    if (cachedUser) {
-      setUser(cachedUser);
-      setUserLoading(false);
-      return;
-    }
-
-    // Fetch from API
     try {
+      // getCurrentUser now handles caching internally
       const userData = await getCurrentUser();
       setUser(userData);
-      setUserCache(userData);
     } catch (error) {
       console.error('Failed to load user:', error);
     } finally {
@@ -78,9 +37,15 @@ const Layout: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem(USER_CACHE_KEY);
-    window.location.href = '/api/auth/logout';
+  const handleLogout = async () => {
+    try {
+      await logout();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still redirect even if logout fails
+      window.location.href = '/';
+    }
   };
 
   return (

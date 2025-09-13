@@ -1,3 +1,5 @@
+import { userCache } from '../services/userCache';
+
 export interface User {
   id: string
   name: string
@@ -17,6 +19,9 @@ export const loginWithSlack = async () => {
  */
 export const logout = async () => {
   try {
+    // Clear cache before logout
+    userCache.clearAll();
+    
     const response = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
@@ -32,9 +37,15 @@ export const logout = async () => {
 }
 
 /**
- * Get current authenticated user
+ * Get current authenticated user with caching
  */
 export const getCurrentUser = async (): Promise<User> => {
+  // Check cache first
+  const cached = userCache.getCurrentUser();
+  if (cached) {
+    return cached;
+  }
+
   try {
     const response = await fetch('/api/user/me', {
       credentials: 'include',
@@ -42,7 +53,12 @@ export const getCurrentUser = async (): Promise<User> => {
     if (!response.ok) {
       throw new Error('Failed to get user')
     }
-    return await response.json()
+    const user = await response.json();
+    
+    // Cache the result
+    userCache.setCurrentUser(user);
+    
+    return user;
   } catch (error) {
     throw error
   }
@@ -60,18 +76,14 @@ export const isAuthenticated = async (): Promise<boolean> => {
   }
 }
 
-// Cache for user data by ID
-const USER_CACHE_BY_ID: Map<string, { data: User; expiry: number }> = new Map()
-const USER_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
 /**
  * Get user by Slack user ID with caching
  */
 export const getUserBySlackId = async (slackUserId: string): Promise<User | null> => {
   // Check cache first
-  const cached = USER_CACHE_BY_ID.get(slackUserId)
-  if (cached && Date.now() < cached.expiry) {
-    return cached.data
+  const cached = userCache.getUserBySlackId(slackUserId);
+  if (cached) {
+    return cached;
   }
 
   try {
@@ -87,10 +99,7 @@ export const getUserBySlackId = async (slackUserId: string): Promise<User | null
     const user = await response.json()
     
     // Cache the result
-    USER_CACHE_BY_ID.set(slackUserId, {
-      data: user,
-      expiry: Date.now() + USER_CACHE_DURATION
-    })
+    userCache.setUserBySlackId(slackUserId, user);
     
     return user
   } catch (error) {
