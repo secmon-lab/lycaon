@@ -69,6 +69,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			ListIncidentsFunc: func(ctx context.Context) ([]*model.Incident, error) {
 //				panic("mock out the ListIncidents method")
 //			},
+//			ListIncidentsPaginatedFunc: func(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error) {
+//				panic("mock out the ListIncidentsPaginated method")
+//			},
 //			ListMessagesFunc: func(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error) {
 //				panic("mock out the ListMessages method")
 //			},
@@ -147,6 +150,9 @@ type RepositoryMock struct {
 
 	// ListIncidentsFunc mocks the ListIncidents method.
 	ListIncidentsFunc func(ctx context.Context) ([]*model.Incident, error)
+
+	// ListIncidentsPaginatedFunc mocks the ListIncidentsPaginated method.
+	ListIncidentsPaginatedFunc func(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error)
 
 	// ListMessagesFunc mocks the ListMessages method.
 	ListMessagesFunc func(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error)
@@ -282,6 +288,13 @@ type RepositoryMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
+		// ListIncidentsPaginated holds details about calls to the ListIncidentsPaginated method.
+		ListIncidentsPaginated []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Opts is the opts argument value.
+			Opts types.PaginationOptions
+		}
 		// ListMessages holds details about calls to the ListMessages method.
 		ListMessages []struct {
 			// Ctx is the ctx argument value.
@@ -357,6 +370,7 @@ type RepositoryMock struct {
 	lockGetUser                sync.RWMutex
 	lockGetUserBySlackID       sync.RWMutex
 	lockListIncidents          sync.RWMutex
+	lockListIncidentsPaginated sync.RWMutex
 	lockListMessages           sync.RWMutex
 	lockListTasksByIncident    sync.RWMutex
 	lockPutIncident            sync.RWMutex
@@ -931,6 +945,42 @@ func (mock *RepositoryMock) ListIncidentsCalls() []struct {
 	mock.lockListIncidents.RLock()
 	calls = mock.calls.ListIncidents
 	mock.lockListIncidents.RUnlock()
+	return calls
+}
+
+// ListIncidentsPaginated calls ListIncidentsPaginatedFunc.
+func (mock *RepositoryMock) ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error) {
+	if mock.ListIncidentsPaginatedFunc == nil {
+		panic("RepositoryMock.ListIncidentsPaginatedFunc: method is nil but Repository.ListIncidentsPaginated was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Opts types.PaginationOptions
+	}{
+		Ctx:  ctx,
+		Opts: opts,
+	}
+	mock.lockListIncidentsPaginated.Lock()
+	mock.calls.ListIncidentsPaginated = append(mock.calls.ListIncidentsPaginated, callInfo)
+	mock.lockListIncidentsPaginated.Unlock()
+	return mock.ListIncidentsPaginatedFunc(ctx, opts)
+}
+
+// ListIncidentsPaginatedCalls gets all the calls that were made to ListIncidentsPaginated.
+// Check the length with:
+//
+//	len(mockedRepository.ListIncidentsPaginatedCalls())
+func (mock *RepositoryMock) ListIncidentsPaginatedCalls() []struct {
+	Ctx  context.Context
+	Opts types.PaginationOptions
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Opts types.PaginationOptions
+	}
+	mock.lockListIncidentsPaginated.RLock()
+	calls = mock.calls.ListIncidentsPaginated
+	mock.lockListIncidentsPaginated.RUnlock()
 	return calls
 }
 

@@ -208,25 +208,34 @@ func (r *mutationResolver) DeleteTask(ctx context.Context, id string) (bool, err
 
 // Incidents is the resolver for the incidents field.
 func (r *queryResolver) Incidents(ctx context.Context, first *int, after *string) (*graphql1.IncidentConnection, error) {
-	// For now, return a simple implementation without proper pagination
-	// TODO: Implement proper pagination with cursor-based pagination
-
-	// Default limit
-	_ = 20 // limit will be used when pagination is properly implemented
-	if first != nil && *first > 0 && *first <= 100 {
-		_ = *first
+	// Build pagination options
+	opts := types.PaginationOptions{
+		Limit: 20, // Default limit
 	}
 
-	// Get all incidents from repository
-	// TODO: Implement proper pagination with cursor-based pagination
-	incidents, err := r.repo.ListIncidents(ctx)
+	// Apply first parameter if provided
+	if first != nil && *first > 0 {
+		opts.Limit = *first
+		if opts.Limit > 100 {
+			opts.Limit = 100 // Cap at 100
+		}
+	}
+
+	// Parse and apply cursor if provided
+	if after != nil && *after != "" {
+		// Parse the cursor (which is the incident ID)
+		incidentID, err := strconv.ParseInt(*after, 10, 64)
+		if err != nil {
+			return nil, goerr.Wrap(err, "invalid cursor", goerr.V("cursor", *after))
+		}
+		id := types.IncidentID(incidentID)
+		opts.After = &id
+	}
+
+	// Get paginated incidents from repository
+	incidents, pageResult, err := r.repo.ListIncidentsPaginated(ctx, opts)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to list incidents")
-	}
-
-	// Apply pagination limit if specified
-	if first != nil && *first > 0 && *first < len(incidents) {
-		incidents = incidents[:*first]
 	}
 
 	// Create edges
@@ -240,8 +249,8 @@ func (r *queryResolver) Incidents(ctx context.Context, first *int, after *string
 
 	// Create page info
 	pageInfo := &graphql1.PageInfo{
-		HasNextPage:     false,
-		HasPreviousPage: false,
+		HasNextPage:     pageResult.HasNextPage,
+		HasPreviousPage: pageResult.HasPreviousPage,
 		StartCursor:     nil,
 		EndCursor:       nil,
 	}
@@ -256,7 +265,7 @@ func (r *queryResolver) Incidents(ctx context.Context, first *int, after *string
 	return &graphql1.IncidentConnection{
 		Edges:      edges,
 		PageInfo:   pageInfo,
-		TotalCount: len(incidents),
+		TotalCount: pageResult.TotalCount,
 	}, nil
 }
 

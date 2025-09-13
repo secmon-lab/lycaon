@@ -387,6 +387,83 @@ func (f *Firestore) ListIncidents(ctx context.Context) ([]*model.Incident, error
 	return incidents, nil
 }
 
+// ListIncidentsPaginated retrieves incidents from Firestore with pagination
+func (f *Firestore) ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error) {
+	// Default limit if not specified
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100 // Cap at 100 to prevent excessive data fetching
+	}
+
+	// Start with base query ordered by ID descending (newest first)
+	query := f.client.Collection(incidentsCollection).OrderBy("ID", firestore.Desc)
+
+	// Apply cursor if provided
+	if opts.After != nil {
+		// Start after the provided cursor
+		query = query.Where("ID", "<", int(*opts.After))
+	}
+
+	// Fetch limit+1 to determine if there's a next page
+	query = query.Limit(limit + 1)
+
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	var incidents []*model.Incident
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, nil, goerr.Wrap(err, "failed to iterate incidents")
+		}
+
+		var incident model.Incident
+		if err := doc.DataTo(&incident); err != nil {
+			return nil, nil, goerr.Wrap(err, "failed to unmarshal incident")
+		}
+
+		incidents = append(incidents, &incident)
+	}
+
+	// Determine pagination info
+	hasNextPage := false
+	if len(incidents) > limit {
+		hasNextPage = true
+		incidents = incidents[:limit] // Remove the extra item
+	}
+
+	// For total count, we need a separate query (expensive operation)
+	// Consider caching this or making it optional
+	totalCount := 0
+	countQuery := f.client.Collection(incidentsCollection).Documents(ctx)
+	defer countQuery.Stop()
+	for {
+		_, err := countQuery.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			// Log but don't fail - total count is optional
+			break
+		}
+		totalCount++
+	}
+
+	result := &types.PaginationResult{
+		HasNextPage:     hasNextPage,
+		HasPreviousPage: opts.After != nil, // If we have a cursor, there are previous items
+		TotalCount:      totalCount,
+	}
+
+	return incidents, result, nil
+}
+
 // GetNextIncidentNumber returns the next available incident number using atomic increment
 func (f *Firestore) GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error) {
 	counterDoc := f.client.Collection(countersCollection).Doc(incidentCounterDocID)

@@ -31,6 +31,7 @@ type Repository interface {
 	GetIncident(ctx context.Context, id types.IncidentID) (*model.Incident, error)
 	GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
 	ListIncidents(ctx context.Context) ([]*model.Incident, error)
+	ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error)
 	GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error)
 
 	// Incident request operations
