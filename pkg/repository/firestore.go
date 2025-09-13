@@ -628,42 +628,38 @@ func (f *Firestore) UpdateTask(ctx context.Context, task *model.Task) error {
 	return nil
 }
 
-// DeleteTask deletes a task from Firestore
-func (f *Firestore) DeleteTask(ctx context.Context, taskID types.TaskID) error {
+// DeleteTask deletes a task from Firestore using direct path with incidentID
+func (f *Firestore) DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
 	if taskID == "" {
 		return goerr.New("task ID is empty")
 	}
 
-	// First, find which incident contains this task by searching all incidents
-	incidentsIter := f.client.Collection(incidentsCollection).Documents(ctx)
-	defer incidentsIter.Stop()
+	// Directly construct the path to the task document
+	taskDoc := f.client.Collection(incidentsCollection).Doc(incidentID.String()).
+		Collection(tasksCollection).Doc(taskID.String())
 
-	for {
-		incidentDoc, err := incidentsIter.Next()
-		if err == iterator.Done {
-			break
+	// Check if task exists
+	_, err := taskDoc.Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 		}
-		if err != nil {
-			return goerr.Wrap(err, "failed to iterate incidents while searching for task", goerr.V("taskID", taskID))
-		}
-
-		// Check if task exists in this incident's subcollection
-		taskDoc := incidentDoc.Ref.Collection(tasksCollection).Doc(taskID.String())
-		_, err = taskDoc.Get(ctx)
-		if err == nil {
-			// Task found, delete it
-			_, err = taskDoc.Delete(ctx)
-			if err != nil {
-				return goerr.Wrap(err, "failed to delete task from firestore", goerr.V("taskID", taskID))
-			}
-			return nil
-		}
-		if status.Code(err) != codes.NotFound {
-			return goerr.Wrap(err, "failed to check task existence", goerr.V("taskID", taskID))
-		}
+		return goerr.Wrap(err, "failed to check task existence", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 	}
 
-	return goerr.Wrap(model.ErrTaskNotFound, "failed to delete task", goerr.V("taskID", taskID))
+	// Delete the task
+	_, err = taskDoc.Delete(ctx)
+	if err != nil {
+		return goerr.Wrap(err, "failed to delete task from firestore", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+	}
+
+	return nil
 }
 
 // ListTasksByIncident retrieves all tasks for an incident from Firestore

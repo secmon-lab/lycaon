@@ -33,7 +33,7 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			DeleteSessionFunc: func(ctx context.Context, id types.SessionID) error {
 //				panic("mock out the DeleteSession method")
 //			},
-//			DeleteTaskFunc: func(ctx context.Context, taskID types.TaskID) error {
+//			DeleteTaskFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error {
 //				panic("mock out the DeleteTask method")
 //			},
 //			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
@@ -113,7 +113,7 @@ type RepositoryMock struct {
 	DeleteSessionFunc func(ctx context.Context, id types.SessionID) error
 
 	// DeleteTaskFunc mocks the DeleteTask method.
-	DeleteTaskFunc func(ctx context.Context, taskID types.TaskID) error
+	DeleteTaskFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error
 
 	// GetIncidentFunc mocks the GetIncident method.
 	GetIncidentFunc func(ctx context.Context, id types.IncidentID) (*model.Incident, error)
@@ -202,6 +202,8 @@ type RepositoryMock struct {
 		DeleteTask []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
 			// TaskID is the taskID argument value.
 			TaskID types.TaskID
 		}
@@ -501,21 +503,23 @@ func (mock *RepositoryMock) DeleteSessionCalls() []struct {
 }
 
 // DeleteTask calls DeleteTaskFunc.
-func (mock *RepositoryMock) DeleteTask(ctx context.Context, taskID types.TaskID) error {
+func (mock *RepositoryMock) DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error {
 	if mock.DeleteTaskFunc == nil {
 		panic("RepositoryMock.DeleteTaskFunc: method is nil but Repository.DeleteTask was just called")
 	}
 	callInfo := struct {
-		Ctx    context.Context
-		TaskID types.TaskID
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
 	}{
-		Ctx:    ctx,
-		TaskID: taskID,
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
 	}
 	mock.lockDeleteTask.Lock()
 	mock.calls.DeleteTask = append(mock.calls.DeleteTask, callInfo)
 	mock.lockDeleteTask.Unlock()
-	return mock.DeleteTaskFunc(ctx, taskID)
+	return mock.DeleteTaskFunc(ctx, incidentID, taskID)
 }
 
 // DeleteTaskCalls gets all the calls that were made to DeleteTask.
@@ -523,12 +527,14 @@ func (mock *RepositoryMock) DeleteTask(ctx context.Context, taskID types.TaskID)
 //
 //	len(mockedRepository.DeleteTaskCalls())
 func (mock *RepositoryMock) DeleteTaskCalls() []struct {
-	Ctx    context.Context
-	TaskID types.TaskID
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
 } {
 	var calls []struct {
-		Ctx    context.Context
-		TaskID types.TaskID
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
 	}
 	mock.lockDeleteTask.RLock()
 	calls = mock.calls.DeleteTask

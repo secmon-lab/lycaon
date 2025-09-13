@@ -43,7 +43,7 @@ type Repository interface {
 	GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
 	GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
 	UpdateTask(ctx context.Context, task *model.Task) error
-	DeleteTask(ctx context.Context, taskID types.TaskID) error
+	DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error
 	ListTasksByIncident(ctx context.Context, incidentID types.IncidentID) ([]*model.Task, error)
 
 	// Close closes the repository connection

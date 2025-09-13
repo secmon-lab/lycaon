@@ -192,14 +192,14 @@ func (r *mutationResolver) DeleteTask(ctx context.Context, id string) (bool, err
 	// Parse task ID
 	taskID := types.TaskID(id)
 
-	// Check if task exists
-	_, err := r.repo.GetTask(ctx, taskID)
+	// Get task to retrieve its IncidentID
+	task, err := r.repo.GetTask(ctx, taskID)
 	if err != nil {
 		return false, goerr.Wrap(err, "failed to get task", goerr.V("taskID", taskID))
 	}
 
-	// Delete task
-	if err := r.repo.DeleteTask(ctx, taskID); err != nil {
+	// Delete task using both IncidentID and TaskID for efficient deletion
+	if err := r.repo.DeleteTask(ctx, task.IncidentID, taskID); err != nil {
 		return false, goerr.Wrap(err, "failed to delete task", goerr.V("taskID", taskID))
 	}
 

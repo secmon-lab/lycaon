@@ -484,8 +484,11 @@ func (m *Memory) UpdateTask(ctx context.Context, task *model.Task) error {
 	return nil
 }
 
-// DeleteTask deletes a task from memory
-func (m *Memory) DeleteTask(ctx context.Context, taskID types.TaskID) error {
+// DeleteTask deletes a task from memory using direct access with incidentID
+func (m *Memory) DeleteTask(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
 	if taskID == "" {
 		return goerr.New("task ID is empty")
 	}
@@ -493,15 +496,20 @@ func (m *Memory) DeleteTask(ctx context.Context, taskID types.TaskID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Search through all incidents to find the task
-	for _, tasks := range m.tasks {
-		if _, exists := tasks[taskID]; exists {
-			delete(tasks, taskID)
-			return nil
-		}
+	// Direct access using incidentID
+	tasks, exists := m.tasks[incidentID]
+	if !exists {
+		return goerr.Wrap(model.ErrTaskNotFound, "incident not found", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 	}
 
-	return goerr.Wrap(model.ErrTaskNotFound, "failed to delete task", goerr.V("taskID", taskID))
+	if _, exists := tasks[taskID]; !exists {
+		return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+	}
+
+	delete(tasks, taskID)
+	return nil
 }
 
 // ListTasksByIncident retrieves all tasks for an incident
