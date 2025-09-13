@@ -15,6 +15,7 @@ import (
 	graphql1 "github.com/secmon-lab/lycaon/pkg/domain/model/graphql"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
+	"github.com/secmon-lab/lycaon/pkg/utils/apperr"
 )
 
 // ID is the resolver for the id field.
@@ -44,9 +45,42 @@ func (r *incidentResolver) CategoryName(ctx context.Context, obj *model.Incident
 }
 
 // Status is the resolver for the status field.
-func (r *incidentResolver) Status(ctx context.Context, obj *model.Incident) (string, error) {
-	// Default status for incidents - this could be enhanced with a proper status field later
-	return "open", nil
+func (r *incidentResolver) Status(ctx context.Context, obj *model.Incident) (*types.IncidentStatus, error) {
+	if obj.Status == "" {
+		return nil, nil
+	}
+	return &obj.Status, nil
+}
+
+// Lead is the resolver for the lead field.
+func (r *incidentResolver) Lead(ctx context.Context, obj *model.Incident) (*string, error) {
+	if obj.Lead == "" {
+		return nil, nil
+	}
+	lead := string(obj.Lead)
+	return &lead, nil
+}
+
+// LeadUser is the resolver for the leadUser field.
+func (r *incidentResolver) LeadUser(ctx context.Context, obj *model.Incident) (*model.User, error) {
+	if r.userUC == nil || obj.Lead == "" {
+		return nil, nil
+	}
+
+	user, err := r.userUC.GetOrFetchUser(ctx, obj.Lead)
+	if err != nil {
+		// Log the error for monitoring but don't fail the entire query
+		apperr.Handle(ctx, err)
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
+		return &model.User{
+			SlackUserID: obj.Lead,
+			Name:        string(obj.Lead),
+			Email:       "",
+		}, nil
+	}
+
+	return user, nil
 }
 
 // OriginChannelID is the resolver for the originChannelId field.
@@ -66,14 +100,21 @@ func (r *incidentResolver) CreatedBy(ctx context.Context, obj *model.Incident) (
 
 // CreatedByUser is the resolver for the createdByUser field.
 func (r *incidentResolver) CreatedByUser(ctx context.Context, obj *model.Incident) (*model.User, error) {
-	if r.userUC == nil {
+	if r.userUC == nil || obj.CreatedBy == "" {
 		return nil, nil
 	}
 
 	user, err := r.userUC.GetOrFetchUser(ctx, obj.CreatedBy)
 	if err != nil {
-		// Log error but don't fail - return nil instead
-		return nil, nil
+		// Log the error for monitoring but don't fail the entire query
+		apperr.Handle(ctx, err)
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
+		return &model.User{
+			SlackUserID: obj.CreatedBy,
+			Name:        string(obj.CreatedBy),
+			Email:       "",
+		}, nil
 	}
 
 	return user, nil
@@ -83,6 +124,27 @@ func (r *incidentResolver) CreatedByUser(ctx context.Context, obj *model.Inciden
 func (r *incidentResolver) UpdatedAt(ctx context.Context, obj *model.Incident) (*time.Time, error) {
 	// Use CreatedAt as UpdatedAt for now - could be enhanced with proper update tracking
 	return &obj.CreatedAt, nil
+}
+
+// StatusHistories is the resolver for the statusHistories field.
+func (r *incidentResolver) StatusHistories(ctx context.Context, obj *model.Incident) ([]*model.StatusHistory, error) {
+	if r.statusUC == nil {
+		return nil, nil
+	}
+
+	// Get status history with user information
+	historiesWithUser, err := r.statusUC.GetStatusHistory(ctx, obj.ID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get status history")
+	}
+
+	// Convert to StatusHistory slice
+	histories := make([]*model.StatusHistory, len(historiesWithUser))
+	for i, hwu := range historiesWithUser {
+		histories[i] = &hwu.StatusHistory
+	}
+
+	return histories, nil
 }
 
 // Tasks is the resolver for the tasks field.
@@ -111,6 +173,9 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 			if input.Description != nil {
 				incident.Description = *input.Description
 			}
+			if input.Lead != nil {
+				incident.Lead = types.SlackUserID(*input.Lead)
+			}
 			updatedIncident = incident
 			return nil
 		})
@@ -133,6 +198,9 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 	if input.Description != nil {
 		incident.Description = *input.Description
 	}
+	if input.Lead != nil {
+		incident.Lead = types.SlackUserID(*input.Lead)
+	}
 
 	// Save updated incident
 	if err := r.repo.PutIncident(ctx, incident); err != nil {
@@ -140,6 +208,46 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 	}
 
 	return incident, nil
+}
+
+// UpdateIncidentStatus is the resolver for the updateIncidentStatus field.
+func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID string, status types.IncidentStatus, note *string) (*model.Incident, error) {
+	// Parse incident ID
+	incidentIDInt, err := strconv.Atoi(incidentID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+	id := types.IncidentID(incidentIDInt)
+
+	// Get the authenticated user from context
+	var userID types.SlackUserID
+	if authCtx, ok := model.GetAuthContext(ctx); ok && authCtx != nil {
+		if authCtx.SessionID != "" {
+			user, err := r.authUC.GetUserFromSession(ctx, authCtx.SessionID)
+			if err == nil && user != nil {
+				userID = user.SlackUserID
+			}
+		}
+	}
+
+	// Fall back to "system" if no user found
+	if userID == "" {
+		userID = types.SlackUserID("system")
+	}
+
+	// Prepare note string
+	noteStr := ""
+	if note != nil {
+		noteStr = *note
+	}
+
+	// Update status using StatusUseCase
+	if err := r.statusUC.UpdateStatus(ctx, id, status, userID, noteStr); err != nil {
+		return nil, goerr.Wrap(err, "failed to update incident status")
+	}
+
+	// Return updated incident
+	return r.repo.GetIncident(ctx, id)
 }
 
 // CreateTask is the resolver for the createTask field.
@@ -168,7 +276,7 @@ func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.Create
 			}
 		}
 	}
-	
+
 	// Fall back to "system" if no user found
 	if slackUserID == "" {
 		slackUserID = types.SlackUserID("system")
@@ -348,6 +456,30 @@ func (r *queryResolver) Incident(ctx context.Context, id string) (*model.Inciden
 	return r.repo.GetIncident(ctx, types.IncidentID(incidentID))
 }
 
+// IncidentStatusHistory is the resolver for the incidentStatusHistory field.
+func (r *queryResolver) IncidentStatusHistory(ctx context.Context, incidentID string) ([]*model.StatusHistory, error) {
+	// Parse incident ID
+	incidentIDInt, err := strconv.Atoi(incidentID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+	id := types.IncidentID(incidentIDInt)
+
+	// Get status history with user information
+	historiesWithUser, err := r.statusUC.GetStatusHistory(ctx, id)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get status history")
+	}
+
+	// Convert to StatusHistory slice
+	histories := make([]*model.StatusHistory, len(historiesWithUser))
+	for i, hwu := range historiesWithUser {
+		histories[i] = &hwu.StatusHistory
+	}
+
+	return histories, nil
+}
+
 // Tasks is the resolver for the tasks field.
 func (r *queryResolver) Tasks(ctx context.Context, incidentID string) ([]*model.Task, error) {
 	id, err := strconv.ParseInt(incidentID, 10, 64)
@@ -360,6 +492,38 @@ func (r *queryResolver) Tasks(ctx context.Context, incidentID string) ([]*model.
 // Task is the resolver for the task field.
 func (r *queryResolver) Task(ctx context.Context, id string) (*model.Task, error) {
 	return r.repo.GetTask(ctx, types.TaskID(id))
+}
+
+// ID is the resolver for the id field.
+func (r *statusHistoryResolver) ID(ctx context.Context, obj *model.StatusHistory) (string, error) {
+	return string(obj.ID), nil
+}
+
+// IncidentID is the resolver for the incidentId field.
+func (r *statusHistoryResolver) IncidentID(ctx context.Context, obj *model.StatusHistory) (string, error) {
+	return fmt.Sprintf("%d", obj.IncidentID), nil
+}
+
+// ChangedBy is the resolver for the changedBy field.
+func (r *statusHistoryResolver) ChangedBy(ctx context.Context, obj *model.StatusHistory) (*model.User, error) {
+	if r.userUC == nil || obj.ChangedBy == "" {
+		return nil, nil
+	}
+
+	user, err := r.userUC.GetOrFetchUser(ctx, obj.ChangedBy)
+	if err != nil {
+		// Log the error for monitoring but don't fail the entire query
+		apperr.Handle(ctx, err)
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
+		return &model.User{
+			SlackUserID: obj.ChangedBy,
+			Name:        string(obj.ChangedBy),
+			Email:       "",
+		}, nil
+	}
+
+	return user, nil
 }
 
 // ID is the resolver for the id field.
@@ -379,6 +543,28 @@ func (r *taskResolver) AssigneeID(ctx context.Context, obj *model.Task) (*string
 	}
 	assignee := string(obj.AssigneeID)
 	return &assignee, nil
+}
+
+// AssigneeUser is the resolver for the assigneeUser field.
+func (r *taskResolver) AssigneeUser(ctx context.Context, obj *model.Task) (*model.User, error) {
+	if r.userUC == nil || obj.AssigneeID == "" {
+		return nil, nil
+	}
+
+	user, err := r.userUC.GetOrFetchUser(ctx, obj.AssigneeID)
+	if err != nil {
+		// Log the error for monitoring but don't fail the entire query
+		apperr.Handle(ctx, err)
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
+		return &model.User{
+			SlackUserID: obj.AssigneeID,
+			Name:        string(obj.AssigneeID),
+			Email:       "",
+		}, nil
+	}
+
+	return user, nil
 }
 
 // CreatedBy is the resolver for the createdBy field.
@@ -410,6 +596,9 @@ func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// StatusHistory returns StatusHistoryResolver implementation.
+func (r *Resolver) StatusHistory() StatusHistoryResolver { return &statusHistoryResolver{r} }
+
 // Task returns TaskResolver implementation.
 func (r *Resolver) Task() TaskResolver { return &taskResolver{r} }
 
@@ -419,5 +608,6 @@ func (r *Resolver) User() UserResolver { return &userResolver{r} }
 type incidentResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type statusHistoryResolver struct{ *Resolver }
 type taskResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }

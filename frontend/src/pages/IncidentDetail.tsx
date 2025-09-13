@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client/react';
 import { format } from 'date-fns';
 import { GET_INCIDENT } from '../graphql/queries';
+import { IncidentStatus, toIncidentStatus } from '../types/incident';
+import StatusSection from '../components/IncidentDetail/StatusSection';
+import TaskList from '../components/IncidentDetail/TaskList';
 import {
   MessageSquare,
   User,
   Calendar,
-  ExternalLink,
 } from 'lucide-react';
 
 const IncidentDetail: React.FC = () => {
@@ -41,6 +43,14 @@ const IncidentDetail: React.FC = () => {
   }
 
   const incident = data.incident;
+  
+  // Validate and convert status safely
+  const validStatus = toIncidentStatus(incident.status);
+  if (!validStatus) {
+    console.error('Invalid incident status:', incident.status);
+    // Default to triage if invalid
+    incident.status = IncidentStatus.TRIAGE;
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-4">
@@ -75,36 +85,15 @@ const IncidentDetail: React.FC = () => {
 
           {/* Tasks */}
           <div className="mt-6 bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-semibold mb-4">Tasks</h3>
-            {incident.tasks && incident.tasks.length > 0 ? (
-              <div className="space-y-2">
-                {incident.tasks.map((task: any) => (
-                  <div key={task.id} className="p-3 bg-slate-50 rounded">
-                    <p className="font-medium">{task.title}</p>
-                    <span className="text-xs text-slate-500">{task.status}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-slate-500">No tasks yet</p>
-            )}
+            <TaskList 
+              incidentId={incident.id} 
+              tasks={incident.tasks || []} 
+            />
           </div>
         </div>
 
         {/* Right Column - Sidebar */}
         <div className="w-full md:w-80">
-          {/* Status Box */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 mb-4">
-            <h3 className="font-semibold text-slate-900 mb-2">Status</h3>
-            <div className={`text-center py-2 rounded font-medium ${
-              incident.status === 'open' 
-                ? 'bg-red-500 text-white' 
-                : 'bg-green-500 text-white'
-            }`}>
-              {incident.status === 'open' ? 'Open' : 'Closed'}
-            </div>
-          </div>
-
           {/* Details Box */}
           <div className="bg-white border border-slate-200 rounded-lg p-4 mb-4">
             <h3 className="font-semibold mb-3">Details</h3>
@@ -116,6 +105,16 @@ const IncidentDetail: React.FC = () => {
                   Channel
                 </div>
                 <p className="text-sm font-medium">#{incident.channelName}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                  <User className="h-3 w-3" />
+                  Lead
+                </div>
+                <p className="text-sm font-medium">
+                  {incident.leadUser?.name || incident.lead || 'Not assigned'}
+                </p>
               </div>
 
               <div>
@@ -139,6 +138,14 @@ const IncidentDetail: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Status Management Section */}
+          <StatusSection
+            incidentId={incident.id}
+            currentStatus={validStatus || IncidentStatus.TRIAGE}
+            statusHistories={incident.statusHistories || []}
+            className="mb-4"
+          />
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/utils/apperr"
 	"github.com/secmon-lab/lycaon/pkg/utils/async"
 	"github.com/slack-go/slack"
 )
@@ -107,12 +108,8 @@ func (h *InteractionHandler) handleAsync(ctx context.Context, data *interfaces.S
 	// Dispatch usecase processing asynchronously
 	async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
 		if err := usecaseHandler(asyncCtx, data); err != nil {
-			logger.Error("UseCase processing failed",
-				"error", err,
-				"interactionType", data.Type,
-				"user", data.UserID,
-			)
-			// Log error but don't propagate - async processing
+			// Use apperr.Handle to properly log the error
+			apperr.Handle(asyncCtx, err)
 			return nil
 		}
 

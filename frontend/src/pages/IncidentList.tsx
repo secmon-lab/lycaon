@@ -3,8 +3,9 @@ import { useQuery } from '@apollo/client/react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { GET_INCIDENTS } from '../graphql/queries';
-import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
+import { IncidentStatus } from '../types/incident';
+import StatusBadge from '../components/IncidentList/StatusBadge';
 import {
   AlertCircle,
   RefreshCw,
@@ -34,7 +35,7 @@ interface Incident {
   description: string;
   categoryId: string;
   categoryName?: string;
-  status: string;
+  status: IncidentStatus;
   createdBy: string;
   createdByUser?: User;
   createdAt: string;
@@ -70,6 +71,8 @@ const IncidentList: React.FC = () => {
         first: rowsPerPage,
         after: null,
       },
+      fetchPolicy: 'cache-and-network',
+      notifyOnNetworkStatusChange: true,
     }
   );
 
@@ -78,16 +81,6 @@ const IncidentList: React.FC = () => {
     navigate(`/incidents/${id}`);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return 'bg-red-500 text-white border-red-600';
-      case 'closed':
-        return 'bg-green-500 text-white border-green-600';
-      default:
-        return 'bg-gray-500 text-white border-gray-600';
-    }
-  };
 
   if (loading) {
     return (
@@ -164,7 +157,7 @@ const IncidentList: React.FC = () => {
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">
-                {incidents.filter(i => i.status === 'open').length}
+                {incidents.filter(i => i.status === IncidentStatus.HANDLING || i.status === IncidentStatus.TRIAGE).length}
               </p>
               <p className="text-sm text-slate-500">Open</p>
             </div>
@@ -177,7 +170,7 @@ const IncidentList: React.FC = () => {
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">
-                {incidents.filter(i => i.status === 'closed').length}
+                {incidents.filter(i => i.status === IncidentStatus.CLOSED).length}
               </p>
               <p className="text-sm text-slate-500">Closed</p>
             </div>
@@ -228,12 +221,7 @@ const IncidentList: React.FC = () => {
                       <span className="text-xs font-medium text-slate-500">
                         #{incident.id}
                       </span>
-                      <span className={cn(
-                        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-                        getStatusColor(incident.status)
-                      )}>
-                        {incident.status}
-                      </span>
+                      <StatusBadge status={incident.status} size="sm" />
                     </div>
                   </div>
                   <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">

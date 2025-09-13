@@ -108,7 +108,8 @@ func cmdServe() *cli.Command {
 			inviteUC := usecase.NewInvite(slackClient)
 			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
-			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, slackClient)
+			statusUC := usecase.NewStatusUseCase(repo, slackClient)
+			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, slackClient)
 
 			// Create HTTP server
 			server, err := controller.NewServer(

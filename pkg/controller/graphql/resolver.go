@@ -17,6 +17,7 @@ type Resolver struct {
 	incidentUC interfaces.Incident
 	taskUC     interfaces.Task
 	authUC     interfaces.Auth
+	statusUC   *usecase.StatusUseCase
 	categories *model.CategoriesConfig
 	userUC     *usecase.UserUseCase
 }
@@ -36,6 +37,7 @@ func NewResolver(repo interfaces.Repository, slackSvc interfaces.SlackClient, uc
 		incidentUC: uc.IncidentUC,
 		taskUC:     uc.TaskUC,
 		authUC:     uc.AuthUC,
+		statusUC:   usecase.NewStatusUseCase(repo, slackSvc),
 		categories: categories,
 		userUC:     usecase.NewUserUseCase(repo, slackSvc),
 	}

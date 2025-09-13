@@ -21,6 +21,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //
 //		// make and configure a mocked interfaces.Repository
 //		mockedRepository := &RepositoryMock{
+//			AddStatusHistoryFunc: func(ctx context.Context, history *model.StatusHistory) error {
+//				panic("mock out the AddStatusHistory method")
+//			},
 //			CloseFunc: func() error {
 //				panic("mock out the Close method")
 //			},
@@ -53,6 +56,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			},
 //			GetSessionFunc: func(ctx context.Context, id types.SessionID) (*model.Session, error) {
 //				panic("mock out the GetSession method")
+//			},
+//			GetStatusHistoriesFunc: func(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistory, error) {
+//				panic("mock out the GetStatusHistories method")
 //			},
 //			GetTaskFunc: func(ctx context.Context, taskID types.TaskID) (*model.Task, error) {
 //				panic("mock out the GetTask method")
@@ -93,6 +99,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			SaveUserFunc: func(ctx context.Context, user *model.User) error {
 //				panic("mock out the SaveUser method")
 //			},
+//			UpdateIncidentStatusFunc: func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus) error {
+//				panic("mock out the UpdateIncidentStatus method")
+//			},
 //			UpdateTaskFunc: func(ctx context.Context, task *model.Task) error {
 //				panic("mock out the UpdateTask method")
 //			},
@@ -103,6 +112,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //
 //	}
 type RepositoryMock struct {
+	// AddStatusHistoryFunc mocks the AddStatusHistory method.
+	AddStatusHistoryFunc func(ctx context.Context, history *model.StatusHistory) error
+
 	// CloseFunc mocks the Close method.
 	CloseFunc func() error
 
@@ -135,6 +147,9 @@ type RepositoryMock struct {
 
 	// GetSessionFunc mocks the GetSession method.
 	GetSessionFunc func(ctx context.Context, id types.SessionID) (*model.Session, error)
+
+	// GetStatusHistoriesFunc mocks the GetStatusHistories method.
+	GetStatusHistoriesFunc func(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistory, error)
 
 	// GetTaskFunc mocks the GetTask method.
 	GetTaskFunc func(ctx context.Context, taskID types.TaskID) (*model.Task, error)
@@ -175,11 +190,21 @@ type RepositoryMock struct {
 	// SaveUserFunc mocks the SaveUser method.
 	SaveUserFunc func(ctx context.Context, user *model.User) error
 
+	// UpdateIncidentStatusFunc mocks the UpdateIncidentStatus method.
+	UpdateIncidentStatusFunc func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus) error
+
 	// UpdateTaskFunc mocks the UpdateTask method.
 	UpdateTaskFunc func(ctx context.Context, task *model.Task) error
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// AddStatusHistory holds details about calls to the AddStatusHistory method.
+		AddStatusHistory []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// History is the history argument value.
+			History *model.StatusHistory
+		}
 		// Close holds details about calls to the Close method.
 		Close []struct {
 		}
@@ -252,6 +277,13 @@ type RepositoryMock struct {
 			Ctx context.Context
 			// ID is the id argument value.
 			ID types.SessionID
+		}
+		// GetStatusHistories holds details about calls to the GetStatusHistories method.
+		GetStatusHistories []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
 		}
 		// GetTask holds details about calls to the GetTask method.
 		GetTask []struct {
@@ -346,6 +378,15 @@ type RepositoryMock struct {
 			// User is the user argument value.
 			User *model.User
 		}
+		// UpdateIncidentStatus holds details about calls to the UpdateIncidentStatus method.
+		UpdateIncidentStatus []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// Status is the status argument value.
+			Status types.IncidentStatus
+		}
 		// UpdateTask holds details about calls to the UpdateTask method.
 		UpdateTask []struct {
 			// Ctx is the ctx argument value.
@@ -354,6 +395,7 @@ type RepositoryMock struct {
 			Task *model.Task
 		}
 	}
+	lockAddStatusHistory       sync.RWMutex
 	lockClose                  sync.RWMutex
 	lockCreateTask             sync.RWMutex
 	lockDeleteIncidentRequest  sync.RWMutex
@@ -365,6 +407,7 @@ type RepositoryMock struct {
 	lockGetMessage             sync.RWMutex
 	lockGetNextIncidentNumber  sync.RWMutex
 	lockGetSession             sync.RWMutex
+	lockGetStatusHistories     sync.RWMutex
 	lockGetTask                sync.RWMutex
 	lockGetTaskByIncident      sync.RWMutex
 	lockGetUser                sync.RWMutex
@@ -378,7 +421,44 @@ type RepositoryMock struct {
 	lockSaveMessage            sync.RWMutex
 	lockSaveSession            sync.RWMutex
 	lockSaveUser               sync.RWMutex
+	lockUpdateIncidentStatus   sync.RWMutex
 	lockUpdateTask             sync.RWMutex
+}
+
+// AddStatusHistory calls AddStatusHistoryFunc.
+func (mock *RepositoryMock) AddStatusHistory(ctx context.Context, history *model.StatusHistory) error {
+	if mock.AddStatusHistoryFunc == nil {
+		panic("RepositoryMock.AddStatusHistoryFunc: method is nil but Repository.AddStatusHistory was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		History *model.StatusHistory
+	}{
+		Ctx:     ctx,
+		History: history,
+	}
+	mock.lockAddStatusHistory.Lock()
+	mock.calls.AddStatusHistory = append(mock.calls.AddStatusHistory, callInfo)
+	mock.lockAddStatusHistory.Unlock()
+	return mock.AddStatusHistoryFunc(ctx, history)
+}
+
+// AddStatusHistoryCalls gets all the calls that were made to AddStatusHistory.
+// Check the length with:
+//
+//	len(mockedRepository.AddStatusHistoryCalls())
+func (mock *RepositoryMock) AddStatusHistoryCalls() []struct {
+	Ctx     context.Context
+	History *model.StatusHistory
+} {
+	var calls []struct {
+		Ctx     context.Context
+		History *model.StatusHistory
+	}
+	mock.lockAddStatusHistory.RLock()
+	calls = mock.calls.AddStatusHistory
+	mock.lockAddStatusHistory.RUnlock()
+	return calls
 }
 
 // Close calls CloseFunc.
@@ -765,6 +845,42 @@ func (mock *RepositoryMock) GetSessionCalls() []struct {
 	mock.lockGetSession.RLock()
 	calls = mock.calls.GetSession
 	mock.lockGetSession.RUnlock()
+	return calls
+}
+
+// GetStatusHistories calls GetStatusHistoriesFunc.
+func (mock *RepositoryMock) GetStatusHistories(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistory, error) {
+	if mock.GetStatusHistoriesFunc == nil {
+		panic("RepositoryMock.GetStatusHistoriesFunc: method is nil but Repository.GetStatusHistories was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+	}
+	mock.lockGetStatusHistories.Lock()
+	mock.calls.GetStatusHistories = append(mock.calls.GetStatusHistories, callInfo)
+	mock.lockGetStatusHistories.Unlock()
+	return mock.GetStatusHistoriesFunc(ctx, incidentID)
+}
+
+// GetStatusHistoriesCalls gets all the calls that were made to GetStatusHistories.
+// Check the length with:
+//
+//	len(mockedRepository.GetStatusHistoriesCalls())
+func (mock *RepositoryMock) GetStatusHistoriesCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}
+	mock.lockGetStatusHistories.RLock()
+	calls = mock.calls.GetStatusHistories
+	mock.lockGetStatusHistories.RUnlock()
 	return calls
 }
 
@@ -1237,6 +1353,46 @@ func (mock *RepositoryMock) SaveUserCalls() []struct {
 	mock.lockSaveUser.RLock()
 	calls = mock.calls.SaveUser
 	mock.lockSaveUser.RUnlock()
+	return calls
+}
+
+// UpdateIncidentStatus calls UpdateIncidentStatusFunc.
+func (mock *RepositoryMock) UpdateIncidentStatus(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus) error {
+	if mock.UpdateIncidentStatusFunc == nil {
+		panic("RepositoryMock.UpdateIncidentStatusFunc: method is nil but Repository.UpdateIncidentStatus was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		Status     types.IncidentStatus
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		Status:     status,
+	}
+	mock.lockUpdateIncidentStatus.Lock()
+	mock.calls.UpdateIncidentStatus = append(mock.calls.UpdateIncidentStatus, callInfo)
+	mock.lockUpdateIncidentStatus.Unlock()
+	return mock.UpdateIncidentStatusFunc(ctx, incidentID, status)
+}
+
+// UpdateIncidentStatusCalls gets all the calls that were made to UpdateIncidentStatus.
+// Check the length with:
+//
+//	len(mockedRepository.UpdateIncidentStatusCalls())
+func (mock *RepositoryMock) UpdateIncidentStatusCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	Status     types.IncidentStatus
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		Status     types.IncidentStatus
+	}
+	mock.lockUpdateIncidentStatus.RLock()
+	calls = mock.calls.UpdateIncidentStatus
+	mock.lockUpdateIncidentStatus.RUnlock()
 	return calls
 }
 

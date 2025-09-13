@@ -16,6 +16,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
+	"github.com/secmon-lab/lycaon/pkg/utils/apperr"
 	"github.com/slack-go/slack"
 )
 
@@ -47,7 +48,7 @@ func (a *Auth) GenerateOAuthURL(ctx context.Context, config interfaces.OAuthConf
 		client := slack.New(a.slackConfig.OAuthToken)
 		authTest, err := client.AuthTestContext(ctx)
 		if err != nil {
-			logger.Warn("Failed to get team ID from Slack API", "error", err)
+			apperr.Handle(ctx, err)
 		} else {
 			teamID = authTest.TeamID
 			logger.Info("Retrieved team ID from Slack API",
@@ -359,7 +360,6 @@ func (a *Auth) getOpenIDConfiguration(ctx context.Context) (*OpenIDConfiguration
 
 // decodeIDToken decodes and verifies the ID token using Slack's public keys
 func (a *Auth) decodeIDToken(ctx context.Context, idToken string) (*SlackIDToken, error) {
-	logger := ctxlog.From(ctx)
 	// Get OpenID Connect configuration to find JWKS URI
 	config, err := a.getOpenIDConfiguration(ctx)
 	if err != nil {
@@ -381,10 +381,7 @@ func (a *Auth) decodeIDToken(ctx context.Context, idToken string) (*SlackIDToken
 		jwt.WithClock(clockFunc),
 		jwt.WithAcceptableSkew(5*time.Minute))
 	if err != nil {
-		logger.Error("JWT token validation failed",
-			"error", err,
-			"audience", a.slackConfig.ClientID,
-			"clock_skew_tolerance", "5m")
+		apperr.Handle(ctx, err)
 		return nil, goerr.Wrap(err, "failed to parse or verify JWT token")
 	}
 

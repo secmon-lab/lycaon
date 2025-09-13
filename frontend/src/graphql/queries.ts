@@ -13,6 +13,21 @@ export const USER_FIELDS = gql`
   }
 `;
 
+// Fragment for status history fields
+export const STATUS_HISTORY_FIELDS = gql`
+  fragment StatusHistoryFields on StatusHistory {
+    id
+    incidentId
+    status
+    changedBy {
+      ...UserFields
+    }
+    changedAt
+    note
+  }
+  ${USER_FIELDS}
+`;
+
 // Fragment for incident fields
 export const INCIDENT_FIELDS = gql`
   fragment IncidentFields on Incident {
@@ -24,6 +39,10 @@ export const INCIDENT_FIELDS = gql`
     categoryId
     categoryName
     status
+    lead
+    leadUser {
+      ...UserFields
+    }
     originChannelId
     originChannelName
     createdBy
@@ -32,8 +51,12 @@ export const INCIDENT_FIELDS = gql`
     }
     createdAt
     updatedAt
+    statusHistories {
+      ...StatusHistoryFields
+    }
   }
   ${USER_FIELDS}
+  ${STATUS_HISTORY_FIELDS}
 `;
 
 // Fragment for task fields
@@ -45,6 +68,9 @@ export const TASK_FIELDS = gql`
     description
     status
     assigneeId
+    assigneeUser {
+      ...UserFields
+    }
     createdBy
     channelId
     messageTs
@@ -52,6 +78,7 @@ export const TASK_FIELDS = gql`
     updatedAt
     completedAt
   }
+  ${USER_FIELDS}
 `;
 
 // Query to get incidents list with pagination
@@ -106,6 +133,16 @@ export const GET_TASK = gql`
   query GetTask($id: ID!) {
     task(id: $id) {
       ...TaskFields
+    }
+  }
+`;
+
+// Query to get status history for an incident
+export const GET_INCIDENT_STATUS_HISTORY = gql`
+  ${STATUS_HISTORY_FIELDS}
+  query GetIncidentStatusHistory($incidentId: ID!) {
+    incidentStatusHistory(incidentId: $incidentId) {
+      ...StatusHistoryFields
     }
   }
 `;

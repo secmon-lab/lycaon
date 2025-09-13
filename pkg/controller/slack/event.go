@@ -11,6 +11,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	slackblocks "github.com/secmon-lab/lycaon/pkg/service/slack"
+	"github.com/secmon-lab/lycaon/pkg/utils/apperr"
 	"github.com/secmon-lab/lycaon/pkg/utils/async"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -21,6 +22,8 @@ var (
 	taskCommandPattern = regexp.MustCompile(`(<@\w+>|@\w+)\s+(t|task)(\s|$)`)
 	// taskTitlePattern matches task commands with titles like "<@BOT123> t 'task title'" or "<@BOT123> task 'task title'"
 	taskTitlePattern = regexp.MustCompile(`(<@\w+>|@\w+)\s+(t|task)\s+(.+)`)
+	// statusCommandPattern matches status command patterns like "<@BOT123> status" or "<@BOT123> s" or "@lycaon status" or "@lycaon s"
+	statusCommandPattern = regexp.MustCompile(`(<@\w+>|@\w+)\s+(status|s)(\s|$)`)
 )
 
 // EventHandler handles Slack events
@@ -28,15 +31,17 @@ type EventHandler struct {
 	messageUC   interfaces.SlackMessage
 	taskUC      interfaces.Task
 	incidentUC  interfaces.Incident
+	statusUC    interfaces.StatusUseCase
 	slackClient interfaces.SlackClient
 }
 
 // NewEventHandler creates a new event handler
-func NewEventHandler(ctx context.Context, messageUC interfaces.SlackMessage, taskUC interfaces.Task, incidentUC interfaces.Incident, slackClient interfaces.SlackClient) *EventHandler {
+func NewEventHandler(ctx context.Context, messageUC interfaces.SlackMessage, taskUC interfaces.Task, incidentUC interfaces.Incident, statusUC interfaces.StatusUseCase, slackClient interfaces.SlackClient) *EventHandler {
 	return &EventHandler{
 		messageUC:   messageUC,
 		taskUC:      taskUC,
 		incidentUC:  incidentUC,
+		statusUC:    statusUC,
 		slackClient: slackClient,
 	}
 }
@@ -105,12 +110,8 @@ func (h *EventHandler) handleMessageEvent(ctx context.Context, event *slackevent
 	backgroundCtx := async.NewBackgroundContext(ctx)
 	async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
 		if err := h.messageUC.ProcessMessage(asyncCtx, event); err != nil {
-			logger.Error("Message processing failed",
-				"error", err,
-				"user", event.User,
-				"channel", event.Channel,
-			)
-			// Log error but don't propagate - async processing
+			// Use apperr.Handle to properly log the error
+			apperr.Handle(asyncCtx, err)
 		}
 		return nil
 	})
@@ -167,7 +168,7 @@ func (h *EventHandler) processAppMentionAsync(ctx context.Context, event *slacke
 
 	// Save the message
 	if err := h.messageUC.ProcessMessage(ctx, messageEvent); err != nil {
-		logger.Error("Failed to save message", "error", err)
+		apperr.Handle(ctx, err)
 		return
 	}
 
@@ -194,7 +195,15 @@ func (h *EventHandler) processAppMentionAsync(ctx context.Context, event *slacke
 	// Check for task commands
 	if h.isTaskCommand(event.Text) {
 		if err := h.handleTaskCommand(ctx, event); err != nil {
-			logger.Error("Task command handling failed", "error", err)
+			apperr.Handle(ctx, err)
+		}
+		return
+	}
+
+	// Check for status commands
+	if h.isStatusCommand(event.Text) {
+		if err := h.handleStatusCommand(ctx, event); err != nil {
+			apperr.Handle(ctx, err)
 		}
 		return
 	}
@@ -327,6 +336,42 @@ func (h *EventHandler) createTask(ctx context.Context, event *slackevents.AppMen
 
 // sendTaskErrorMessage sends an error message for task operations as a thread reply
 func (h *EventHandler) sendTaskErrorMessage(ctx context.Context, channel, threadTS, message string) error {
+	_, _, err := h.slackClient.PostMessage(ctx, channel,
+		slack.MsgOptionText(message, false),
+		slack.MsgOptionTS(threadTS),
+	)
+	return err
+}
+
+// isStatusCommand checks if the message is a status command
+func (h *EventHandler) isStatusCommand(text string) bool {
+	// Match patterns like "<@BOT123> status" or "<@BOT123> s" or "@lycaon status" or "@lycaon s"
+	return statusCommandPattern.MatchString(text)
+}
+
+// handleStatusCommand handles status-related commands
+func (h *EventHandler) handleStatusCommand(ctx context.Context, event *slackevents.AppMentionEvent) error {
+	logger := ctxlog.From(ctx)
+
+	// Find incident for this channel
+	incident, err := h.findIncidentByChannel(ctx, types.ChannelID(event.Channel))
+	if err != nil {
+		logger.Warn("Failed to find incident for channel", "error", err, "channel", event.Channel)
+		return h.sendStatusErrorMessage(ctx, event.Channel, event.TimeStamp, "This command can only be used in incident channels.")
+	}
+
+	// Post status message using StatusUseCase
+	if err := h.statusUC.PostStatusMessage(ctx, types.ChannelID(event.Channel), incident.ID); err != nil {
+		logger.Error("Failed to post status message", "error", err, "incidentID", incident.ID)
+		return h.sendStatusErrorMessage(ctx, event.Channel, event.TimeStamp, "Failed to retrieve incident status.")
+	}
+
+	logger.Info("Status command processed successfully", "incidentID", incident.ID, "channel", event.Channel)
+	return nil
+}
+
+// sendStatusErrorMessage sends an error message for status operations as a thread reply
+func (h *EventHandler) sendStatusErrorMessage(ctx context.Context, channel, threadTS, message string) error {
 	_, _, err := h.slackClient.PostMessage(ctx, channel,
 		slack.MsgOptionText(message, false),
 		slack.MsgOptionTS(threadTS),

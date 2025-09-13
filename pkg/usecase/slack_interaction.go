@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/m-mizutani/ctxlog"
@@ -19,15 +20,17 @@ import (
 type SlackInteraction struct {
 	incidentUC   interfaces.Incident
 	taskUC       interfaces.Task
+	statusUC     interfaces.StatusUseCase
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackblocks.BlockBuilder
 }
 
 // NewSlackInteraction creates a new SlackInteraction instance
-func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, slackClient interfaces.SlackClient) *SlackInteraction {
+func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, slackClient interfaces.SlackClient) *SlackInteraction {
 	return &SlackInteraction{
 		incidentUC:   incidentUC,
 		taskUC:       taskUC,
+		statusUC:     statusUC,
 		slackClient:  slackClient,
 		blockBuilder: slackblocks.NewBlockBuilder(),
 	}
@@ -83,6 +86,9 @@ func (s *SlackInteraction) handleBlockActions(ctx context.Context, interaction *
 
 		case "edit_incident":
 			return s.handleEditIncidentAction(ctx, interaction, action)
+
+		case "edit_incident_status":
+			return s.handleEditIncidentStatusAction(ctx, interaction, action)
 
 		case "acknowledge":
 			ctxlog.From(ctx).Info("Acknowledge action triggered")
@@ -198,6 +204,9 @@ func (s *SlackInteraction) handleViewSubmission(ctx context.Context, interaction
 	switch interaction.View.CallbackID {
 	case "incident_creation_modal", "incident_edit_modal":
 		return s.handleIncidentModalSubmission(ctx, interaction)
+
+	case "status_change_modal":
+		return s.handleStatusChangeModalSubmission(ctx, interaction)
 
 	default:
 		// Check if it's a task edit modal submission
@@ -547,5 +556,108 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 	}
 
 	logger.Info("Task updated successfully", "taskID", taskID)
+	return nil
+}
+
+// handleEditIncidentStatusAction handles edit incident status button action
+func (s *SlackInteraction) handleEditIncidentStatusAction(ctx context.Context, interaction *slack.InteractionCallback, action *slack.BlockAction) error {
+	ctxlog.From(ctx).Info("Edit incident status action triggered",
+		"user", interaction.User.ID,
+		"channel", interaction.Channel.ID,
+		"incidentID", action.Value,
+		"triggerID", interaction.TriggerID,
+	)
+
+	incidentIDStr := action.Value
+	if incidentIDStr == "" {
+		ctxlog.From(ctx).Error("Empty incident ID in action value")
+		return goerr.New("empty incident ID")
+	}
+
+	// Call the status usecase to handle the status edit flow
+	err := s.statusUC.HandleEditStatusAction(ctx, incidentIDStr, types.SlackUserID(interaction.User.ID), interaction.TriggerID)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to handle edit status action",
+			"error", err,
+			"incidentID", incidentIDStr,
+			"user", interaction.User.ID,
+		)
+		return goerr.Wrap(err, "failed to handle edit status action")
+	}
+
+	ctxlog.From(ctx).Info("Edit status action handled successfully",
+		"incidentID", incidentIDStr,
+		"user", interaction.User.ID,
+	)
+
+	return nil
+}
+
+// handleStatusChangeModalSubmission handles status change modal submission
+func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context, interaction *slack.InteractionCallback) error {
+	ctxlog.From(ctx).Info("Status change modal submitted",
+		"user", interaction.User.ID,
+		"team", interaction.Team.ID,
+	)
+
+	// Extract incident ID from private metadata
+	incidentIDStr := interaction.View.PrivateMetadata
+	if incidentIDStr == "" {
+		return goerr.New("missing incident ID in private metadata")
+	}
+
+	incidentIDInt, err := strconv.Atoi(incidentIDStr)
+	if err != nil {
+		return goerr.Wrap(err, "invalid incident ID in private metadata")
+	}
+	incidentID := types.IncidentID(incidentIDInt)
+
+	// Extract status from form values
+	statusBlock, ok := interaction.View.State.Values["status_block"]
+	if !ok {
+		return goerr.New("status_block not found in form values")
+	}
+
+	statusSelect, ok := statusBlock["status_select"]
+	if !ok {
+		return goerr.New("status_select not found in status_block")
+	}
+
+	if statusSelect.SelectedOption.Value == "" {
+		return goerr.New("no status selected")
+	}
+
+	newStatus := types.IncidentStatus(statusSelect.SelectedOption.Value)
+
+	// Extract note (optional)
+	var note string
+	if noteBlock, ok := interaction.View.State.Values["note_block"]; ok {
+		if noteInput, ok := noteBlock["note_input"]; ok && noteInput.Value != "" {
+			note = noteInput.Value
+		}
+	}
+
+	// Get user ID
+	userID := types.SlackUserID(interaction.User.ID)
+
+	// Call status update usecase
+	err = s.statusUC.UpdateStatus(ctx, incidentID, newStatus, userID, note)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to update status",
+			"error", err,
+			"incidentID", incidentID,
+			"newStatus", newStatus,
+			"user", userID,
+		)
+		return goerr.Wrap(err, "failed to update incident status")
+	}
+
+	ctxlog.From(ctx).Info("Status updated successfully",
+		"incidentID", incidentID,
+		"newStatus", newStatus,
+		"user", userID,
+		"note", note,
+	)
+
 	return nil
 }

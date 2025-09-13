@@ -118,6 +118,14 @@ func (id IncidentID) Int() int {
 	return int(id)
 }
 
+// Validate checks if the incident ID is valid (positive)
+func (id IncidentID) Validate() error {
+	if id <= 0 {
+		return fmt.Errorf("incident ID must be positive, got: %d", id)
+	}
+	return nil
+}
+
 // IncidentRequestID represents an incident request identifier
 type IncidentRequestID string
 

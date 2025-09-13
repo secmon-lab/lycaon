@@ -20,6 +20,7 @@ type Memory struct {
 	incidents        map[types.IncidentID]*model.Incident
 	incidentRequests map[types.IncidentRequestID]*model.IncidentRequest
 	tasks            map[types.IncidentID]map[types.TaskID]*model.Task
+	statusHistories  map[types.IncidentID][]*model.StatusHistory
 	incidentCounter  types.IncidentID
 }
 
@@ -32,6 +33,7 @@ func NewMemory() interfaces.Repository {
 		incidents:        make(map[types.IncidentID]*model.Incident),
 		incidentRequests: make(map[types.IncidentRequestID]*model.IncidentRequest),
 		tasks:            make(map[types.IncidentID]map[types.TaskID]*model.Task),
+		statusHistories:  make(map[types.IncidentID][]*model.StatusHistory),
 		incidentCounter:  0,
 	}
 }
@@ -567,12 +569,12 @@ func (m *Memory) DeleteTask(ctx context.Context, incidentID types.IncidentID, ta
 	// Direct access using incidentID
 	tasks, exists := m.tasks[incidentID]
 	if !exists {
-		return goerr.Wrap(model.ErrTaskNotFound, "incident not found", 
+		return goerr.Wrap(model.ErrTaskNotFound, "incident not found",
 			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 	}
 
 	if _, exists := tasks[taskID]; !exists {
-		return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+		return goerr.Wrap(model.ErrTaskNotFound, "task not found",
 			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 	}
 
@@ -608,6 +610,84 @@ func (m *Memory) ListTasksByIncident(ctx context.Context, incidentID types.Incid
 	})
 
 	return tasks, nil
+}
+
+// AddStatusHistory adds a status history entry to memory
+func (m *Memory) AddStatusHistory(ctx context.Context, history *model.StatusHistory) error {
+	if history == nil {
+		return goerr.New("status history is nil")
+	}
+	if err := history.Validate(); err != nil {
+		return goerr.Wrap(err, "invalid status history")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Create a copy to prevent external modification
+	historyCopy := *history
+
+	// Initialize slice if not exists
+	if m.statusHistories[history.IncidentID] == nil {
+		m.statusHistories[history.IncidentID] = []*model.StatusHistory{}
+	}
+
+	// Add to slice
+	m.statusHistories[history.IncidentID] = append(m.statusHistories[history.IncidentID], &historyCopy)
+
+	return nil
+}
+
+// GetStatusHistories retrieves all status histories for an incident
+func (m *Memory) GetStatusHistories(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistory, error) {
+	if err := incidentID.Validate(); err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	histories, exists := m.statusHistories[incidentID]
+	if !exists {
+		return []*model.StatusHistory{}, nil // Return empty slice if no histories
+	}
+
+	// Create copies to prevent external modification
+	result := make([]*model.StatusHistory, 0, len(histories))
+	for _, history := range histories {
+		historyCopy := *history
+		result = append(result, &historyCopy)
+	}
+
+	// Sort by timestamp (oldest first)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ChangedAt.Before(result[j].ChangedAt)
+	})
+
+	return result, nil
+}
+
+// UpdateIncidentStatus updates the current status of an incident
+func (m *Memory) UpdateIncidentStatus(ctx context.Context, incidentID types.IncidentID, incidentStatus types.IncidentStatus) error {
+	if err := incidentID.Validate(); err != nil {
+		return goerr.Wrap(err, "invalid incident ID")
+	}
+	if !incidentStatus.IsValid() {
+		return goerr.New("invalid status", goerr.V("status", incidentStatus))
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	incident, exists := m.incidents[incidentID]
+	if !exists {
+		return goerr.Wrap(model.ErrIncidentNotFound, "incident not found")
+	}
+
+	// Update the status
+	incident.Status = incidentStatus
+
+	return nil
 }
 
 var _ interfaces.Repository = (*Memory)(nil) // Compile-time interface check
