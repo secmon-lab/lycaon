@@ -1,5 +1,21 @@
 scalar Time
 
+enum IncidentStatus {
+  triage
+  handling
+  monitoring
+  closed
+}
+
+type StatusHistory {
+  id: ID!
+  incidentId: ID!
+  status: IncidentStatus!
+  changedBy: User!
+  changedAt: Time!
+  note: String
+}
+
 type Incident {
   id: ID!
   channelId: String!
@@ -8,13 +24,17 @@ type Incident {
   description: String!
   categoryId: String!
   categoryName: String!
-  status: String!
+  status: IncidentStatus
+  lead: String
+  leadUser: User
   originChannelId: String!
   originChannelName: String!
   createdBy: String!
   createdByUser: User
   createdAt: Time!
   updatedAt: Time!
+  initialTriage: Boolean!
+  statusHistories: [StatusHistory!]!
   tasks: [Task!]!
 }
 
@@ -35,6 +55,7 @@ type Task {
   description: String!
   status: TaskStatus!
   assigneeId: String
+  assigneeUser: User
   createdBy: String!
   channelId: String!
   messageTs: String!
@@ -73,6 +94,9 @@ type Query {
   # Get a specific incident by ID
   incident(id: ID!): Incident
   
+  # Get status history for a specific incident
+  incidentStatusHistory(incidentId: ID!): [StatusHistory!]!
+  
   # Get tasks for a specific incident
   tasks(incidentId: ID!): [Task!]!
   
@@ -83,6 +107,9 @@ type Query {
 type Mutation {
   # Update incident
   updateIncident(id: ID!, input: UpdateIncidentInput!): Incident!
+  
+  # Update incident status
+  updateIncidentStatus(incidentId: ID!, status: IncidentStatus!, note: String): Incident!
   
   # Create a new task
   createTask(input: CreateTaskInput!): Task!
@@ -97,7 +124,8 @@ type Mutation {
 input UpdateIncidentInput {
   title: String
   description: String
-  status: String
+  lead: String
+  status: IncidentStatus
 }
 
 input CreateTaskInput {

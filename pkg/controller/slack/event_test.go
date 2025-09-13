@@ -24,7 +24,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		err := handler.HandleEvent(ctx, nil)
 		gt.Error(t, err)
@@ -39,7 +40,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -68,7 +70,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -98,7 +101,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -143,7 +147,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -180,7 +185,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -211,7 +217,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -237,7 +244,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -273,7 +281,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 		mockTaskUC := &mocks.TaskMock{}
 		mockIncidentUC := &mocks.IncidentMock{}
 		mockSlackClient := &mocks.SlackClientMock{}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -333,7 +342,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,
@@ -393,7 +403,8 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockSlackClient)
+		mockStatusUC := &mocks.StatusUseCaseMock{}
+		handler := slack.NewEventHandler(ctx, mockUC, mockTaskUC, mockIncidentUC, mockStatusUC, mockSlackClient)
 
 		event := &slackevents.EventsAPIEvent{
 			Type: slackevents.CallbackEvent,

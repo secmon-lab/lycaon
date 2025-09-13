@@ -72,6 +72,7 @@ func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestI
 			OriginChannelID:   request.ChannelID.String(),
 			OriginChannelName: channelInfo.Name,
 			CreatedBy:         userID,
+			InitialTriage:     false, // TODO: Get from modal checkbox
 		})
 		if err != nil {
 			return nil, goerr.Wrap(err, "failed to create incident")

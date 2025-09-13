@@ -403,6 +403,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 			channelID,
 			types.ChannelName("test-channel"),
 			types.SlackUserID("U123456"),
+			false, // initialTriage
 		)
 		gt.NoError(t, err).Required()
 
@@ -467,7 +468,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 				Limit: 10,
 				After: nil,
 			}
-			
+
 			// First page
 			result, pageInfo, err := repo.ListIncidentsPaginated(ctx, opts)
 			gt.NoError(t, err).Required()
@@ -514,7 +515,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 			// Test that we can find all our created incidents somewhere in pagination
 			allFoundIDs := make(map[types.IncidentID]bool)
-			
+
 			// Keep paginating until we've seen all our incidents or run out of pages
 			var lastCursor *types.IncidentID
 			for pagesChecked := 0; pagesChecked < 10; pagesChecked++ {
@@ -524,7 +525,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 				}
 				pageResult, pageInfo, err := repo.ListIncidentsPaginated(ctx, opts)
 				gt.NoError(t, err).Required()
-				
+
 				for _, inc := range pageResult {
 					for _, created := range incidents {
 						if inc.ID == created.ID {
@@ -532,14 +533,14 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 						}
 					}
 				}
-				
+
 				if !pageInfo.HasNextPage || len(pageResult) == 0 {
 					break
 				}
 				cursor := pageResult[len(pageResult)-1].ID
 				lastCursor = &cursor
 			}
-			
+
 			// We should find all our created incidents
 			gt.Equal(t, incidentCount, len(allFoundIDs)) // Should find all created incidents
 		})
@@ -592,7 +593,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 			gt.NoError(t, err).Required()
 			// Should get at least our 5 incidents
 			gt.True(t, len(result) >= 5)
-			
+
 			// Test with zero limit (should use default)
 			opts = types.PaginationOptions{
 				Limit: 0,
@@ -601,6 +602,165 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 			result, _, err = repo.ListIncidentsPaginated(ctx, opts)
 			gt.NoError(t, err).Required()
 			gt.True(t, len(result) > 0)
+		})
+	})
+
+	t.Run("StatusHistory", func(t *testing.T) {
+		t.Run("AddStatusHistory", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Create test incident first
+			now := time.Now()
+			incidentID := types.IncidentID(now.UnixNano() / 1000000)
+			incident := &model.Incident{
+				ID:          incidentID,
+				ChannelID:   types.ChannelID(fmt.Sprintf("channel-%d", now.UnixNano())),
+				ChannelName: types.ChannelName("test-channel"),
+				Title:       "Test Incident",
+				Description: "Test Description",
+				CategoryID:  "test",
+				CreatedBy:   types.SlackUserID("test-user"),
+				CreatedAt:   now,
+				Status:      types.IncidentStatusHandling,
+				Lead:        types.SlackUserID("test-user"),
+			}
+			gt.NoError(t, repo.PutIncident(ctx, incident))
+
+			// Create status history
+			history := &model.StatusHistory{
+				ID:         types.NewStatusHistoryID(),
+				IncidentID: incidentID,
+				Status:     types.IncidentStatusMonitoring,
+				ChangedBy:  types.SlackUserID("test-user"),
+				ChangedAt:  now,
+				Note:       "Test status change",
+			}
+
+			// Add status history
+			err := repo.AddStatusHistory(ctx, history)
+			gt.NoError(t, err).Required()
+
+			// Retrieve and verify
+			histories, err := repo.GetStatusHistories(ctx, incidentID)
+			gt.NoError(t, err).Required()
+			gt.A(t, histories).Length(1)
+			gt.Equal(t, history.ID, histories[0].ID)
+			gt.Equal(t, history.IncidentID, histories[0].IncidentID)
+			gt.Equal(t, history.Status, histories[0].Status)
+			gt.Equal(t, history.ChangedBy, histories[0].ChangedBy)
+			gt.Equal(t, history.Note, histories[0].Note)
+			gt.True(t, history.ChangedAt.Sub(histories[0].ChangedAt).Abs() < time.Second)
+		})
+
+		t.Run("GetStatusHistory", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Create test incident
+			now := time.Now()
+			incidentID := types.IncidentID(now.UnixNano() / 1000000)
+			incident := &model.Incident{
+				ID:          incidentID,
+				ChannelID:   types.ChannelID(fmt.Sprintf("channel-%d", now.UnixNano())),
+				ChannelName: types.ChannelName("test-channel"),
+				Title:       "Test Incident",
+				Description: "Test Description",
+				CategoryID:  "test",
+				CreatedBy:   types.SlackUserID("test-user"),
+				CreatedAt:   now,
+				Status:      types.IncidentStatusHandling,
+				Lead:        types.SlackUserID("test-user"),
+			}
+			gt.NoError(t, repo.PutIncident(ctx, incident))
+
+			// Add multiple status history entries
+			histories := []*model.StatusHistory{
+				{
+					ID:         types.NewStatusHistoryID(),
+					IncidentID: incidentID,
+					Status:     types.IncidentStatusHandling,
+					ChangedBy:  types.SlackUserID("user1"),
+					ChangedAt:  now,
+					Note:       "Initial status",
+				},
+				{
+					ID:         types.NewStatusHistoryID(),
+					IncidentID: incidentID,
+					Status:     types.IncidentStatusMonitoring,
+					ChangedBy:  types.SlackUserID("user2"),
+					ChangedAt:  now.Add(time.Hour),
+					Note:       "Changed to monitoring",
+				},
+				{
+					ID:         types.NewStatusHistoryID(),
+					IncidentID: incidentID,
+					Status:     types.IncidentStatusClosed,
+					ChangedBy:  types.SlackUserID("user3"),
+					ChangedAt:  now.Add(2 * time.Hour),
+					Note:       "Incident resolved",
+				},
+			}
+
+			// Add all histories
+			for _, h := range histories {
+				gt.NoError(t, repo.AddStatusHistory(ctx, h))
+			}
+
+			// Retrieve and verify all
+			retrieved, err := repo.GetStatusHistories(ctx, incidentID)
+			gt.NoError(t, err).Required()
+			gt.Equal(t, 3, len(retrieved))
+
+			// Verify they are sorted by timestamp (oldest first)
+			for i := 1; i < len(retrieved); i++ {
+				gt.True(t, retrieved[i].ChangedAt.After(retrieved[i-1].ChangedAt) || retrieved[i].ChangedAt.Equal(retrieved[i-1].ChangedAt))
+			}
+
+			// Verify specific entries exist
+			foundStatuses := make(map[types.IncidentStatus]bool)
+			for _, h := range retrieved {
+				foundStatuses[h.Status] = true
+			}
+			gt.True(t, foundStatuses[types.IncidentStatusHandling])
+			gt.True(t, foundStatuses[types.IncidentStatusMonitoring])
+			gt.True(t, foundStatuses[types.IncidentStatusClosed])
+		})
+
+		t.Run("GetStatusHistory_NotFound", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Try to get status history for non-existent incident
+			nonExistentID := types.IncidentID(time.Now().UnixNano() / 1000000)
+			histories, err := repo.GetStatusHistories(ctx, nonExistentID)
+			gt.NoError(t, err).Required()
+			gt.Equal(t, 0, len(histories)) // Should return empty slice, not error
+		})
+
+		t.Run("AddStatusHistory_InvalidIncident", func(t *testing.T) {
+			repo := newRepo(t)
+			defer repo.Close()
+			ctx := context.Background()
+
+			// Try to add status history for non-existent incident
+			nonExistentID := types.IncidentID(time.Now().UnixNano() / 1000000)
+			history := &model.StatusHistory{
+				ID:         types.NewStatusHistoryID(),
+				IncidentID: nonExistentID,
+				Status:     types.IncidentStatusHandling,
+				ChangedBy:  types.SlackUserID("test-user"),
+				ChangedAt:  time.Now(),
+				Note:       "Test note",
+			}
+
+			// This should work even if incident doesn't exist yet
+			// (status history can be added before incident is fully created)
+			err := repo.AddStatusHistory(ctx, history)
+			gt.NoError(t, err)
 		})
 	})
 }

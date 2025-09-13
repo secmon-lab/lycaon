@@ -34,6 +34,11 @@ type Repository interface {
 	ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error)
 	GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error)
 
+	// Status history operations
+	AddStatusHistory(ctx context.Context, history *model.StatusHistory) error
+	GetStatusHistories(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistory, error)
+	UpdateIncidentStatus(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus) error
+
 	// Incident request operations
 	SaveIncidentRequest(ctx context.Context, request *model.IncidentRequest) error
 	GetIncidentRequest(ctx context.Context, id types.IncidentRequestID) (*model.IncidentRequest, error)

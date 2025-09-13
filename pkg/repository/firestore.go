@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	// Collection names
+	// Collection names - ALL MUST BE snake_case
 	messagesCollection         = "messages"
 	usersCollection            = "users"
 	sessionsCollection         = "sessions"
@@ -25,6 +25,7 @@ const (
 	incidentRequestsCollection = "incident_requests"
 	countersCollection         = "counters"
 	tasksCollection            = "tasks"
+	statusHistoriesCollection  = "status_histories"
 
 	// Document IDs
 	incidentCounterDocID = "incident"
@@ -332,6 +333,7 @@ func (f *Firestore) GetIncident(ctx context.Context, id types.IncidentID) (*mode
 		return nil, goerr.Wrap(err, "failed to decode incident")
 	}
 
+
 	return &incident, nil
 }
 
@@ -357,6 +359,7 @@ func (f *Firestore) GetIncidentByChannelID(ctx context.Context, channelID types.
 	if err := doc.DataTo(&incident); err != nil {
 		return nil, goerr.Wrap(err, "failed to decode incident")
 	}
+
 
 	return &incident, nil
 }
@@ -722,17 +725,17 @@ func (f *Firestore) DeleteTask(ctx context.Context, incidentID types.IncidentID,
 	_, err := taskDoc.Get(ctx)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+			return goerr.Wrap(model.ErrTaskNotFound, "task not found",
 				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 		}
-		return goerr.Wrap(err, "failed to check task existence", 
+		return goerr.Wrap(err, "failed to check task existence",
 			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 	}
 
 	// Delete the task
 	_, err = taskDoc.Delete(ctx)
 	if err != nil {
-		return goerr.Wrap(err, "failed to delete task from firestore", 
+		return goerr.Wrap(err, "failed to delete task from firestore",
 			goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 	}
 
@@ -785,7 +788,7 @@ func (f *Firestore) UpdateIncidentAtomic(ctx context.Context, incidentID types.I
 	}
 
 	docRef := f.client.Collection(incidentsCollection).Doc(incidentID.String())
-	
+
 	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		// Get the current incident within the transaction
 		doc, err := tx.Get(docRef)
@@ -822,28 +825,28 @@ func (f *Firestore) UpdateTaskAtomic(ctx context.Context, incidentID types.Incid
 
 	taskDocRef := f.client.Collection(incidentsCollection).Doc(incidentID.String()).
 		Collection(tasksCollection).Doc(taskID.String())
-	
+
 	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		// Get the current task within the transaction
 		doc, err := tx.Get(taskDocRef)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
-				return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+				return goerr.Wrap(model.ErrTaskNotFound, "task not found",
 					goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 			}
-			return goerr.Wrap(err, "failed to get task in transaction", 
+			return goerr.Wrap(err, "failed to get task in transaction",
 				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 		}
 
 		var task model.Task
 		if err := doc.DataTo(&task); err != nil {
-			return goerr.Wrap(err, "failed to unmarshal task", 
+			return goerr.Wrap(err, "failed to unmarshal task",
 				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 		}
 
 		// Apply the update function
 		if err := updateFn(&task); err != nil {
-			return goerr.Wrap(err, "failed to update task", 
+			return goerr.Wrap(err, "failed to update task",
 				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
 		}
 
@@ -854,6 +857,84 @@ func (f *Firestore) UpdateTaskAtomic(ctx context.Context, incidentID types.Incid
 		// Write the updated task back
 		return tx.Set(taskDocRef, &task)
 	})
+}
+
+// AddStatusHistory adds a status history entry to Firestore
+func (f *Firestore) AddStatusHistory(ctx context.Context, history *model.StatusHistory) error {
+	if history == nil {
+		return goerr.New("status history is nil")
+	}
+	if err := history.Validate(); err != nil {
+		return goerr.Wrap(err, "invalid status history")
+	}
+
+	// Add to subcollection under the incident
+	incidentDocRef := f.client.Collection(incidentsCollection).Doc(history.IncidentID.String())
+	statusHistoryDocRef := incidentDocRef.Collection(statusHistoriesCollection).Doc(history.ID.String())
+
+	_, err := statusHistoryDocRef.Set(ctx, history)
+	if err != nil {
+		return goerr.Wrap(err, "failed to add status history to firestore")
+	}
+
+	return nil
+}
+
+// GetStatusHistories retrieves all status histories for an incident
+func (f *Firestore) GetStatusHistories(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistory, error) {
+	if err := incidentID.Validate(); err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+
+	// Query the subcollection
+	incidentDocRef := f.client.Collection(incidentsCollection).Doc(incidentID.String())
+	iter := incidentDocRef.Collection(statusHistoriesCollection).
+		OrderBy("ChangedAt", firestore.Asc).
+		Documents(ctx)
+	defer iter.Stop()
+
+	var histories []*model.StatusHistory
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to iterate status histories")
+		}
+
+		var history model.StatusHistory
+		if err := doc.DataTo(&history); err != nil {
+			return nil, goerr.Wrap(err, "failed to decode status history")
+		}
+
+		histories = append(histories, &history)
+	}
+
+	return histories, nil
+}
+
+// UpdateIncidentStatus updates the current status of an incident
+func (f *Firestore) UpdateIncidentStatus(ctx context.Context, incidentID types.IncidentID, incidentStatus types.IncidentStatus) error {
+	if err := incidentID.Validate(); err != nil {
+		return goerr.Wrap(err, "invalid incident ID")
+	}
+	if !incidentStatus.IsValid() {
+		return goerr.New("invalid status", goerr.V("status", incidentStatus))
+	}
+
+	docRef := f.client.Collection(incidentsCollection).Doc(incidentID.String())
+	_, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "Status", Value: incidentStatus},
+	})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return goerr.Wrap(model.ErrIncidentNotFound, "failed to update incident status")
+		}
+		return goerr.Wrap(err, "failed to update incident status in firestore")
+	}
+
+	return nil
 }
 
 func (f *Firestore) Close() error {

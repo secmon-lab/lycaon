@@ -1617,3 +1617,261 @@ func (mock *InviteMock) InviteUsersByListCalls() []struct {
 	mock.lockInviteUsersByList.RUnlock()
 	return calls
 }
+
+// Ensure, that StatusUseCaseMock does implement interfaces.StatusUseCase.
+// If this is not the case, regenerate this file with moq.
+var _ interfaces.StatusUseCase = &StatusUseCaseMock{}
+
+// StatusUseCaseMock is a mock implementation of interfaces.StatusUseCase.
+//
+//	func TestSomethingThatUsesStatusUseCase(t *testing.T) {
+//
+//		// make and configure a mocked interfaces.StatusUseCase
+//		mockedStatusUseCase := &StatusUseCaseMock{
+//			GetStatusHistoryFunc: func(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistoryWithUser, error) {
+//				panic("mock out the GetStatusHistory method")
+//			},
+//			HandleEditStatusActionFunc: func(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error {
+//				panic("mock out the HandleEditStatusAction method")
+//			},
+//			PostStatusMessageFunc: func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error {
+//				panic("mock out the PostStatusMessage method")
+//			},
+//			UpdateStatusFunc: func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error {
+//				panic("mock out the UpdateStatus method")
+//			},
+//		}
+//
+//		// use mockedStatusUseCase in code that requires interfaces.StatusUseCase
+//		// and then make assertions.
+//
+//	}
+type StatusUseCaseMock struct {
+	// GetStatusHistoryFunc mocks the GetStatusHistory method.
+	GetStatusHistoryFunc func(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistoryWithUser, error)
+
+	// HandleEditStatusActionFunc mocks the HandleEditStatusAction method.
+	HandleEditStatusActionFunc func(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error
+
+	// PostStatusMessageFunc mocks the PostStatusMessage method.
+	PostStatusMessageFunc func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error
+
+	// UpdateStatusFunc mocks the UpdateStatus method.
+	UpdateStatusFunc func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// GetStatusHistory holds details about calls to the GetStatusHistory method.
+		GetStatusHistory []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+		}
+		// HandleEditStatusAction holds details about calls to the HandleEditStatusAction method.
+		HandleEditStatusAction []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentIDStr is the incidentIDStr argument value.
+			IncidentIDStr string
+			// UserID is the userID argument value.
+			UserID types.SlackUserID
+			// TriggerID is the triggerID argument value.
+			TriggerID string
+		}
+		// PostStatusMessage holds details about calls to the PostStatusMessage method.
+		PostStatusMessage []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+		}
+		// UpdateStatus holds details about calls to the UpdateStatus method.
+		UpdateStatus []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// Status is the status argument value.
+			Status types.IncidentStatus
+			// UserID is the userID argument value.
+			UserID types.SlackUserID
+			// Note is the note argument value.
+			Note string
+		}
+	}
+	lockGetStatusHistory       sync.RWMutex
+	lockHandleEditStatusAction sync.RWMutex
+	lockPostStatusMessage      sync.RWMutex
+	lockUpdateStatus           sync.RWMutex
+}
+
+// GetStatusHistory calls GetStatusHistoryFunc.
+func (mock *StatusUseCaseMock) GetStatusHistory(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistoryWithUser, error) {
+	if mock.GetStatusHistoryFunc == nil {
+		panic("StatusUseCaseMock.GetStatusHistoryFunc: method is nil but StatusUseCase.GetStatusHistory was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+	}
+	mock.lockGetStatusHistory.Lock()
+	mock.calls.GetStatusHistory = append(mock.calls.GetStatusHistory, callInfo)
+	mock.lockGetStatusHistory.Unlock()
+	return mock.GetStatusHistoryFunc(ctx, incidentID)
+}
+
+// GetStatusHistoryCalls gets all the calls that were made to GetStatusHistory.
+// Check the length with:
+//
+//	len(mockedStatusUseCase.GetStatusHistoryCalls())
+func (mock *StatusUseCaseMock) GetStatusHistoryCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+	}
+	mock.lockGetStatusHistory.RLock()
+	calls = mock.calls.GetStatusHistory
+	mock.lockGetStatusHistory.RUnlock()
+	return calls
+}
+
+// HandleEditStatusAction calls HandleEditStatusActionFunc.
+func (mock *StatusUseCaseMock) HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error {
+	if mock.HandleEditStatusActionFunc == nil {
+		panic("StatusUseCaseMock.HandleEditStatusActionFunc: method is nil but StatusUseCase.HandleEditStatusAction was just called")
+	}
+	callInfo := struct {
+		Ctx           context.Context
+		IncidentIDStr string
+		UserID        types.SlackUserID
+		TriggerID     string
+	}{
+		Ctx:           ctx,
+		IncidentIDStr: incidentIDStr,
+		UserID:        userID,
+		TriggerID:     triggerID,
+	}
+	mock.lockHandleEditStatusAction.Lock()
+	mock.calls.HandleEditStatusAction = append(mock.calls.HandleEditStatusAction, callInfo)
+	mock.lockHandleEditStatusAction.Unlock()
+	return mock.HandleEditStatusActionFunc(ctx, incidentIDStr, userID, triggerID)
+}
+
+// HandleEditStatusActionCalls gets all the calls that were made to HandleEditStatusAction.
+// Check the length with:
+//
+//	len(mockedStatusUseCase.HandleEditStatusActionCalls())
+func (mock *StatusUseCaseMock) HandleEditStatusActionCalls() []struct {
+	Ctx           context.Context
+	IncidentIDStr string
+	UserID        types.SlackUserID
+	TriggerID     string
+} {
+	var calls []struct {
+		Ctx           context.Context
+		IncidentIDStr string
+		UserID        types.SlackUserID
+		TriggerID     string
+	}
+	mock.lockHandleEditStatusAction.RLock()
+	calls = mock.calls.HandleEditStatusAction
+	mock.lockHandleEditStatusAction.RUnlock()
+	return calls
+}
+
+// PostStatusMessage calls PostStatusMessageFunc.
+func (mock *StatusUseCaseMock) PostStatusMessage(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error {
+	if mock.PostStatusMessageFunc == nil {
+		panic("StatusUseCaseMock.PostStatusMessageFunc: method is nil but StatusUseCase.PostStatusMessage was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		ChannelID  types.ChannelID
+		IncidentID types.IncidentID
+	}{
+		Ctx:        ctx,
+		ChannelID:  channelID,
+		IncidentID: incidentID,
+	}
+	mock.lockPostStatusMessage.Lock()
+	mock.calls.PostStatusMessage = append(mock.calls.PostStatusMessage, callInfo)
+	mock.lockPostStatusMessage.Unlock()
+	return mock.PostStatusMessageFunc(ctx, channelID, incidentID)
+}
+
+// PostStatusMessageCalls gets all the calls that were made to PostStatusMessage.
+// Check the length with:
+//
+//	len(mockedStatusUseCase.PostStatusMessageCalls())
+func (mock *StatusUseCaseMock) PostStatusMessageCalls() []struct {
+	Ctx        context.Context
+	ChannelID  types.ChannelID
+	IncidentID types.IncidentID
+} {
+	var calls []struct {
+		Ctx        context.Context
+		ChannelID  types.ChannelID
+		IncidentID types.IncidentID
+	}
+	mock.lockPostStatusMessage.RLock()
+	calls = mock.calls.PostStatusMessage
+	mock.lockPostStatusMessage.RUnlock()
+	return calls
+}
+
+// UpdateStatus calls UpdateStatusFunc.
+func (mock *StatusUseCaseMock) UpdateStatus(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error {
+	if mock.UpdateStatusFunc == nil {
+		panic("StatusUseCaseMock.UpdateStatusFunc: method is nil but StatusUseCase.UpdateStatus was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		Status     types.IncidentStatus
+		UserID     types.SlackUserID
+		Note       string
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		Status:     status,
+		UserID:     userID,
+		Note:       note,
+	}
+	mock.lockUpdateStatus.Lock()
+	mock.calls.UpdateStatus = append(mock.calls.UpdateStatus, callInfo)
+	mock.lockUpdateStatus.Unlock()
+	return mock.UpdateStatusFunc(ctx, incidentID, status, userID, note)
+}
+
+// UpdateStatusCalls gets all the calls that were made to UpdateStatus.
+// Check the length with:
+//
+//	len(mockedStatusUseCase.UpdateStatusCalls())
+func (mock *StatusUseCaseMock) UpdateStatusCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	Status     types.IncidentStatus
+	UserID     types.SlackUserID
+	Note       string
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		Status     types.IncidentStatus
+		UserID     types.SlackUserID
+		Note       string
+	}
+	mock.lockUpdateStatus.RLock()
+	calls = mock.calls.UpdateStatus
+	mock.lockUpdateStatus.RUnlock()
+	return calls
+}

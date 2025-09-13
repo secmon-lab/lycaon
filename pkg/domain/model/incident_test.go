@@ -20,6 +20,7 @@ func TestNewIncident(t *testing.T) {
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.SlackUserID("U67890"),
+			false, // initialTriage
 		)
 		gt.NoError(t, err).Required()
 		gt.Equal(t, 1, incident.ID)
@@ -41,6 +42,7 @@ func TestNewIncident(t *testing.T) {
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.SlackUserID("U67890"),
+			false, // initialTriage
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -56,6 +58,7 @@ func TestNewIncident(t *testing.T) {
 			types.ChannelID(""),
 			types.ChannelName("general"),
 			types.SlackUserID("U67890"),
+			false, // initialTriage
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -71,6 +74,7 @@ func TestNewIncident(t *testing.T) {
 			types.ChannelID("C12345"),
 			types.ChannelName(""),
 			types.SlackUserID("U67890"),
+			false, // initialTriage
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -86,6 +90,7 @@ func TestNewIncident(t *testing.T) {
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.SlackUserID(""),
+			false, // initialTriage
 		)
 		gt.Error(t, err)
 		gt.V(t, incident).Nil()
@@ -116,6 +121,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.SlackUserID("U67890"),
+				false, // initialTriage
 			)
 			gt.NoError(t, err).Required()
 			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)
@@ -153,6 +159,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.SlackUserID("U67890"),
+				false, // initialTriage
 			)
 			gt.NoError(t, err).Required()
 			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)

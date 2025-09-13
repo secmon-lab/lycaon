@@ -37,3 +37,13 @@ export const DELETE_TASK = gql`
     deleteTask(id: $id)
   }
 `;
+
+// Mutation to update incident status
+export const UPDATE_INCIDENT_STATUS = gql`
+  ${INCIDENT_FIELDS}
+  mutation UpdateIncidentStatus($incidentId: ID!, $status: IncidentStatus!, $note: String) {
+    updateIncidentStatus(incidentId: $incidentId, status: $status, note: $note) {
+      ...IncidentFields
+    }
+  }
+`;

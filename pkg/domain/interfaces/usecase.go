@@ -1,6 +1,6 @@
 package interfaces
 
-//go:generate moq -out mocks/usecase_mock.go -pkg mocks . SlackMessage Incident Task Invite
+//go:generate moq -out mocks/usecase_mock.go -pkg mocks . SlackMessage Incident Task Invite StatusUseCase
 
 import (
 	"context"
@@ -163,4 +163,19 @@ type Invite interface {
 		users []string, // User ID or @username list
 		groups []string, // Group ID or @groupname list
 		channelID types.ChannelID) (*model.InvitationResult, error)
+}
+
+// StatusUseCase defines the interface for incident status management
+type StatusUseCase interface {
+	// UpdateStatus updates the incident status and records the change in history
+	UpdateStatus(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error
+
+	// GetStatusHistory retrieves status history for an incident with user information
+	GetStatusHistory(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistoryWithUser, error)
+
+	// PostStatusMessage posts a status message to the incident channel
+	PostStatusMessage(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error
+
+	// HandleEditStatusAction handles Slack edit status action
+	HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error
 }

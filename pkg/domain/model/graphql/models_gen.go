@@ -4,6 +4,7 @@ package graphql
 
 import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 type CreateTaskInput struct {
@@ -38,9 +39,10 @@ type Query struct {
 }
 
 type UpdateIncidentInput struct {
-	Title       *string `json:"title,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Status      *string `json:"status,omitempty"`
+	Title       *string               `json:"title,omitempty"`
+	Description *string               `json:"description,omitempty"`
+	Lead        *string               `json:"lead,omitempty"`
+	Status      *types.IncidentStatus `json:"status,omitempty"`
 }
 
 type UpdateTaskInput struct {

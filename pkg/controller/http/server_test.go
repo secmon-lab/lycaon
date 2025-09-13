@@ -34,6 +34,18 @@ func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
 		AuthTestContextFunc: func(ctx context.Context) (*slackgo.AuthTestResponse, error) {
 			return &slackgo.AuthTestResponse{UserID: "U_TEST_BOT", User: "test-bot"}, nil
 		},
+		GetUserInfoContextFunc: func(ctx context.Context, user string) (*slackgo.User, error) {
+			return &slackgo.User{
+				ID:       user,
+				Name:     "test-user",
+				RealName: "Test User",
+				Profile: slackgo.UserProfile{
+					DisplayName: "Test User",
+					Email:       "test@example.com",
+					Image24:     "https://example.com/avatar.png",
+				},
+			}, nil
+		},
 	}
 }
 
@@ -296,6 +308,7 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 		types.ChannelID("C1234567890"),
 		types.ChannelName("origin-channel"),
 		types.SlackUserID("U1234567890"),
+		false, // initialTriage
 	)
 	gt.NoError(t, err)
 
@@ -314,6 +327,7 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 				channelName
 				channelId
 				createdBy
+				status
 				tasks {
 					id
 					title
@@ -342,6 +356,8 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 	if incidentData != nil {
 		incidentObj := incidentData.(map[string]interface{})
 		gt.Equal(t, incidentObj["title"], "Single Test Incident")
+		// Debug: print the status value to see its format
+		t.Logf("Status value: %v (type: %T)", incidentObj["status"], incidentObj["status"])
 	}
 }
 
@@ -381,6 +397,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.SlackUserID("U1234567890"),
+		false, // initialTriage
 	)
 	gt.NoError(t, err)
 	gt.NoError(t, repo.PutIncident(ctx, incident))
@@ -531,4 +548,482 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 	// Should return null for deleted task
 	data = resp.Data.(map[string]interface{})
 	gt.Nil(t, data["task"])
+}
+
+// Test incident status management GraphQL operations
+func TestGraphQL_IncidentStatusManagement(t *testing.T) {
+	server, repo := setupGraphQLTestServer(t)
+	defer server.Close()
+
+	ctx := context.Background()
+
+	// Step 1: Create an incident with initial status
+	incidentID := types.IncidentID(time.Now().UnixNano())
+	incident, err := model.NewIncident(
+		incidentID,
+		"Status Test Incident",
+		"Test incident for status management",
+		"test_category",
+		types.ChannelID("C1234567890"),
+		types.ChannelName("test-channel"),
+		types.SlackUserID("U1234567890"),
+		false, // initialTriage - should start with HANDLING
+	)
+	gt.NoError(t, err)
+	gt.NoError(t, repo.PutIncident(ctx, incident))
+
+	// Create initial status history
+	initialStatusHistory, err := model.NewStatusHistory(incident.ID, incident.Status, incident.CreatedBy, "Incident created")
+	gt.NoError(t, err)
+	err = repo.AddStatusHistory(ctx, initialStatusHistory)
+	gt.NoError(t, err)
+
+	// Step 2: Query incident with status information
+	incidentQuery := `
+		query GetIncident($id: ID!) {
+			incident(id: $id) {
+				id
+				title
+				status
+				statusHistories {
+					id
+					status
+					changedAt
+					changedBy {
+						id
+						name
+					}
+					note
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"id": incidentID.String(),
+	}
+
+	resp := executeGraphQL(t, server, incidentQuery, variables)
+	if len(resp.Errors) > 0 {
+		t.Logf("GraphQL Errors: %+v", resp.Errors)
+	}
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data := resp.Data.(map[string]interface{})
+	incidentData := data["incident"].(map[string]interface{})
+	gt.Equal(t, incidentData["status"], "handling") // Should start with handling
+	statusHistories := incidentData["statusHistories"].([]interface{})
+	gt.Equal(t, len(statusHistories), 1) // Initial status history
+
+	// Verify initial status history
+	initialHistory := statusHistories[0].(map[string]interface{})
+	gt.Equal(t, initialHistory["status"], "handling")
+
+	// Step 3: Test updateIncidentStatus mutation
+	updateStatusMutation := `
+		mutation UpdateIncidentStatus($incidentId: ID!, $status: IncidentStatus!, $note: String) {
+			updateIncidentStatus(incidentId: $incidentId, status: $status, note: $note) {
+				id
+				status
+				statusHistories {
+					id
+					status
+					changedAt
+					changedBy {
+						id
+						name
+					}
+					note
+				}
+			}
+		}
+	`
+
+	updateVariables := map[string]interface{}{
+		"incidentId": incidentID.String(),
+		"status":     "monitoring",
+		"note":       "Moving to monitoring phase",
+	}
+
+	resp = executeGraphQL(t, server, updateStatusMutation, updateVariables)
+	if len(resp.Errors) > 0 {
+		t.Logf("Update Status Errors: %+v", resp.Errors)
+	}
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data = resp.Data.(map[string]interface{})
+	updateResult := data["updateIncidentStatus"].(map[string]interface{})
+	gt.Equal(t, updateResult["status"], "monitoring")
+
+	// Verify status history was updated
+	updatedHistories := updateResult["statusHistories"].([]interface{})
+	t.Logf("Updated histories count: %d", len(updatedHistories))
+	for i, h := range updatedHistories {
+		history := h.(map[string]interface{})
+		t.Logf("History %d: status=%v, note=%v", i, history["status"], history["note"])
+	}
+	gt.Equal(t, len(updatedHistories), 2) // Initial + new status
+
+	// Find the new status history entry
+	var newHistory map[string]interface{}
+	for _, h := range updatedHistories {
+		history := h.(map[string]interface{})
+		if history["status"] == "monitoring" {
+			newHistory = history
+			break
+		}
+	}
+	gt.NotNil(t, newHistory)
+	gt.Equal(t, newHistory["note"], "Moving to monitoring phase")
+
+	// Step 4: Test status change to CLOSED
+	closeVariables := map[string]interface{}{
+		"incidentId": incidentID.String(),
+		"status":     "closed",
+		"note":       "Incident resolved",
+	}
+
+	resp = executeGraphQL(t, server, updateStatusMutation, closeVariables)
+	if len(resp.Errors) > 0 {
+		t.Logf("Close Status Errors: %+v", resp.Errors)
+	}
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data = resp.Data.(map[string]interface{})
+	closeResult := data["updateIncidentStatus"].(map[string]interface{})
+	gt.Equal(t, closeResult["status"], "closed")
+
+	// Verify final status history count
+	finalHistories := closeResult["statusHistories"].([]interface{})
+	gt.Equal(t, len(finalHistories), 3) // Initial + monitoring + closed
+
+	// Step 5: Test incidentStatusHistory query
+	statusHistoryQuery := `
+		query GetIncidentStatusHistory($incidentId: ID!) {
+			incidentStatusHistory(incidentId: $incidentId) {
+				id
+				status
+				changedAt
+				changedBy {
+					id
+					name
+				}
+				note
+			}
+		}
+	`
+
+	historyVariables := map[string]interface{}{
+		"incidentId": incidentID.String(),
+	}
+
+	resp = executeGraphQL(t, server, statusHistoryQuery, historyVariables)
+	if len(resp.Errors) > 0 {
+		t.Logf("Status History Query Errors: %+v", resp.Errors)
+	}
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data = resp.Data.(map[string]interface{})
+	historyData := data["incidentStatusHistory"].([]interface{})
+	gt.Equal(t, len(historyData), 3)
+
+	// Verify the sequence of status changes
+	expectedStatuses := []string{"handling", "monitoring", "closed"}
+	for i, h := range historyData {
+		history := h.(map[string]interface{})
+		gt.Equal(t, history["status"].(string), expectedStatuses[i])
+	}
+}
+
+// Test error cases for status management
+func TestGraphQL_IncidentStatusErrors(t *testing.T) {
+	server, _ := setupGraphQLTestServer(t)
+	defer server.Close()
+
+	// Test 1: Update status for non-existent incident
+	updateStatusMutation := `
+		mutation UpdateIncidentStatus($incidentId: ID!, $status: IncidentStatus!) {
+			updateIncidentStatus(incidentId: $incidentId, status: $status) {
+				id
+				status
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"incidentId": "non-existent-incident",
+		"status":     "closed",
+	}
+
+	resp := executeGraphQL(t, server, updateStatusMutation, variables)
+	gt.A(t, resp.Errors).Longer(0) // Should have errors
+
+	// Test 2: Invalid status value
+	invalidStatusVars := map[string]interface{}{
+		"incidentId": "some-id",
+		"status":     "INVALID_STATUS",
+	}
+
+	resp = executeGraphQL(t, server, updateStatusMutation, invalidStatusVars)
+	gt.A(t, resp.Errors).Longer(0) // Should have errors for invalid enum
+
+	// Test 3: Status history query for non-existent incident
+	statusHistoryQuery := `
+		query GetIncidentStatusHistory($incidentId: ID!) {
+			incidentStatusHistory(incidentId: $incidentId) {
+				id
+				status
+			}
+		}
+	`
+
+	historyVariables := map[string]interface{}{
+		"incidentId": "non-existent-incident",
+	}
+
+	resp = executeGraphQL(t, server, statusHistoryQuery, historyVariables)
+	// This might not error but should return empty array
+	if len(resp.Errors) == 0 {
+		data := resp.Data.(map[string]interface{})
+		histories := data["incidentStatusHistory"]
+		if histories != nil {
+			historyList := histories.([]interface{})
+			gt.Equal(t, len(historyList), 0)
+		}
+	}
+}
+
+// Test incident creation with initial triage flag
+func TestGraphQL_IncidentCreateWithTriage(t *testing.T) {
+	server, repo := setupGraphQLTestServer(t)
+	defer server.Close()
+
+	ctx := context.Background()
+
+	// Step 1: Create incident with triage flag = true
+	incidentID := types.IncidentID(time.Now().UnixNano())
+	incident, err := model.NewIncident(
+		incidentID,
+		"Triage Test Incident",
+		"Test incident for triage status",
+		"test_category",
+		types.ChannelID("C1234567890"),
+		types.ChannelName("test-channel"),
+		types.SlackUserID("U1234567890"),
+		true, // initialTriage - should start with TRIAGE
+	)
+	gt.NoError(t, err)
+	gt.NoError(t, repo.PutIncident(ctx, incident))
+
+	// Create initial status history
+	initialStatusHistory, err := model.NewStatusHistory(incident.ID, incident.Status, incident.CreatedBy, "Incident created")
+	gt.NoError(t, err)
+	err = repo.AddStatusHistory(ctx, initialStatusHistory)
+	gt.NoError(t, err)
+
+	// Step 2: Query incident to verify it starts with TRIAGE status
+	incidentQuery := `
+		query GetIncident($id: ID!) {
+			incident(id: $id) {
+				id
+				status
+				initialTriage
+				statusHistories {
+					status
+					changedAt
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"id": incidentID.String(),
+	}
+
+	resp := executeGraphQL(t, server, incidentQuery, variables)
+	if len(resp.Errors) > 0 {
+		t.Logf("GraphQL Errors: %+v", resp.Errors)
+	}
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data := resp.Data.(map[string]interface{})
+	incidentData := data["incident"].(map[string]interface{})
+	gt.Equal(t, incidentData["status"], "triage") // Should start with triage
+	gt.Equal(t, incidentData["initialTriage"], true)
+
+	statusHistories := incidentData["statusHistories"].([]interface{})
+	gt.Equal(t, len(statusHistories), 1)
+
+	initialHistory := statusHistories[0].(map[string]interface{})
+	gt.Equal(t, initialHistory["status"], "triage")
+
+	// Step 3: Test status progression from TRIAGE to HANDLING
+	updateStatusMutation := `
+		mutation UpdateIncidentStatus($incidentId: ID!, $status: IncidentStatus!) {
+			updateIncidentStatus(incidentId: $incidentId, status: $status) {
+				id
+				status
+				statusHistories {
+					status
+					changedAt
+				}
+			}
+		}
+	`
+
+	updateVariables := map[string]interface{}{
+		"incidentId": incidentID.String(),
+		"status":     "handling",
+	}
+
+	resp = executeGraphQL(t, server, updateStatusMutation, updateVariables)
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data = resp.Data.(map[string]interface{})
+	updateResult := data["updateIncidentStatus"].(map[string]interface{})
+	gt.Equal(t, updateResult["status"], "handling")
+
+	updatedHistories := updateResult["statusHistories"].([]interface{})
+	gt.Equal(t, len(updatedHistories), 2) // TRIAGE + HANDLING
+
+	// Verify the progression
+	statuses := make([]string, len(updatedHistories))
+	for i, h := range updatedHistories {
+		history := h.(map[string]interface{})
+		statuses[i] = history["status"].(string)
+	}
+
+	// Check that both TRIAGE and HANDLING are present
+	hasTriageStatus := false
+	hasHandlingStatus := false
+	for _, status := range statuses {
+		if status == "triage" {
+			hasTriageStatus = true
+		}
+		if status == "handling" {
+			hasHandlingStatus = true
+		}
+	}
+	gt.True(t, hasTriageStatus)
+	gt.True(t, hasHandlingStatus)
+}
+
+// Test handling of legacy incidents without status fields
+func TestGraphQL_LegacyIncidentWithoutStatus(t *testing.T) {
+	server, repo := setupGraphQLTestServer(t)
+	defer server.Close()
+
+	ctx := context.Background()
+
+	// Create a legacy incident directly in repository without status fields
+	incidentID := types.IncidentID(time.Now().UnixNano())
+	legacyIncident := &model.Incident{
+		ID:                incidentID,
+		Title:             "Legacy Test Incident",
+		Description:       "Test incident without status fields",
+		CategoryID:        "test_category",
+		ChannelID:         types.ChannelID("C1234567890"),
+		ChannelName:       types.ChannelName("legacy-channel"),
+		OriginChannelID:   types.ChannelID("C0987654321"),
+		OriginChannelName: types.ChannelName("origin-channel"),
+		CreatedBy:         types.SlackUserID("U1234567890"),
+		CreatedAt:         time.Now(),
+		// Status, Lead, StatusHistories, InitialTriage are intentionally omitted (will be zero values)
+	}
+
+	// Save legacy incident
+	gt.NoError(t, repo.PutIncident(ctx, legacyIncident))
+
+	// Query incident to verify it handles empty status gracefully
+	incidentQuery := `
+		query GetIncident($id: ID!) {
+			incident(id: $id) {
+				id
+				title
+				status
+				lead
+				statusHistories {
+					id
+					status
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"id": incidentID.String(),
+	}
+
+	resp := executeGraphQL(t, server, incidentQuery, variables)
+	if len(resp.Errors) > 0 {
+		t.Logf("GraphQL Errors: %+v", resp.Errors)
+	}
+	gt.Equal(t, len(resp.Errors), 0)
+
+	data := resp.Data.(map[string]interface{})
+	incidentData := data["incident"].(map[string]interface{})
+	gt.Equal(t, incidentData["title"], "Legacy Test Incident")
+
+	// Status and lead should be null/nil for legacy incidents
+	gt.Nil(t, incidentData["status"])
+	gt.Nil(t, incidentData["lead"])
+
+	// Status histories should be empty array
+	statusHistories := incidentData["statusHistories"].([]interface{})
+	gt.Equal(t, len(statusHistories), 0)
+
+	t.Logf("Legacy incident handled correctly: status=%v, lead=%v, histories=%d",
+		incidentData["status"], incidentData["lead"], len(statusHistories))
+}
+
+func TestGraphQL_Firestore_Integration(t *testing.T) {
+	// Skip test if Firestore test environment variables are not set
+	projectID := os.Getenv("TEST_FIRESTORE_PROJECT")
+	databaseID := os.Getenv("TEST_FIRESTORE_DATABASE")
+
+	t.Logf("Environment check: PROJECT=%s, DATABASE=%s", projectID, databaseID)
+
+	if projectID == "" || databaseID == "" {
+		t.Skip("Skipping Firestore GraphQL test: TEST_FIRESTORE_PROJECT and TEST_FIRESTORE_DATABASE must be set")
+	}
+
+	t.Logf("Starting Firestore integration test with PROJECT=%s, DATABASE=%s", projectID, databaseID)
+
+	// Create Firestore repository
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	ctx = ctxlog.With(ctx, logger)
+
+	repo, err := repository.NewFirestore(ctx, projectID, databaseID)
+	gt.NoError(t, err).Required()
+
+	// Create simple GraphQL test by directly calling the repository
+	// Skip GraphQL for now and test repo directly
+
+	t.Run("TestFirestoreListIncidentsPaginated", func(t *testing.T) {
+		// Test the repository method directly
+		opts := types.PaginationOptions{
+			Limit: 10,
+		}
+		
+		incidents, result, err := repo.ListIncidentsPaginated(ctx, opts)
+		
+		if err != nil {
+			t.Logf("Firestore ListIncidentsPaginated failed with error: %v", err)
+			t.Logf("This is the actual error that's causing the WebUI issue!")
+		} else {
+			t.Logf("Firestore ListIncidentsPaginated succeeded: found %d incidents", len(incidents))
+			t.Logf("Pagination result: hasNext=%v, hasPrev=%v, total=%d", 
+				result.HasNextPage, result.HasPreviousPage, result.TotalCount)
+			
+			// Check each incident for missing fields
+			for i, incident := range incidents {
+				if i >= 3 { // Just check first 3
+					break
+				}
+				t.Logf("Incident %d: ID=%v, Title=%v, Status=%v", 
+					i, incident.ID, incident.Title, incident.Status)
+			}
+		}
+	})
 }

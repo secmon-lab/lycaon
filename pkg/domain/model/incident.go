@@ -23,6 +23,10 @@ type Incident struct {
 	OriginChannelName types.ChannelName // Origin channel name where incident was created
 	CreatedBy         types.SlackUserID // Slack user ID who created the incident
 	CreatedAt         time.Time         // Creation timestamp
+	// Status management fields
+	Status        types.IncidentStatus // Current status of the incident
+	Lead          types.SlackUserID    // Incident lead (Slack user ID)
+	InitialTriage bool                 // Whether the incident started with Triage status
 }
 
 // CreateIncidentRequest represents parameters for creating an incident
@@ -33,10 +37,11 @@ type CreateIncidentRequest struct {
 	OriginChannelID   string
 	OriginChannelName string
 	CreatedBy         string
+	InitialTriage     bool // Whether to start with Triage status
 }
 
 // NewIncident creates a new Incident instance
-func NewIncident(id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, createdBy types.SlackUserID) (*Incident, error) {
+func NewIncident(id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, createdBy types.SlackUserID, initialTriage bool) (*Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -52,6 +57,16 @@ func NewIncident(id types.IncidentID, title, description, categoryID string, ori
 
 	channelName := formatIncidentChannelName(id, title)
 
+	// Set initial status based on triage flag
+	var initialStatus types.IncidentStatus
+	if initialTriage {
+		initialStatus = types.IncidentStatusTriage
+	} else {
+		initialStatus = types.IncidentStatusHandling
+	}
+
+	now := time.Now()
+
 	return &Incident{
 		ID:                id,
 		Title:             title,
@@ -61,7 +76,10 @@ func NewIncident(id types.IncidentID, title, description, categoryID string, ori
 		OriginChannelID:   originChannelID,
 		OriginChannelName: originChannelName,
 		CreatedBy:         createdBy,
-		CreatedAt:         time.Now(),
+		CreatedAt:         now,
+		Status:            initialStatus,
+		Lead:              createdBy, // Creator becomes initial lead
+		InitialTriage:     initialTriage,
 	}, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
+	"github.com/secmon-lab/lycaon/pkg/utils/apperr"
 	"github.com/slack-go/slack"
 )
 
@@ -41,7 +42,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), types.SlackUserID(req.CreatedBy))
+	incident, err := model.NewIncident(incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), types.SlackUserID(req.CreatedBy), req.InitialTriage)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}
@@ -62,11 +63,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 		_, err = u.slackClient.SetPurposeOfConversationContext(ctx, channel.ID, req.Title)
 		if err != nil {
 			// Log error but don't fail - setting purpose is nice to have but not critical
-			ctxlog.From(ctx).Warn("Failed to set channel purpose",
-				"error", err,
-				"channelID", channel.ID,
-				"title", req.Title,
-			)
+			apperr.Handle(ctx, err)
 		}
 	}
 
@@ -77,12 +74,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	_, err = u.slackClient.InviteUsersToConversation(ctx, channel.ID, req.CreatedBy)
 	if err != nil {
 		// Log error but don't fail - user might already be in channel or invitation might fail for other reasons
-		// The incident is still created successfully
-		ctxlog.From(ctx).Warn("Failed to invite user to incident channel",
-			"error", err,
-			"channelID", channel.ID,
-			"userID", req.CreatedBy,
-		)
+		apperr.Handle(ctx, err)
 	}
 
 	// Post welcome message to the incident channel
@@ -94,16 +86,26 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	)
 	if err != nil {
 		// Log error but don't fail - welcome message is nice to have but not critical
-		ctxlog.From(ctx).Warn("Failed to post welcome message to incident channel",
-			"error", err,
-			"channelID", channel.ID,
-			"incidentNumber", incidentNumber,
-		)
+		apperr.Handle(ctx, err)
 	}
 
 	// Save incident to repository
 	if err := u.repo.PutIncident(ctx, incident); err != nil {
 		return nil, goerr.Wrap(err, "failed to save incident")
+	}
+
+	// Save initial status history
+	initialHistory := &model.StatusHistory{
+		ID:         types.NewStatusHistoryID(),
+		IncidentID: incident.ID,
+		Status:     incident.Status,
+		ChangedBy:  incident.CreatedBy,
+		ChangedAt:  incident.CreatedAt,
+		Note:       "Incident created",
+	}
+	if err := u.repo.AddStatusHistory(ctx, initialHistory); err != nil {
+		// Log error but don't fail - incident was created successfully
+		apperr.Handle(ctx, err)
 	}
 
 	// Category-based invitation process (serial execution)
@@ -129,10 +131,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 			)
 			if err != nil {
 				// Log error but continue with incident creation
-				ctxlog.From(ctx).Error("Category invitation failed",
-					"error", err,
-					"categoryID", incident.CategoryID,
-					"incidentID", incident.ID)
+				apperr.Handle(ctx, err)
 			}
 		}
 	}
@@ -164,10 +163,7 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 	channelInfo, err := u.slackClient.GetConversationInfo(ctx, originChannelID, false)
 	if err != nil {
 		// If we can't get channel info, use channel ID as name
-		ctxlog.From(ctx).Warn("Failed to get conversation info, using channel ID as name",
-			"error", err,
-			"channelID", originChannelID,
-		)
+		apperr.Handle(ctx, err)
 		channelInfo = &slack.Channel{
 			GroupConversation: slack.GroupConversation{
 				Name: originChannelID,
@@ -203,12 +199,7 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 	)
 	if err != nil {
 		// Log error but don't fail - message is nice to have but not critical
-		// The incident is already created successfully
-		ctxlog.From(ctx).Warn("Failed to post success message to original channel",
-			"error", err,
-			"channelID", originChannelID,
-			"incidentChannelID", incident.ChannelID,
-		)
+		apperr.Handle(ctx, err)
 	}
 
 	return incident, nil
