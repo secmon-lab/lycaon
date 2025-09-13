@@ -81,11 +81,11 @@ const IncidentList: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'open':
-        return 'bg-red-100 text-red-700 border-red-200';
+        return 'bg-red-500 text-white border-red-600';
       case 'closed':
-        return 'bg-green-100 text-green-700 border-green-200';
+        return 'bg-green-500 text-white border-green-600';
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-gray-500 text-white border-gray-600';
     }
   };
 
