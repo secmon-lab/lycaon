@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -61,8 +61,7 @@ interface IncidentsData {
 
 const IncidentList: React.FC = () => {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const rowsPerPage = 20;
 
   const { loading, error, data, refetch } = useQuery<IncidentsData>(
     GET_INCIDENTS,
@@ -70,9 +69,6 @@ const IncidentList: React.FC = () => {
       variables: {
         first: rowsPerPage,
         after: null,
-      },
-      onError: (error) => {
-        console.error('GraphQL Error:', error);
       },
     }
   );
@@ -118,8 +114,8 @@ const IncidentList: React.FC = () => {
     );
   }
 
-  const incidents = data?.incidents.edges.map((edge: IncidentEdge) => edge.node) || [];
-  const totalCount = data?.incidents.totalCount || 0;
+  const incidents = data?.incidents?.edges?.map((edge: IncidentEdge) => edge.node) || [];
+  const totalCount = data?.incidents?.totalCount || 0;
 
   return (
     <div className="space-y-6">

@@ -21,7 +21,6 @@ import {
   Hash,
   AlertCircle,
   X,
-  ChevronRight,
 } from 'lucide-react';
 
 interface User {
