@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { GET_INCIDENTS } from '../graphql/queries';
 import { cn } from '../lib/utils';
-import { getUserBySlackId } from '../api/auth';
 import { Button } from '../components/ui/Button';
 import {
   AlertCircle,
@@ -17,6 +16,16 @@ import {
   Plus,
 } from 'lucide-react';
 
+interface User {
+  id: string;
+  slackUserId: string;
+  name: string;
+  realName: string;
+  displayName: string;
+  email: string;
+  avatarUrl: string;
+}
+
 interface Incident {
   id: string;
   channelId: string;
@@ -27,6 +36,7 @@ interface Incident {
   categoryName?: string;
   status: string;
   createdBy: string;
+  createdByUser?: User;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,7 +63,6 @@ const IncidentList: React.FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
 
   const { loading, error, data, refetch } = useQuery<IncidentsData>(
     GET_INCIDENTS,
@@ -68,23 +77,6 @@ const IncidentList: React.FC = () => {
     }
   );
 
-  // Fetch user names for all incidents
-  useEffect(() => {
-    if (data?.incidents.edges) {
-      const uniqueUserIds = new Set(
-        data.incidents.edges.map(edge => edge.node.createdBy)
-      );
-      
-      uniqueUserIds.forEach(async (userId) => {
-        if (!userNames.has(userId)) {
-          const user = await getUserBySlackId(userId);
-          if (user) {
-            setUserNames(prev => new Map(prev).set(userId, user.name));
-          }
-        }
-      });
-    }
-  }, [data?.incidents.edges]);
 
   const handleViewIncident = (id: string) => {
     navigate(`/incidents/${id}`);
@@ -262,8 +254,19 @@ const IncidentList: React.FC = () => {
                       {incident.channelName}
                     </span>
                     <span className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {userNames.get(incident.createdBy) || incident.createdBy}
+                      {incident.createdByUser?.avatarUrl ? (
+                        <img 
+                          src={incident.createdByUser.avatarUrl} 
+                          alt={incident.createdByUser.displayName || incident.createdByUser.name}
+                          className="h-4 w-4 rounded-full"
+                        />
+                      ) : (
+                        <User className="h-3 w-3" />
+                      )}
+                      {incident.createdByUser?.displayName || 
+                       incident.createdByUser?.realName || 
+                       incident.createdByUser?.name || 
+                       incident.createdBy}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />

@@ -12,9 +12,20 @@ type Incident {
   originChannelId: String!
   originChannelName: String!
   createdBy: String!
+  createdByUser: User
   createdAt: Time!
   updatedAt: Time!
   tasks: [Task!]!
+}
+
+type User {
+  id: ID!
+  slackUserId: String!
+  name: String!
+  realName: String!
+  displayName: String!
+  email: String!
+  avatarUrl: String!
 }
 
 type Task {

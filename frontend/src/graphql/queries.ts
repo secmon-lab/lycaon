@@ -1,5 +1,18 @@
 import { gql } from '@apollo/client';
 
+// Fragment for user fields
+export const USER_FIELDS = gql`
+  fragment UserFields on User {
+    id
+    slackUserId
+    name
+    realName
+    displayName
+    email
+    avatarUrl
+  }
+`;
+
 // Fragment for incident fields
 export const INCIDENT_FIELDS = gql`
   fragment IncidentFields on Incident {
@@ -14,9 +27,13 @@ export const INCIDENT_FIELDS = gql`
     originChannelId
     originChannelName
     createdBy
+    createdByUser {
+      ...UserFields
+    }
     createdAt
     updatedAt
   }
+  ${USER_FIELDS}
 `;
 
 // Fragment for task fields

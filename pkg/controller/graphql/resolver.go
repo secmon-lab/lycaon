@@ -3,6 +3,7 @@ package graphql
 import (
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/usecase"
 )
 
 // This file will not be regenerated automatically.
@@ -16,6 +17,7 @@ type Resolver struct {
 	incidentUC interfaces.Incident
 	taskUC     interfaces.Task
 	categories *model.CategoriesConfig
+	userUC     *usecase.UserUseCase
 }
 
 // UseCases contains all usecase interfaces
@@ -32,5 +34,6 @@ func NewResolver(repo interfaces.Repository, slackSvc interfaces.SlackClient, uc
 		incidentUC: uc.IncidentUC,
 		taskUC:     uc.TaskUC,
 		categories: categories,
+		userUC:     usecase.NewUserUseCase(repo, slackSvc),
 	}
 }

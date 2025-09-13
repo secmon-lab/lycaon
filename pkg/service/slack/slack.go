@@ -213,6 +213,15 @@ func (s *Service) GetUsersContext(ctx context.Context) ([]slack.User, error) {
 	return users, nil
 }
 
+// GetUserInfoContext retrieves information about a specific user
+func (s *Service) GetUserInfoContext(ctx context.Context, userID string) (*slack.User, error) {
+	user, err := s.client.GetUserInfoContext(ctx, userID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get user info", goerr.V("userID", userID))
+	}
+	return user, nil
+}
+
 // GetUserGroupsContext retrieves the list of user groups from the workspace
 func (s *Service) GetUserGroupsContext(ctx context.Context) ([]slack.UserGroup, error) {
 	groups, err := s.client.GetUserGroupsContext(ctx)

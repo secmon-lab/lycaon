@@ -24,6 +24,7 @@ type SlackClient interface {
 
 	// User and group resolution methods
 	GetUsersContext(ctx context.Context) ([]slack.User, error)
+	GetUserInfoContext(ctx context.Context, userID string) (*slack.User, error)
 	GetUserGroupsContext(ctx context.Context) ([]slack.UserGroup, error)
 	GetUserGroupMembersContext(ctx context.Context, groupID string) ([]string, error)
 }

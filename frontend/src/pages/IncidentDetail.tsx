@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { format } from 'date-fns';
 import { GET_INCIDENT } from '../graphql/queries';
 import { CREATE_TASK, UPDATE_TASK, DELETE_TASK } from '../graphql/mutations';
-import { getUserBySlackId } from '../api/auth';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -25,6 +24,16 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+interface User {
+  id: string;
+  slackUserId: string;
+  name: string;
+  realName: string;
+  displayName: string;
+  email: string;
+  avatarUrl: string;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -44,6 +53,7 @@ interface Incident {
   categoryName?: string;
   status: string;
   createdBy: string;
+  createdByUser?: User;
   createdAt: string;
   updatedAt: string;
   tasks: Task[];
@@ -55,7 +65,6 @@ const IncidentDetail: React.FC = () => {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
-  const [createdByName, setCreatedByName] = useState<string>('');
 
   const { loading, error, data, refetch } = useQuery<{ incident: Incident }>(
     GET_INCIDENT,
@@ -82,18 +91,6 @@ const IncidentDetail: React.FC = () => {
     onCompleted: () => refetch(),
   });
 
-  // Fetch user name when incident data loads
-  useEffect(() => {
-    if (data?.incident?.createdBy) {
-      getUserBySlackId(data.incident.createdBy).then(user => {
-        if (user) {
-          setCreatedByName(user.name);
-        } else {
-          setCreatedByName(data.incident.createdBy);
-        }
-      });
-    }
-  }, [data?.incident?.createdBy]);
 
   const handleCreateTask = () => {
     if (!newTaskTitle.trim() || !id) return;
@@ -389,8 +386,18 @@ const IncidentDetail: React.FC = () => {
                   <User className="h-3 w-3" />
                   Created By
                 </dt>
-                <dd className="mt-1 text-sm text-slate-900">
-                  {createdByName || incident.createdBy}
+                <dd className="mt-1 text-sm text-slate-900 flex items-center gap-2">
+                  {incident.createdByUser?.avatarUrl && (
+                    <img 
+                      src={incident.createdByUser.avatarUrl}
+                      alt={incident.createdByUser.displayName || incident.createdByUser.name}
+                      className="h-6 w-6 rounded-full"
+                    />
+                  )}
+                  {incident.createdByUser?.displayName || 
+                   incident.createdByUser?.realName || 
+                   incident.createdByUser?.name || 
+                   incident.createdBy}
                 </dd>
               </div>
 

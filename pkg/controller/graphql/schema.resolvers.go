@@ -63,6 +63,21 @@ func (r *incidentResolver) CreatedBy(ctx context.Context, obj *model.Incident) (
 	return string(obj.CreatedBy), nil
 }
 
+// CreatedByUser is the resolver for the createdByUser field.
+func (r *incidentResolver) CreatedByUser(ctx context.Context, obj *model.Incident) (*model.User, error) {
+	if r.userUC == nil {
+		return nil, nil
+	}
+
+	user, err := r.userUC.GetOrFetchUser(ctx, obj.CreatedBy)
+	if err != nil {
+		// Log error but don't fail - return nil instead
+		return nil, nil
+	}
+
+	return user, nil
+}
+
 // UpdatedAt is the resolver for the updatedAt field.
 func (r *incidentResolver) UpdatedAt(ctx context.Context, obj *model.Incident) (*time.Time, error) {
 	// Use CreatedAt as UpdatedAt for now - could be enhanced with proper update tracking
@@ -297,6 +312,16 @@ func (r *taskResolver) ChannelID(ctx context.Context, obj *model.Task) (string, 
 	return string(obj.ChannelID), nil
 }
 
+// ID is the resolver for the id field.
+func (r *userResolver) ID(ctx context.Context, obj *model.User) (string, error) {
+	return string(obj.ID), nil
+}
+
+// SlackUserID is the resolver for the slackUserId field.
+func (r *userResolver) SlackUserID(ctx context.Context, obj *model.User) (string, error) {
+	return string(obj.SlackUserID), nil
+}
+
 // Incident returns IncidentResolver implementation.
 func (r *Resolver) Incident() IncidentResolver { return &incidentResolver{r} }
 
@@ -309,7 +334,11 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 // Task returns TaskResolver implementation.
 func (r *Resolver) Task() TaskResolver { return &taskResolver{r} }
 
+// User returns UserResolver implementation.
+func (r *Resolver) User() UserResolver { return &userResolver{r} }
+
 type incidentResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type taskResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }
