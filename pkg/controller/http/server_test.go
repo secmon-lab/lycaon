@@ -165,10 +165,18 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 
+	// Create Auth UC with mock Slack config
+	slackConfig := &config.SlackConfig{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+	}
+	authUC := usecase.NewAuth(context.Background(), repo, slackConfig)
+
 	// Create GraphQL resolver
 	resolver := graphql.NewResolver(repo, mockSlack, &graphql.UseCases{
 		IncidentUC: incidentUC,
 		TaskUC:     taskUC,
+		AuthUC:     authUC,
 	}, categories)
 
 	// Create GraphQL server directly without auth middleware

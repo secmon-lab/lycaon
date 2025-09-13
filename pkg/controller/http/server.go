@@ -81,7 +81,7 @@ func NewServer(
 
 	// GraphQL endpoint
 	if repo != nil && incidentUC != nil && taskUC != nil {
-		graphqlHandler := createGraphQLHandler(repo, slackClient, incidentUC, taskUC, categories)
+		graphqlHandler := createGraphQLHandler(repo, slackClient, incidentUC, taskUC, authUC, categories)
 
 		router.Route("/graphql", func(r chi.Router) {
 			// Apply authentication middleware to GraphQL
@@ -199,10 +199,11 @@ func handleFallbackHome(w http.ResponseWriter, r *http.Request) {
 }
 
 // createGraphQLHandler creates a GraphQL handler with dependencies
-func createGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, incidentUC interfaces.Incident, taskUC interfaces.Task, categories *model.CategoriesConfig) http.Handler {
+func createGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, incidentUC interfaces.Incident, taskUC interfaces.Task, authUC interfaces.Auth, categories *model.CategoriesConfig) http.Handler {
 	useCases := &graphql.UseCases{
 		IncidentUC: incidentUC,
 		TaskUC:     taskUC,
+		AuthUC:     authUC,
 	}
 
 	resolver := graphql.NewResolver(repo, slackClient, useCases, categories)

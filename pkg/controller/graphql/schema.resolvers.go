@@ -157,8 +157,25 @@ func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.Create
 		return nil, goerr.Wrap(err, "incident not found", goerr.V("incidentID", incidentID))
 	}
 
+	// Get the authenticated user from context
+	var slackUserID types.SlackUserID
+	if authCtx, ok := model.GetAuthContext(ctx); ok && authCtx != nil {
+		// Get user from session
+		if authCtx.SessionID != "" {
+			user, err := r.authUC.GetUserFromSession(ctx, authCtx.SessionID)
+			if err == nil && user != nil {
+				slackUserID = user.SlackUserID
+			}
+		}
+	}
+	
+	// Fall back to "system" if no user found
+	if slackUserID == "" {
+		slackUserID = types.SlackUserID("system")
+	}
+
 	// Create task using TaskUC
-	task, err := r.taskUC.CreateTask(ctx, incidentID, input.Title, types.SlackUserID("system"), types.ChannelID(""), "")
+	task, err := r.taskUC.CreateTask(ctx, incidentID, input.Title, slackUserID, types.ChannelID(""), "")
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create task")
 	}
