@@ -59,7 +59,12 @@ func NewStatusHistoryID() StatusHistoryID {
 	if _, err := rand.Read(uuid[6:]); err != nil {
 		// Fallback to timestamp-based generation if crypto/rand fails
 		for i := 6; i < 16; i++ {
-			uuid[i] = byte(now >> uint(8*(i-6)))
+			shift := 8 * (i - 6)
+			if shift < 64 { // Prevent shift overflow
+				uuid[i] = byte(now >> shift)
+			} else {
+				uuid[i] = 0
+			}
 		}
 	}
 
