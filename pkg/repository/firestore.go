@@ -778,6 +778,84 @@ func (f *Firestore) ListTasksByIncident(ctx context.Context, incidentID types.In
 	return tasks, nil
 }
 
+// UpdateIncidentAtomic updates an incident atomically using a transaction
+func (f *Firestore) UpdateIncidentAtomic(ctx context.Context, incidentID types.IncidentID, updateFn func(*model.Incident) error) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+
+	docRef := f.client.Collection(incidentsCollection).Doc(incidentID.String())
+	
+	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		// Get the current incident within the transaction
+		doc, err := tx.Get(docRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return goerr.Wrap(model.ErrIncidentNotFound, "incident not found", goerr.V("incidentID", incidentID))
+			}
+			return goerr.Wrap(err, "failed to get incident in transaction", goerr.V("incidentID", incidentID))
+		}
+
+		var incident model.Incident
+		if err := doc.DataTo(&incident); err != nil {
+			return goerr.Wrap(err, "failed to unmarshal incident", goerr.V("incidentID", incidentID))
+		}
+
+		// Apply the update function
+		if err := updateFn(&incident); err != nil {
+			return goerr.Wrap(err, "failed to update incident", goerr.V("incidentID", incidentID))
+		}
+
+		// Write the updated incident back
+		return tx.Set(docRef, &incident)
+	})
+}
+
+// UpdateTaskAtomic updates a task atomically using a transaction
+func (f *Firestore) UpdateTaskAtomic(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updateFn func(*model.Task) error) error {
+	if incidentID <= 0 {
+		return goerr.New("incident ID must be positive", goerr.V("incidentID", incidentID))
+	}
+	if taskID == "" {
+		return goerr.New("task ID is empty")
+	}
+
+	taskDocRef := f.client.Collection(incidentsCollection).Doc(incidentID.String()).
+		Collection(tasksCollection).Doc(taskID.String())
+	
+	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		// Get the current task within the transaction
+		doc, err := tx.Get(taskDocRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return goerr.Wrap(model.ErrTaskNotFound, "task not found", 
+					goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+			}
+			return goerr.Wrap(err, "failed to get task in transaction", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+
+		var task model.Task
+		if err := doc.DataTo(&task); err != nil {
+			return goerr.Wrap(err, "failed to unmarshal task", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+
+		// Apply the update function
+		if err := updateFn(&task); err != nil {
+			return goerr.Wrap(err, "failed to update task", 
+				goerr.V("incidentID", incidentID), goerr.V("taskID", taskID))
+		}
+
+		// Ensure IncidentID and ID remain unchanged
+		task.IncidentID = incidentID
+		task.ID = taskID
+
+		// Write the updated task back
+		return tx.Set(taskDocRef, &task)
+	})
+}
+
 func (f *Firestore) Close() error {
 	if f.client != nil {
 		return f.client.Close()

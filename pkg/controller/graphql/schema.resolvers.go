@@ -14,6 +14,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	graphql1 "github.com/secmon-lab/lycaon/pkg/domain/model/graphql"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
+	"github.com/secmon-lab/lycaon/pkg/repository"
 )
 
 // ID is the resolver for the id field.
@@ -98,7 +99,28 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 	}
 	incidentID := types.IncidentID(incidentIDInt)
 
-	// Get existing incident
+	// Check if repository is Firestore for atomic update
+	if firestoreRepo, ok := r.repo.(*repository.Firestore); ok {
+		// Use atomic transaction for Firestore
+		var updatedIncident *model.Incident
+		err := firestoreRepo.UpdateIncidentAtomic(ctx, incidentID, func(incident *model.Incident) error {
+			// Update fields if provided
+			if input.Title != nil {
+				incident.Title = *input.Title
+			}
+			if input.Description != nil {
+				incident.Description = *input.Description
+			}
+			updatedIncident = incident
+			return nil
+		})
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to update incident", goerr.V("incidentID", incidentID))
+		}
+		return updatedIncident, nil
+	}
+
+	// Fallback to non-atomic update for other repositories (e.g., Memory for testing)
 	incident, err := r.repo.GetIncident(ctx, incidentID)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to get incident", goerr.V("incidentID", incidentID))
@@ -157,12 +179,43 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 	// Parse task ID
 	taskID := types.TaskID(id)
 
-	// Get existing task
+	// First get the task to retrieve its IncidentID
 	task, err := r.repo.GetTask(ctx, taskID)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to get task", goerr.V("taskID", taskID))
 	}
+	incidentID := task.IncidentID
 
+	// Check if repository is Firestore for atomic update
+	if firestoreRepo, ok := r.repo.(*repository.Firestore); ok {
+		// Use atomic transaction for Firestore
+		var updatedTask *model.Task
+		err := firestoreRepo.UpdateTaskAtomic(ctx, incidentID, taskID, func(task *model.Task) error {
+			// Update fields if provided
+			if input.Title != nil {
+				if err := task.UpdateTitle(*input.Title); err != nil {
+					return goerr.Wrap(err, "failed to update task title")
+				}
+			}
+			if input.Description != nil {
+				task.UpdateDescription(*input.Description)
+			}
+			if input.Status != nil {
+				status := model.TaskStatus(*input.Status)
+				if err := task.UpdateStatus(status); err != nil {
+					return goerr.Wrap(err, "failed to update task status")
+				}
+			}
+			updatedTask = task
+			return nil
+		})
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to update task", goerr.V("taskID", taskID))
+		}
+		return updatedTask, nil
+	}
+
+	// Fallback to non-atomic update for other repositories (e.g., Memory for testing)
 	// Update fields if provided
 	if input.Title != nil {
 		if err := task.UpdateTitle(*input.Title); err != nil {
