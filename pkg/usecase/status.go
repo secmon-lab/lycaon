@@ -334,19 +334,3 @@ func (uc *StatusUseCase) getStatusEmoji(status types.IncidentStatus) string {
 		return "⚪"
 	}
 }
-
-// getStatusColor returns color for status display
-func (uc *StatusUseCase) getStatusColor(status types.IncidentStatus) string {
-	switch status {
-	case types.IncidentStatusTriage:
-		return "#f59e0b" // Amber
-	case types.IncidentStatusHandling:
-		return "#f44336" // Red
-	case types.IncidentStatusMonitoring:
-		return "#ff9800" // Orange
-	case types.IncidentStatusClosed:
-		return "#4caf50" // Green
-	default:
-		return "#9e9e9e" // Grey
-	}
-}

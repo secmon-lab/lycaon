@@ -69,9 +69,15 @@ func (r *incidentResolver) LeadUser(ctx context.Context, obj *model.Incident) (*
 
 	user, err := r.userUC.GetOrFetchUser(ctx, obj.Lead)
 	if err != nil {
-		// Use apperr.Handle to properly log the error instead of suppressing it
+		// Log the error for monitoring but don't fail the entire query
 		apperr.Handle(ctx, err)
-		return nil, nil
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
+		return &model.User{
+			SlackUserID: obj.Lead,
+			Name:        string(obj.Lead),
+			Email:       "",
+		}, nil
 	}
 
 	return user, nil
@@ -94,15 +100,21 @@ func (r *incidentResolver) CreatedBy(ctx context.Context, obj *model.Incident) (
 
 // CreatedByUser is the resolver for the createdByUser field.
 func (r *incidentResolver) CreatedByUser(ctx context.Context, obj *model.Incident) (*model.User, error) {
-	if r.userUC == nil {
+	if r.userUC == nil || obj.CreatedBy == "" {
 		return nil, nil
 	}
 
 	user, err := r.userUC.GetOrFetchUser(ctx, obj.CreatedBy)
 	if err != nil {
-		// Use apperr.Handle to properly log the error instead of suppressing it
+		// Log the error for monitoring but don't fail the entire query
 		apperr.Handle(ctx, err)
-		return nil, nil
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
+		return &model.User{
+			SlackUserID: obj.CreatedBy,
+			Name:        string(obj.CreatedBy),
+			Email:       "",
+		}, nil
 	}
 
 	return user, nil
@@ -500,9 +512,10 @@ func (r *statusHistoryResolver) ChangedBy(ctx context.Context, obj *model.Status
 
 	user, err := r.userUC.GetOrFetchUser(ctx, obj.ChangedBy)
 	if err != nil {
-		// Use apperr.Handle to properly log the error instead of suppressing it
+		// Log the error for monitoring but don't fail the entire query
 		apperr.Handle(ctx, err)
-		// Return a minimal user record if fetch fails
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
 		return &model.User{
 			SlackUserID: obj.ChangedBy,
 			Name:        string(obj.ChangedBy),
@@ -540,9 +553,10 @@ func (r *taskResolver) AssigneeUser(ctx context.Context, obj *model.Task) (*mode
 
 	user, err := r.userUC.GetOrFetchUser(ctx, obj.AssigneeID)
 	if err != nil {
-		// Use apperr.Handle to properly log the error instead of suppressing it
+		// Log the error for monitoring but don't fail the entire query
 		apperr.Handle(ctx, err)
-		// Return a minimal user record if fetch fails
+		// Return a fallback user with minimal information
+		// This ensures the UI can still display something useful
 		return &model.User{
 			SlackUserID: obj.AssigneeID,
 			Name:        string(obj.AssigneeID),

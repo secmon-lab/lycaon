@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client/react';
 import { format } from 'date-fns';
 import { GET_INCIDENT } from '../graphql/queries';
-import { IncidentStatus } from '../types/incident';
+import { IncidentStatus, toIncidentStatus } from '../types/incident';
 import StatusSection from '../components/IncidentDetail/StatusSection';
 import TaskList from '../components/IncidentDetail/TaskList';
 import {
@@ -43,6 +43,14 @@ const IncidentDetail: React.FC = () => {
   }
 
   const incident = data.incident;
+  
+  // Validate and convert status safely
+  const validStatus = toIncidentStatus(incident.status);
+  if (!validStatus) {
+    console.error('Invalid incident status:', incident.status);
+    // Default to triage if invalid
+    incident.status = IncidentStatus.TRIAGE;
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-4">
@@ -134,7 +142,7 @@ const IncidentDetail: React.FC = () => {
           {/* Status Management Section */}
           <StatusSection
             incidentId={incident.id}
-            currentStatus={incident.status as IncidentStatus}
+            currentStatus={validStatus || IncidentStatus.TRIAGE}
             statusHistories={incident.statusHistories || []}
             className="mb-4"
           />

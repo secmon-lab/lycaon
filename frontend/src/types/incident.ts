@@ -71,6 +71,19 @@ export interface Task {
   completedAt?: string;
 }
 
+// Type guard to check if a value is a valid IncidentStatus
+export const isIncidentStatus = (value: unknown): value is IncidentStatus => {
+  return Object.values(IncidentStatus).includes(value as IncidentStatus);
+};
+
+// Safe conversion function with validation
+export const toIncidentStatus = (value: unknown): IncidentStatus | null => {
+  if (isIncidentStatus(value)) {
+    return value;
+  }
+  return null;
+};
+
 // Status display configurations
 export const STATUS_CONFIG = {
   [IncidentStatus.TRIAGE]: {
@@ -101,7 +114,7 @@ export const STATUS_CONFIG = {
 
 // Helper functions
 export const getStatusConfig = (status: IncidentStatus | string | null | undefined) => {
-  if (!status || typeof status !== 'string' || !(status in STATUS_CONFIG)) {
+  if (!status || typeof status !== 'string') {
     return {
       label: 'Not Set',
       color: '#6b7280',
@@ -109,7 +122,19 @@ export const getStatusConfig = (status: IncidentStatus | string | null | undefin
       description: 'Status has not been set'
     };
   }
-  return STATUS_CONFIG[status as IncidentStatus];
+  
+  // Use type guard to safely check if it's a valid status
+  const validStatus = toIncidentStatus(status);
+  if (!validStatus) {
+    return {
+      label: 'Not Set',
+      color: '#6b7280',
+      icon: '❓',
+      description: 'Status has not been set'
+    };
+  }
+  
+  return STATUS_CONFIG[validStatus];
 };
 
 export const getStatusLabel = (status: IncidentStatus | string | null | undefined) => {
