@@ -230,18 +230,18 @@ func (u *Incident) UpdateIncidentDetails(ctx context.Context, incidentID types.I
 	hasChanges := false
 	var changes []string
 
-	// Update fields if provided
-	if title != "" && title != incident.Title {
+	// Update fields if they have changed
+	if title != incident.Title {
 		incident.Title = title
 		hasChanges = true
 		changes = append(changes, "title")
 	}
-	if description != "" && description != incident.Description {
+	if description != incident.Description {
 		incident.Description = description
 		hasChanges = true
 		changes = append(changes, "description")
 	}
-	if lead != "" && lead != incident.Lead {
+	if lead != incident.Lead {
 		incident.Lead = lead
 		hasChanges = true
 		changes = append(changes, "lead")
