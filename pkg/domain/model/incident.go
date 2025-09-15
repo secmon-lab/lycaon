@@ -21,6 +21,7 @@ type Incident struct {
 	ChannelName       types.ChannelName // Dedicated incident channel name (e.g., "inc-1-database-outage")
 	OriginChannelID   types.ChannelID   // Origin channel ID where incident was created
 	OriginChannelName types.ChannelName // Origin channel name where incident was created
+	TeamID            types.TeamID      // Slack workspace/team ID
 	CreatedBy         types.SlackUserID // Slack user ID who created the incident
 	CreatedAt         time.Time         // Creation timestamp
 	// Status management fields
@@ -36,12 +37,13 @@ type CreateIncidentRequest struct {
 	CategoryID        string
 	OriginChannelID   string
 	OriginChannelName string
+	TeamID            string
 	CreatedBy         string
 	InitialTriage     bool // Whether to start with Triage status
 }
 
 // NewIncident creates a new Incident instance
-func NewIncident(id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, createdBy types.SlackUserID, initialTriage bool) (*Incident, error) {
+func NewIncident(id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, teamID types.TeamID, createdBy types.SlackUserID, initialTriage bool) (*Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -75,6 +77,7 @@ func NewIncident(id types.IncidentID, title, description, categoryID string, ori
 		ChannelName:       types.ChannelName(channelName),
 		OriginChannelID:   originChannelID,
 		OriginChannelName: originChannelName,
+		TeamID:            teamID,
 		CreatedBy:         createdBy,
 		CreatedAt:         now,
 		Status:            initialStatus,

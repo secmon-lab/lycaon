@@ -6,6 +6,7 @@ import { GET_INCIDENTS } from '../graphql/queries';
 import { Button } from '../components/ui/Button';
 import { IncidentStatus } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
+import SlackChannelLink from '../components/common/SlackChannelLink';
 import {
   AlertCircle,
   RefreshCw,
@@ -13,7 +14,6 @@ import {
   Clock,
   Hash,
   User,
-  MessageSquare,
   Plus,
 } from 'lucide-react';
 
@@ -36,6 +36,7 @@ interface Incident {
   categoryId: string;
   categoryName?: string;
   status: IncidentStatus;
+  teamId?: string;
   createdBy: string;
   createdByUser?: User;
   createdAt: string;
@@ -233,9 +234,14 @@ const IncidentList: React.FC = () => {
                     </p>
                   )}
                   <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" />
-                      {incident.channelName}
+                    <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <SlackChannelLink
+                        channelId={incident.channelId}
+                        channelName={incident.channelName}
+                        teamId={incident.teamId}
+                        showIcon={false}
+                        className="text-xs"
+                      />
                     </span>
                     <span className="flex items-center gap-1">
                       {incident.createdByUser?.avatarUrl ? (

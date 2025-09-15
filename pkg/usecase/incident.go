@@ -43,8 +43,20 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 		return nil, goerr.Wrap(err, "failed to get next incident number")
 	}
 
+	// Get Team ID from Slack API
+	var teamID types.TeamID
+	authResp, err := u.slackClient.AuthTestContext(ctx)
+	if err != nil {
+		// Log warning but continue without TeamID
+		ctxlog.From(ctx).Warn("Failed to get Team ID from Slack API",
+			"error", err,
+			"description", "Slack channel links will not work without Team ID")
+	} else {
+		teamID = types.TeamID(authResp.TeamID)
+	}
+
 	// Create incident model
-	incident, err := model.NewIncident(incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), types.SlackUserID(req.CreatedBy), req.InitialTriage)
+	incident, err := model.NewIncident(incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}

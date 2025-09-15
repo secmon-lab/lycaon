@@ -93,6 +93,15 @@ func (r *incidentResolver) OriginChannelName(ctx context.Context, obj *model.Inc
 	return string(obj.OriginChannelName), nil
 }
 
+// TeamID is the resolver for the teamId field.
+func (r *incidentResolver) TeamID(ctx context.Context, obj *model.Incident) (*string, error) {
+	if obj.TeamID == "" {
+		return nil, nil
+	}
+	teamID := string(obj.TeamID)
+	return &teamID, nil
+}
+
 // CreatedBy is the resolver for the createdBy field.
 func (r *incidentResolver) CreatedBy(ctx context.Context, obj *model.Incident) (string, error) {
 	return string(obj.CreatedBy), nil

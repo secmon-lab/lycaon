@@ -43,6 +43,14 @@ func (n ChannelName) String() string {
 	return string(n)
 }
 
+// TeamID represents a Slack workspace/team ID
+type TeamID string
+
+// String returns the string representation
+func (id TeamID) String() string {
+	return string(id)
+}
+
 // MessageID represents a message identifier
 type MessageID string
 
