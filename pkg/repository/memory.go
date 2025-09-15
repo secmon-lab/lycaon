@@ -142,23 +142,14 @@ func (m *Memory) GetUser(ctx context.Context, id types.UserID) (*model.User, err
 }
 
 // GetUserBySlackID retrieves a user by Slack ID
+// Since User.ID is now the Slack User ID, this just calls GetUser
 func (m *Memory) GetUserBySlackID(ctx context.Context, slackUserID types.SlackUserID) (*model.User, error) {
 	if slackUserID == "" {
 		return nil, goerr.New("slack user ID is empty")
 	}
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	for _, user := range m.users {
-		if user.SlackUserID == slackUserID {
-			// Return a copy to prevent external modifications
-			userCopy := *user
-			return &userCopy, nil
-		}
-	}
-
-	return nil, goerr.New("user not found")
+	// Convert SlackUserID to UserID and call GetUser
+	return m.GetUser(ctx, types.UserID(slackUserID))
 }
 
 // SaveSession saves a session to memory

@@ -74,9 +74,9 @@ func (r *incidentResolver) LeadUser(ctx context.Context, obj *model.Incident) (*
 		// Return a fallback user with minimal information
 		// This ensures the UI can still display something useful
 		return &model.User{
-			SlackUserID: obj.Lead,
-			Name:        string(obj.Lead),
-			Email:       "",
+			ID:    types.UserID(obj.Lead),
+			Name:  string(obj.Lead),
+			Email: "",
 		}, nil
 	}
 
@@ -111,9 +111,9 @@ func (r *incidentResolver) CreatedByUser(ctx context.Context, obj *model.Inciden
 		// Return a fallback user with minimal information
 		// This ensures the UI can still display something useful
 		return &model.User{
-			SlackUserID: obj.CreatedBy,
-			Name:        string(obj.CreatedBy),
-			Email:       "",
+			ID:    types.UserID(obj.CreatedBy),
+			Name:  string(obj.CreatedBy),
+			Email: "",
 		}, nil
 	}
 
@@ -225,7 +225,7 @@ func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID 
 		if authCtx.SessionID != "" {
 			user, err := r.authUC.GetUserFromSession(ctx, authCtx.SessionID)
 			if err == nil && user != nil {
-				userID = user.SlackUserID
+				userID = types.SlackUserID(user.ID)
 			}
 		}
 	}
@@ -272,7 +272,7 @@ func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.Create
 		if authCtx.SessionID != "" {
 			user, err := r.authUC.GetUserFromSession(ctx, authCtx.SessionID)
 			if err == nil && user != nil {
-				slackUserID = user.SlackUserID
+				slackUserID = types.SlackUserID(user.ID)
 			}
 		}
 	}
@@ -517,9 +517,9 @@ func (r *statusHistoryResolver) ChangedBy(ctx context.Context, obj *model.Status
 		// Return a fallback user with minimal information
 		// This ensures the UI can still display something useful
 		return &model.User{
-			SlackUserID: obj.ChangedBy,
-			Name:        string(obj.ChangedBy),
-			Email:       "",
+			ID:    types.UserID(obj.ChangedBy),
+			Name:  string(obj.ChangedBy),
+			Email: "",
 		}, nil
 	}
 
@@ -558,9 +558,9 @@ func (r *taskResolver) AssigneeUser(ctx context.Context, obj *model.Task) (*mode
 		// Return a fallback user with minimal information
 		// This ensures the UI can still display something useful
 		return &model.User{
-			SlackUserID: obj.AssigneeID,
-			Name:        string(obj.AssigneeID),
-			Email:       "",
+			ID:    types.UserID(obj.AssigneeID),
+			Name:  string(obj.AssigneeID),
+			Email: "",
 		}, nil
 	}
 
@@ -583,8 +583,9 @@ func (r *userResolver) ID(ctx context.Context, obj *model.User) (string, error) 
 }
 
 // SlackUserID is the resolver for the slackUserId field.
+// Since User.ID is now the Slack User ID, we return the ID
 func (r *userResolver) SlackUserID(ctx context.Context, obj *model.User) (string, error) {
-	return string(obj.SlackUserID), nil
+	return string(obj.ID), nil
 }
 
 // Incident returns IncidentResolver implementation.

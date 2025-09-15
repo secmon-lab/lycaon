@@ -292,12 +292,11 @@ func (a *Auth) HandleCallback(ctx context.Context, code, redirectURI string) (*m
 	)
 
 	return &model.User{
-		ID:          types.UserID(idToken.Sub),
-		SlackUserID: types.SlackUserID(idToken.Sub),
-		Name:        idToken.Name,
-		Email:       idToken.Email,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:        types.UserID(idToken.Sub),
+		Name:      idToken.Name,
+		Email:     idToken.Email,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}, nil
 }
 

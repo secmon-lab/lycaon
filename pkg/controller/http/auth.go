@@ -177,7 +177,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	// Create session
 	session, err := h.authUC.CreateSession(
 		r.Context(),
-		user.SlackUserID.String(),
+		user.ID.String(),
 		user.Name,
 		user.Email,
 	)
@@ -207,7 +207,7 @@ func (h *AuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	logger.Info("User authenticated successfully",
-		"userID", user.SlackUserID,
+		"userID", user.ID,
 		"userName", user.Name,
 	)
 

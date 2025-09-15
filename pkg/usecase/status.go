@@ -93,9 +93,9 @@ func (uc *StatusUseCase) GetStatusHistory(ctx context.Context, incidentID types.
 		if err != nil {
 			// If user not found, create a minimal user record
 			user = &model.User{
-				SlackUserID: history.ChangedBy,
-				Name:        string(history.ChangedBy), // Fallback to slack ID
-				Email:       "",
+				ID:    types.UserID(history.ChangedBy),
+				Name:  string(history.ChangedBy), // Fallback to slack ID
+				Email: "",
 			}
 		}
 

@@ -8,27 +8,25 @@ import (
 
 // User represents a Slack user
 type User struct {
-	ID          types.UserID      `json:"id"`
-	SlackUserID types.SlackUserID `json:"slack_user_id"`
-	Name        string            `json:"name"`
-	RealName    string            `json:"real_name"`
-	DisplayName string            `json:"display_name"`
-	Email       string            `json:"email"`
-	AvatarURL   string            `json:"avatar_url"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID          types.UserID `json:"id"`  // This is the Slack User ID
+	Name        string       `json:"name"`
+	RealName    string       `json:"real_name"`
+	DisplayName string       `json:"display_name"`
+	Email       string       `json:"email"`
+	AvatarURL   string       `json:"avatar_url"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
 // NewUser creates a new User instance
 func NewUser(slackUserID types.SlackUserID, name, email string) *User {
 	now := time.Now()
 	return &User{
-		ID:          types.NewUserID(),
-		SlackUserID: slackUserID,
-		Name:        name,
-		Email:       email,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:        types.UserID(slackUserID),  // Use Slack User ID as the primary ID
+		Name:      name,
+		Email:     email,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 }
 
@@ -43,7 +41,7 @@ func (u *User) GetDisplayName() string {
 	if u.Name != "" {
 		return u.Name
 	}
-	return string(u.SlackUserID)
+	return string(u.ID)
 }
 
 // IsExpired checks if the user data is expired (older than the given duration)
