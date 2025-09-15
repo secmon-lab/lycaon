@@ -62,8 +62,10 @@ const SlackChannelLink: React.FC<SlackChannelLinkProps> = ({
   // Render as clickable link
   return (
     <a
-      href="#"
+      href={`https://app.slack.com/client/${teamId}/${channelId}`}
       onClick={handleClick}
+      target="_blank"
+      rel="noopener noreferrer"
       className={`inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline transition-colors ${className}`}
       title={`Open #${channelName} in Slack`}
     >
