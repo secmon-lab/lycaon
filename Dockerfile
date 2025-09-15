@@ -37,6 +37,9 @@ COPY main.go ./
 COPY pkg/ ./pkg/
 COPY graphql/ ./graphql/
 
+# Copy frontend embed.go file
+COPY frontend/embed.go ./frontend/
+
 # Copy frontend build output
 COPY --from=build-frontend /app/frontend/dist /app/frontend/dist
 
