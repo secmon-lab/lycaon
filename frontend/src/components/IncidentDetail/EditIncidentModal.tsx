@@ -42,7 +42,7 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
 
   const handleSave = async () => {
     // Only include fields that have changed
-    const input: any = {};
+    const input: { title?: string; description?: string; lead?: string | null } = {};
     if (title !== currentTitle) {
       input.title = title;
     }
@@ -59,16 +59,12 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
       return;
     }
 
-    try {
-      await updateIncident({
-        variables: {
-          id: incidentId,
-          input
-        }
-      });
-    } catch (error) {
-      // Error is handled in the onError callback
-    }
+    await updateIncident({
+      variables: {
+        id: incidentId,
+        input
+      }
+    });
   };
 
   return (
