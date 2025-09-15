@@ -71,6 +71,7 @@ type ComplexityRoot struct {
 		Status            func(childComplexity int) int
 		StatusHistories   func(childComplexity int) int
 		Tasks             func(childComplexity int) int
+		TeamID            func(childComplexity int) int
 		Title             func(childComplexity int) int
 		UpdatedAt         func(childComplexity int) int
 	}
@@ -156,6 +157,7 @@ type IncidentResolver interface {
 	LeadUser(ctx context.Context, obj *model.Incident) (*model.User, error)
 	OriginChannelID(ctx context.Context, obj *model.Incident) (string, error)
 	OriginChannelName(ctx context.Context, obj *model.Incident) (string, error)
+	TeamID(ctx context.Context, obj *model.Incident) (*string, error)
 	CreatedBy(ctx context.Context, obj *model.Incident) (string, error)
 	CreatedByUser(ctx context.Context, obj *model.Incident) (*model.User, error)
 
@@ -335,6 +337,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Incident.Tasks(childComplexity), true
+
+	case "Incident.teamId":
+		if e.complexity.Incident.TeamID == nil {
+			break
+		}
+
+		return e.complexity.Incident.TeamID(childComplexity), true
 
 	case "Incident.title":
 		if e.complexity.Incident.Title == nil {
@@ -854,6 +863,7 @@ type Incident {
   leadUser: User
   originChannelId: String!
   originChannelName: String!
+  teamId: String
   createdBy: String!
   createdByUser: User
   createdAt: Time!
@@ -1706,6 +1716,47 @@ func (ec *executionContext) fieldContext_Incident_originChannelName(_ context.Co
 	return fc, nil
 }
 
+func (ec *executionContext) _Incident_teamId(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Incident_teamId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Incident().TeamID(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Incident_teamId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Incident_createdBy(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Incident_createdBy(ctx, field)
 	if err != nil {
@@ -2280,6 +2331,8 @@ func (ec *executionContext) fieldContext_IncidentEdge_node(_ context.Context, fi
 				return ec.fieldContext_Incident_originChannelId(ctx, field)
 			case "originChannelName":
 				return ec.fieldContext_Incident_originChannelName(ctx, field)
+			case "teamId":
+				return ec.fieldContext_Incident_teamId(ctx, field)
 			case "createdBy":
 				return ec.fieldContext_Incident_createdBy(ctx, field)
 			case "createdByUser":
@@ -2408,6 +2461,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncident(ctx context.Con
 				return ec.fieldContext_Incident_originChannelId(ctx, field)
 			case "originChannelName":
 				return ec.fieldContext_Incident_originChannelName(ctx, field)
+			case "teamId":
+				return ec.fieldContext_Incident_teamId(ctx, field)
 			case "createdBy":
 				return ec.fieldContext_Incident_createdBy(ctx, field)
 			case "createdByUser":
@@ -2503,6 +2558,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncidentStatus(ctx conte
 				return ec.fieldContext_Incident_originChannelId(ctx, field)
 			case "originChannelName":
 				return ec.fieldContext_Incident_originChannelName(ctx, field)
+			case "teamId":
+				return ec.fieldContext_Incident_teamId(ctx, field)
 			case "createdBy":
 				return ec.fieldContext_Incident_createdBy(ctx, field)
 			case "createdByUser":
@@ -3049,6 +3106,8 @@ func (ec *executionContext) fieldContext_Query_incident(ctx context.Context, fie
 				return ec.fieldContext_Incident_originChannelId(ctx, field)
 			case "originChannelName":
 				return ec.fieldContext_Incident_originChannelName(ctx, field)
+			case "teamId":
+				return ec.fieldContext_Incident_teamId(ctx, field)
 			case "createdBy":
 				return ec.fieldContext_Incident_createdBy(ctx, field)
 			case "createdByUser":
@@ -7029,6 +7088,39 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "teamId":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_teamId(ctx, field, obj)
 				return res
 			}
 
