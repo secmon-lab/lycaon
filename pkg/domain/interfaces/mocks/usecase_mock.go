@@ -451,6 +451,9 @@ var _ interfaces.Incident = &IncidentMock{}
 //			HandleEditIncidentActionFunc: func(ctx context.Context, requestID string, userID string, triggerID string) error {
 //				panic("mock out the HandleEditIncidentAction method")
 //			},
+//			UpdateIncidentDetailsFunc: func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID) (*model.Incident, error) {
+//				panic("mock out the UpdateIncidentDetails method")
+//			},
 //		}
 //
 //		// use mockedIncident in code that requires interfaces.Incident
@@ -484,6 +487,9 @@ type IncidentMock struct {
 
 	// HandleEditIncidentActionFunc mocks the HandleEditIncidentAction method.
 	HandleEditIncidentActionFunc func(ctx context.Context, requestID string, userID string, triggerID string) error
+
+	// UpdateIncidentDetailsFunc mocks the UpdateIncidentDetails method.
+	UpdateIncidentDetailsFunc func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID) (*model.Incident, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -572,6 +578,19 @@ type IncidentMock struct {
 			// TriggerID is the triggerID argument value.
 			TriggerID string
 		}
+		// UpdateIncidentDetails holds details about calls to the UpdateIncidentDetails method.
+		UpdateIncidentDetails []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// Title is the title argument value.
+			Title string
+			// Description is the description argument value.
+			Description string
+			// Lead is the lead argument value.
+			Lead types.SlackUserID
+		}
 	}
 	lockCreateIncident                  sync.RWMutex
 	lockCreateIncidentFromInteraction   sync.RWMutex
@@ -582,6 +601,7 @@ type IncidentMock struct {
 	lockHandleCreateIncidentActionAsync sync.RWMutex
 	lockHandleCreateIncidentWithDetails sync.RWMutex
 	lockHandleEditIncidentAction        sync.RWMutex
+	lockUpdateIncidentDetails           sync.RWMutex
 }
 
 // CreateIncident calls CreateIncidentFunc.
@@ -949,6 +969,54 @@ func (mock *IncidentMock) HandleEditIncidentActionCalls() []struct {
 	mock.lockHandleEditIncidentAction.RLock()
 	calls = mock.calls.HandleEditIncidentAction
 	mock.lockHandleEditIncidentAction.RUnlock()
+	return calls
+}
+
+// UpdateIncidentDetails calls UpdateIncidentDetailsFunc.
+func (mock *IncidentMock) UpdateIncidentDetails(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID) (*model.Incident, error) {
+	if mock.UpdateIncidentDetailsFunc == nil {
+		panic("IncidentMock.UpdateIncidentDetailsFunc: method is nil but Incident.UpdateIncidentDetails was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		IncidentID  types.IncidentID
+		Title       string
+		Description string
+		Lead        types.SlackUserID
+	}{
+		Ctx:         ctx,
+		IncidentID:  incidentID,
+		Title:       title,
+		Description: description,
+		Lead:        lead,
+	}
+	mock.lockUpdateIncidentDetails.Lock()
+	mock.calls.UpdateIncidentDetails = append(mock.calls.UpdateIncidentDetails, callInfo)
+	mock.lockUpdateIncidentDetails.Unlock()
+	return mock.UpdateIncidentDetailsFunc(ctx, incidentID, title, description, lead)
+}
+
+// UpdateIncidentDetailsCalls gets all the calls that were made to UpdateIncidentDetails.
+// Check the length with:
+//
+//	len(mockedIncident.UpdateIncidentDetailsCalls())
+func (mock *IncidentMock) UpdateIncidentDetailsCalls() []struct {
+	Ctx         context.Context
+	IncidentID  types.IncidentID
+	Title       string
+	Description string
+	Lead        types.SlackUserID
+} {
+	var calls []struct {
+		Ctx         context.Context
+		IncidentID  types.IncidentID
+		Title       string
+		Description string
+		Lead        types.SlackUserID
+	}
+	mock.lockUpdateIncidentDetails.RLock()
+	calls = mock.calls.UpdateIncidentDetails
+	mock.lockUpdateIncidentDetails.RUnlock()
 	return calls
 }
 

@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
@@ -209,4 +211,66 @@ func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChan
 // HandleCreateIncidentAction handles the complete flow when a user clicks the create incident button
 func (u *Incident) HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error) {
 	return u.handleCreateIncidentFromRequest(ctx, requestID, userID, nil)
+}
+
+// UpdateIncidentDetails updates incident title, description, and lead
+func (u *Incident) UpdateIncidentDetails(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID) (*model.Incident, error) {
+	// Validate incident ID
+	if err := incidentID.Validate(); err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+
+	// Get existing incident
+	incident, err := u.repo.GetIncident(ctx, incidentID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident")
+	}
+
+	// Track if any changes were made
+	hasChanges := false
+	var changes []string
+
+	// Update fields if provided
+	if title != "" && title != incident.Title {
+		incident.Title = title
+		hasChanges = true
+		changes = append(changes, "title")
+	}
+	if description != "" && description != incident.Description {
+		incident.Description = description
+		hasChanges = true
+		changes = append(changes, "description")
+	}
+	if lead != "" && lead != incident.Lead {
+		incident.Lead = lead
+		hasChanges = true
+		changes = append(changes, "lead")
+	}
+
+	// Only update if there are changes
+	if !hasChanges {
+		return incident, nil
+	}
+
+	// Save updated incident using PutIncident
+	if err := u.repo.PutIncident(ctx, incident); err != nil {
+		return nil, goerr.Wrap(err, "failed to update incident")
+	}
+
+	// Post update notification to incident channel
+	if incident.ChannelID != "" {
+		// Build a simple notification message
+		message := fmt.Sprintf("📝 Incident details updated: %s", strings.Join(changes, ", "))
+		_, _, err = u.slackClient.PostMessage(
+			ctx,
+			string(incident.ChannelID),
+			slack.MsgOptionText(message, false),
+		)
+		if err != nil {
+			// Log error but don't fail - notification is nice to have but not critical
+			apperr.Handle(ctx, err)
+		}
+	}
+
+	return incident, nil
 }

@@ -106,6 +106,8 @@ type Incident interface {
 	CreateIncident(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error)
 	GetIncident(ctx context.Context, id int) (*model.Incident, error)
 	GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
+	// UpdateIncidentDetails updates incident title, description, and lead
+	UpdateIncidentDetails(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID) (*model.Incident, error)
 	// CreateIncidentFromInteraction handles the complete incident creation flow from a Slack interaction
 	CreateIncidentFromInteraction(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error)
 	// HandleCreateIncidentAction handles the create incident button click action

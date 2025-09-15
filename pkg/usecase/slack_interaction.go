@@ -87,6 +87,9 @@ func (s *SlackInteraction) handleBlockActions(ctx context.Context, interaction *
 		case "edit_incident":
 			return s.handleEditIncidentAction(ctx, interaction, action)
 
+		case "edit_incident_details":
+			return s.handleEditIncidentDetailsAction(ctx, interaction, action)
+
 		case "edit_incident_status":
 			return s.handleEditIncidentStatusAction(ctx, interaction, action)
 
@@ -207,6 +210,9 @@ func (s *SlackInteraction) handleViewSubmission(ctx context.Context, interaction
 
 	case "status_change_modal":
 		return s.handleStatusChangeModalSubmission(ctx, interaction)
+
+	case "edit_incident_details_modal":
+		return s.handleEditIncidentDetailsModalSubmission(ctx, interaction)
 
 	default:
 		// Check if it's a task edit modal submission
@@ -593,6 +599,63 @@ func (s *SlackInteraction) handleEditIncidentStatusAction(ctx context.Context, i
 	return nil
 }
 
+// handleEditIncidentDetailsAction handles edit incident details button action
+func (s *SlackInteraction) handleEditIncidentDetailsAction(ctx context.Context, interaction *slack.InteractionCallback, action *slack.BlockAction) error {
+	ctxlog.From(ctx).Info("Edit incident details action triggered",
+		"user", interaction.User.ID,
+		"channel", interaction.Channel.ID,
+		"incidentID", action.Value,
+		"triggerID", interaction.TriggerID,
+	)
+
+	incidentIDStr := action.Value
+	if incidentIDStr == "" {
+		ctxlog.From(ctx).Error("Empty incident ID in action value")
+		return goerr.New("empty incident ID")
+	}
+
+	// Parse incident ID
+	incidentIDInt, err := strconv.Atoi(incidentIDStr)
+	if err != nil {
+		ctxlog.From(ctx).Error("Invalid incident ID format",
+			"error", err,
+			"incidentID", incidentIDStr,
+		)
+		return goerr.Wrap(err, "invalid incident ID format")
+	}
+	incidentID := types.IncidentID(incidentIDInt)
+
+	// Get the incident to show current values in the modal
+	incident, err := s.incidentUC.GetIncident(ctx, incidentIDInt)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to get incident for editing",
+			"error", err,
+			"incidentID", incidentID,
+		)
+		return goerr.Wrap(err, "failed to get incident for editing")
+	}
+
+	// Build edit incident details modal
+	modal := s.buildEditIncidentDetailsModal(incident)
+
+	// Open the modal
+	_, err = s.slackClient.OpenView(ctx, interaction.TriggerID, modal)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to open edit incident details modal",
+			"error", err,
+			"incidentID", incidentID,
+		)
+		return goerr.Wrap(err, "failed to open edit incident details modal")
+	}
+
+	ctxlog.From(ctx).Info("Edit incident details modal opened successfully",
+		"incidentID", incidentID,
+		"user", interaction.User.ID,
+	)
+
+	return nil
+}
+
 // handleStatusChangeModalSubmission handles status change modal submission
 func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context, interaction *slack.InteractionCallback) error {
 	ctxlog.From(ctx).Info("Status change modal submitted",
@@ -657,6 +720,161 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 		"newStatus", newStatus,
 		"user", userID,
 		"note", note,
+	)
+
+	return nil
+}
+
+// buildEditIncidentDetailsModal creates a modal for editing incident details
+func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Incident) slack.ModalViewRequest {
+	blocks := []slack.Block{
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "title_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Title",
+			},
+			Element: &slack.PlainTextInputBlockElement{
+				Type:     slack.METPlainTextInput,
+				ActionID: "title_input",
+				InitialValue: incident.Title,
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Enter incident title",
+				},
+			},
+		},
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "description_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Description",
+			},
+			Element: &slack.PlainTextInputBlockElement{
+				Type:      slack.METPlainTextInput,
+				ActionID:  "description_input",
+				Multiline: true,
+				InitialValue: incident.Description,
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Enter incident description",
+				},
+			},
+			Optional: true,
+		},
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "lead_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Lead",
+			},
+			Element: &slack.SelectBlockElement{
+				Type:     slack.OptTypeUser,
+				ActionID: "lead_select",
+				InitialUser: string(incident.Lead),
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Select incident lead",
+				},
+			},
+			Optional: true,
+		},
+	}
+
+	return slack.ModalViewRequest{
+		Type:       slack.VTModal,
+		CallbackID: "edit_incident_details_modal",
+		Title: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Edit Incident Details",
+		},
+		Submit: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Save",
+		},
+		Close: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Cancel",
+		},
+		Blocks: slack.Blocks{
+			BlockSet: blocks,
+		},
+		PrivateMetadata: incident.ID.String(), // Store incident ID for submission
+	}
+}
+
+// handleEditIncidentDetailsModalSubmission handles edit incident details modal submission
+func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.Context, interaction *slack.InteractionCallback) error {
+	ctxlog.From(ctx).Info("Edit incident details modal submitted",
+		"user", interaction.User.ID,
+		"team", interaction.Team.ID,
+		"privateMetadata", interaction.View.PrivateMetadata,
+	)
+
+	// Extract incident ID from private metadata
+	incidentIDStr := interaction.View.PrivateMetadata
+	if incidentIDStr == "" {
+		ctxlog.From(ctx).Error("Empty incident ID in private metadata")
+		return goerr.New("empty incident ID in private metadata")
+	}
+
+	// Parse incident ID
+	incidentIDInt, err := strconv.Atoi(incidentIDStr)
+	if err != nil {
+		ctxlog.From(ctx).Error("Invalid incident ID format",
+			"error", err,
+			"incidentID", incidentIDStr,
+		)
+		return goerr.Wrap(err, "invalid incident ID format")
+	}
+	incidentID := types.IncidentID(incidentIDInt)
+
+	// Extract values from modal
+	var title, description string
+	var lead types.SlackUserID
+
+	// Extract title
+	if titleBlock, ok := interaction.View.State.Values["title_block"]; ok {
+		if titleInput, ok := titleBlock["title_input"]; ok {
+			title = titleInput.Value
+		}
+	}
+
+	// Extract description
+	if descBlock, ok := interaction.View.State.Values["description_block"]; ok {
+		if descInput, ok := descBlock["description_input"]; ok {
+			description = descInput.Value
+		}
+	}
+
+	// Extract lead
+	if leadBlock, ok := interaction.View.State.Values["lead_block"]; ok {
+		if leadSelect, ok := leadBlock["lead_select"]; ok && leadSelect.SelectedUser != "" {
+			lead = types.SlackUserID(leadSelect.SelectedUser)
+		}
+	}
+
+	// Call the incident usecase to update details
+	updatedIncident, err := s.incidentUC.UpdateIncidentDetails(ctx, incidentID, title, description, lead)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to update incident details",
+			"error", err,
+			"incidentID", incidentID,
+			"title", title,
+			"description", description,
+			"lead", lead,
+		)
+		return goerr.Wrap(err, "failed to update incident details")
+	}
+
+	ctxlog.From(ctx).Info("Incident details updated successfully",
+		"incidentID", incidentID,
+		"title", updatedIncident.Title,
+		"description", updatedIncident.Description,
+		"lead", updatedIncident.Lead,
 	)
 
 	return nil

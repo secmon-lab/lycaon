@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client/react';
 import { format } from 'date-fns';
@@ -6,15 +6,19 @@ import { GET_INCIDENT } from '../graphql/queries';
 import { IncidentStatus, toIncidentStatus } from '../types/incident';
 import StatusSection from '../components/IncidentDetail/StatusSection';
 import TaskList from '../components/IncidentDetail/TaskList';
+import { EditIncidentModal } from '../components/IncidentDetail/EditIncidentModal';
+import { Button } from '../components/ui/Button';
 import {
   MessageSquare,
   User,
   Calendar,
+  Edit,
 } from 'lucide-react';
 
 const IncidentDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const { loading, error, data } = useQuery<{ incident: any }>(GET_INCIDENT, {
     variables: { id },
@@ -77,7 +81,18 @@ const IncidentDetail: React.FC = () => {
         {/* Left Column - Main Content */}
         <div className="flex-1">
           <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-lg font-semibold mb-3">{incident.title}</h2>
+            <div className="flex items-start justify-between mb-3">
+              <h2 className="text-lg font-semibold">{incident.title}</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEditModal(true)}
+                className="flex items-center gap-1"
+              >
+                <Edit className="h-4 w-4" />
+                Edit
+              </Button>
+            </div>
             <p className="text-slate-600">
               {incident.description || 'No description provided.'}
             </p>
@@ -148,6 +163,21 @@ const IncidentDetail: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Edit Incident Modal */}
+      {showEditModal && (
+        <EditIncidentModal
+          incidentId={incident.id}
+          currentTitle={incident.title}
+          currentDescription={incident.description || ''}
+          currentLead={incident.lead}
+          onClose={() => setShowEditModal(false)}
+          onUpdate={() => {
+            // Optionally, you can add a success toast here
+            console.log('Incident updated successfully');
+          }}
+        />
+      )}
     </div>
   );
 };
