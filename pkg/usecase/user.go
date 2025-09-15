@@ -97,7 +97,6 @@ func (u *UserUseCase) fetchUserFromSlack(ctx context.Context, slackUserID types.
 	// Use Slack User ID as the primary User ID (not UUID)
 	user := &model.User{
 		ID:          types.UserID(slackUserID),
-		SlackUserID: slackUserID,
 		Name:        slackUser.Name,
 		RealName:    slackUser.RealName,
 		DisplayName: slackUser.Profile.DisplayName,

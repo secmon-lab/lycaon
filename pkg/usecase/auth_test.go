@@ -112,7 +112,7 @@ func TestAuthGetUserFromSession(t *testing.T) {
 	t.Run("Valid session", func(t *testing.T) {
 		user, err := auth.GetUserFromSession(ctx, session.ID.String())
 		gt.NoError(t, err).Required()
-		gt.Equal(t, types.SlackUserID("U12345"), user.SlackUserID)
+		gt.Equal(t, types.UserID("U12345"), user.ID)
 		gt.Equal(t, "Test User", user.Name)
 		gt.Equal(t, "test@example.com", user.Email)
 	})

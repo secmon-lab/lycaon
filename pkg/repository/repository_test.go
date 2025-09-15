@@ -156,13 +156,13 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		ctx := context.Background()
 		now := time.Now()
+		slackUserID := types.SlackUserID(fmt.Sprintf("U%d", now.UnixNano()))
 		user := &model.User{
-			ID:          types.UserID(fmt.Sprintf("user-%d", now.UnixNano())),
-			SlackUserID: types.SlackUserID(fmt.Sprintf("U%d", now.UnixNano())),
-			Name:        "Test User",
-			Email:       fmt.Sprintf("test-%d@example.com", now.UnixNano()),
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:        types.UserID(slackUserID), // ID is now the Slack User ID
+			Name:      "Test User",
+			Email:     fmt.Sprintf("test-%d@example.com", now.UnixNano()),
+			CreatedAt: now,
+			UpdatedAt: now,
 		}
 
 		// Save user
@@ -173,7 +173,6 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		retrieved, err := repo.GetUser(ctx, user.ID)
 		gt.NoError(t, err).Required()
 		gt.Equal(t, user.ID, retrieved.ID)
-		gt.Equal(t, user.SlackUserID, retrieved.SlackUserID)
 		gt.Equal(t, user.Name, retrieved.Name)
 		gt.Equal(t, user.Email, retrieved.Email)
 		// Check timestamps with tolerance
@@ -181,10 +180,9 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 		gt.True(t, user.UpdatedAt.Sub(retrieved.UpdatedAt).Abs() < time.Second)
 
 		// Get user by Slack ID and verify all fields
-		retrievedBySlack, err := repo.GetUserBySlackID(ctx, user.SlackUserID)
+		retrievedBySlack, err := repo.GetUserBySlackID(ctx, slackUserID)
 		gt.NoError(t, err).Required()
 		gt.Equal(t, user.ID, retrievedBySlack.ID)
-		gt.Equal(t, user.SlackUserID, retrievedBySlack.SlackUserID)
 		gt.Equal(t, user.Name, retrievedBySlack.Name)
 		gt.Equal(t, user.Email, retrievedBySlack.Email)
 	})

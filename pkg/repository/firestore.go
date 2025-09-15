@@ -202,31 +202,14 @@ func (f *Firestore) GetUser(ctx context.Context, id types.UserID) (*model.User, 
 }
 
 // GetUserBySlackID retrieves a user by Slack ID
+// Since User.ID is now the Slack User ID, this just calls GetUser
 func (f *Firestore) GetUserBySlackID(ctx context.Context, slackUserID types.SlackUserID) (*model.User, error) {
 	if slackUserID == "" {
 		return nil, goerr.New("slack user ID is empty")
 	}
 
-	iter := f.client.Collection(usersCollection).
-		Where("SlackUserID", "==", slackUserID.String()).
-		Limit(1).
-		Documents(ctx)
-	defer iter.Stop()
-
-	doc, err := iter.Next()
-	if err == iterator.Done {
-		return nil, goerr.New("user not found")
-	}
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to query user by slack ID")
-	}
-
-	var user model.User
-	if err := doc.DataTo(&user); err != nil {
-		return nil, goerr.Wrap(err, "failed to decode user")
-	}
-
-	return &user, nil
+	// Convert SlackUserID to UserID and call GetUser
+	return f.GetUser(ctx, types.UserID(slackUserID))
 }
 
 // SaveSession saves a session to Firestore
