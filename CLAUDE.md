@@ -96,6 +96,13 @@ LYCAON_LOG_LEVEL=info
 - Never use firestore tags on struct fields (`firestore:"fieldname"`). They cause bugs and must be avoided completely
 - Do not use json tags on struct fields unless explicitly required for JSON output. Only add json tags when there's a clear requirement to output JSON
 
+### User Management
+- **User ID Principle**: Always use Slack User ID as the primary User.ID field
+- New users MUST be created with `User.ID = types.UserID(slackUserID)`
+- Never use `types.NewUserID()` for user creation (it generates UUIDs)
+- Firestore document ID for users is always the Slack User ID
+- Existing UUID-based users in the database remain functional but new users follow Slack ID principle
+
 ### Configuration
 - Do not create unified Config struct
 - Handle each config (Server, Slack, Firestore, etc.) individually in serve command
