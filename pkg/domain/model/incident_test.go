@@ -19,6 +19,7 @@ func TestNewIncident(t *testing.T) {
 			"system_failure",
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
+			types.TeamID("T12345"),
 			types.SlackUserID("U67890"),
 			false, // initialTriage
 		)
@@ -41,6 +42,7 @@ func TestNewIncident(t *testing.T) {
 			"unknown",
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
+			types.TeamID("T12345"),
 			types.SlackUserID("U67890"),
 			false, // initialTriage
 		)
@@ -57,6 +59,7 @@ func TestNewIncident(t *testing.T) {
 			"unknown",
 			types.ChannelID(""),
 			types.ChannelName("general"),
+			types.TeamID("T12345"),
 			types.SlackUserID("U67890"),
 			false, // initialTriage
 		)
@@ -73,6 +76,7 @@ func TestNewIncident(t *testing.T) {
 			"unknown",
 			types.ChannelID("C12345"),
 			types.ChannelName(""),
+			types.TeamID("T12345"),
 			types.SlackUserID("U67890"),
 			false, // initialTriage
 		)
@@ -89,6 +93,7 @@ func TestNewIncident(t *testing.T) {
 			"unknown",
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
+			types.TeamID("T12345"),
 			types.SlackUserID(""),
 			false, // initialTriage
 		)
@@ -120,6 +125,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 				"unknown",
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
+				types.TeamID("T12345"),
 				types.SlackUserID("U67890"),
 				false, // initialTriage
 			)
@@ -158,6 +164,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 				"unknown",
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
+				types.TeamID("T12345"),
 				types.SlackUserID("U67890"),
 				false, // initialTriage
 			)

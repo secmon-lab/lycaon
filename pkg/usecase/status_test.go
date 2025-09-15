@@ -27,9 +27,10 @@ func TestStatusUseCase_UpdateStatus(t *testing.T) {
 		"Test Incident",
 		"Test Description",
 		"test_category",
-		"C123456",
-		"test-channel",
-		"U123456",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
 		false, // not initial triage
 	)
 	gt.NoError(t, err)
@@ -83,9 +84,10 @@ func TestStatusUseCase_UpdateStatus_SameStatus(t *testing.T) {
 		"Test Incident",
 		"Test Description",
 		"test_category",
-		"C123456",
-		"test-channel",
-		"U123456",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
 		false,
 	)
 	gt.NoError(t, err)
@@ -118,9 +120,10 @@ func TestStatusUseCase_GetStatusHistory(t *testing.T) {
 		"Test Incident",
 		"Test Description",
 		"test_category",
-		"C123456",
-		"test-channel",
-		"U123456",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
 		false,
 	)
 	gt.NoError(t, err)
@@ -184,9 +187,10 @@ func TestStatusUseCase_GetStatusHistory_UserNotFound(t *testing.T) {
 		"Test Incident",
 		"Test Description",
 		"test_category",
-		"C123456",
-		"test-channel",
-		"U123456",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
 		false,
 	)
 	gt.NoError(t, err)

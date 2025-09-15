@@ -400,6 +400,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 			"category-1",
 			channelID,
 			types.ChannelName("test-channel"),
+			types.TeamID("T123456"),
 			types.SlackUserID("U123456"),
 			false, // initialTriage
 		)

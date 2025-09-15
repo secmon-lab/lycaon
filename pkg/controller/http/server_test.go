@@ -309,6 +309,7 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 		"test_category",
 		types.ChannelID("C1234567890"),
 		types.ChannelName("origin-channel"),
+		types.TeamID("T1234567890"),
 		types.SlackUserID("U1234567890"),
 		false, // initialTriage
 	)
@@ -398,6 +399,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 		"test_category",
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
+		types.TeamID("T1234567890"),
 		types.SlackUserID("U1234567890"),
 		false, // initialTriage
 	)
@@ -568,6 +570,7 @@ func TestGraphQL_IncidentStatusManagement(t *testing.T) {
 		"test_category",
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
+		types.TeamID("T1234567890"),
 		types.SlackUserID("U1234567890"),
 		false, // initialTriage - should start with HANDLING
 	)
@@ -811,6 +814,7 @@ func TestGraphQL_IncidentCreateWithTriage(t *testing.T) {
 		"test_category",
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
+		types.TeamID("T1234567890"),
 		types.SlackUserID("U1234567890"),
 		true, // initialTriage - should start with TRIAGE
 	)
