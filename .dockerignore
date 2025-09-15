@@ -1,0 +1,65 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+docs/
+
+# Development files
+.env*
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
+*~
+
+# Test files
+*_test.go
+testdata/
+coverage.out
+coverage.html
+
+# Build artifacts
+lycaon
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Frontend development
+frontend/node_modules/
+frontend/.next/
+frontend/.cache/
+frontend/coverage/
+frontend/*.log
+
+# Go development
+vendor/
+go.work
+go.work.sum
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# CI/CD
+.circleci/
+.travis.yml
+.drone.yml
+
+# IDE
+.DS_Store
+Thumbs.db
+
+# Spec files
+.cckiro/
+
+# Other
+*.bak
+*.orig
