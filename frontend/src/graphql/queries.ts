@@ -45,6 +45,7 @@ export const INCIDENT_FIELDS = gql`
     }
     originChannelId
     originChannelName
+    teamId
     createdBy
     createdByUser {
       ...UserFields

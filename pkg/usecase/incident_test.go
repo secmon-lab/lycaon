@@ -23,6 +23,14 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Create mock Slack client with default behavior
 		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+					UserID: "U123456",
+					User:   "test-bot",
+				}, nil
+			},
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
 				return &slack.Channel{
 					GroupConversation: slack.GroupConversation{
@@ -89,6 +97,14 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 	t.Run("Multiple incidents get sequential IDs", func(t *testing.T) {
 		repo := repository.NewMemory()
 		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+					UserID: "U123456",
+					User:   "test-bot",
+				}, nil
+			},
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
 				return &slack.Channel{
 					GroupConversation: slack.GroupConversation{
@@ -161,6 +177,14 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 	t.Run("GetIncident retrieves correct incident", func(t *testing.T) {
 		repo := repository.NewMemory()
 		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+					UserID: "U123456",
+					User:   "test-bot",
+				}, nil
+			},
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
 				return &slack.Channel{
 					GroupConversation: slack.GroupConversation{
@@ -216,6 +240,14 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 	t.Run("GetIncident returns error for non-existent ID", func(t *testing.T) {
 		repo := repository.NewMemory()
 		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+					UserID: "U123456",
+					User:   "test-bot",
+				}, nil
+			},
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
 				return &slack.Channel{
 					GroupConversation: slack.GroupConversation{
@@ -294,6 +326,14 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		// Create mock Slack client
 		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+					UserID: "U123456",
+					User:   "test-bot",
+				}, nil
+			},
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
 				return &slack.Channel{
 					GroupConversation: slack.GroupConversation{
@@ -395,6 +435,14 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		// Create mock Slack client
 		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+					UserID: "U123456",
+					User:   "test-bot",
+				}, nil
+			},
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
 				return &slack.Channel{
 					GroupConversation: slack.GroupConversation{

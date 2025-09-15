@@ -41,6 +41,7 @@ export interface Incident {
   leadUser?: User;
   originChannelId: string;
   originChannelName: string;
+  teamId?: string;
   createdBy: string;
   createdByUser?: User;
   createdAt: string;

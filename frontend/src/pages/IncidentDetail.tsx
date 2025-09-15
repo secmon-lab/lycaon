@@ -8,8 +8,8 @@ import StatusSection from '../components/IncidentDetail/StatusSection';
 import TaskList from '../components/IncidentDetail/TaskList';
 import { EditIncidentModal } from '../components/IncidentDetail/EditIncidentModal';
 import { Button } from '../components/ui/Button';
+import SlackChannelLink from '../components/common/SlackChannelLink';
 import {
-  MessageSquare,
   User,
   Calendar,
   Edit,
@@ -115,11 +115,15 @@ const IncidentDetail: React.FC = () => {
             
             <div className="space-y-3">
               <div>
-                <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
-                  <MessageSquare className="h-3 w-3" />
+                <div className="text-xs text-slate-500 mb-1">
                   Channel
                 </div>
-                <p className="text-sm font-medium">#{incident.channelName}</p>
+                <SlackChannelLink
+                  channelId={incident.channelId}
+                  channelName={incident.channelName}
+                  teamId={incident.teamId}
+                  className="text-sm font-medium"
+                />
               </div>
 
               <div>
