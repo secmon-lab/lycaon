@@ -23,7 +23,7 @@ type User struct {
 func NewUser(slackUserID types.SlackUserID, name, email string) *User {
 	now := time.Now()
 	return &User{
-		ID:          types.NewUserID(),
+		ID:          types.UserID(slackUserID),  // Use Slack User ID as the primary ID
 		SlackUserID: slackUserID,
 		Name:        name,
 		Email:       email,
