@@ -17,35 +17,34 @@ const SlackChannelLink: React.FC<SlackChannelLinkProps> = ({
   className = '',
 }) => {
   const handleClick = (e: React.MouseEvent) => {
-    if (!teamId) {
-      // If no team ID, just prevent default and do nothing
-      e.preventDefault();
-      return;
-    }
-
     e.preventDefault();
-    
-    // Try to open in Slack desktop app first
+
     const slackDeepLink = `slack://channel?team=${teamId}&id=${channelId}`;
-    
-    // Create a temporary link element to open the deep link
+    const webUrl = `https://app.slack.com/client/${teamId}/${channelId}`;
+
+    let timeoutId: number;
+
+    const visibilityChangeHandler = () => {
+      if (document.visibilityState === 'hidden') {
+        clearTimeout(timeoutId);
+        window.removeEventListener('visibilitychange', visibilityChangeHandler);
+      }
+    };
+    window.addEventListener('visibilitychange', visibilityChangeHandler);
+
+    // Try to open deep link by creating and clicking a temporary link
     const link = document.createElement('a');
     link.href = slackDeepLink;
     link.style.display = 'none';
     document.body.appendChild(link);
-    
-    // Try to open the deep link
     link.click();
-    
-    // Clean up
     document.body.removeChild(link);
-    
-    // Set a timeout to open web version if desktop app doesn't respond
-    setTimeout(() => {
-      // If we're still on the same page, open web version
-      if (document.hasFocus()) {
-        const webUrl = `https://app.slack.com/client/${teamId}/${channelId}`;
-        window.open(webUrl, '_blank');
+
+    timeoutId = window.setTimeout(() => {
+      window.removeEventListener('visibilitychange', visibilityChangeHandler);
+      // If the page is still visible after a delay, the deep link likely failed
+      if (document.visibilityState === 'visible') {
+        window.open(webUrl, '_blank', 'noopener,noreferrer');
       }
     }, 1000);
   };
