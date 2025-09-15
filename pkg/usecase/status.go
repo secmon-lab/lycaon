@@ -190,9 +190,19 @@ func (uc *StatusUseCase) buildStatusMessageBlocks(incident *model.Incident, lead
 						ActionID: "edit_incident_status",
 						Text: &slackgo.TextBlockObject{
 							Type: slackgo.PlainTextType,
-							Text: "Edit",
+							Text: "Status update",
 						},
 						Style: slackgo.StylePrimary,
+						Value: incident.ID.String(),
+					},
+					&slackgo.ButtonBlockElement{
+						Type:     slackgo.METButton,
+						ActionID: "edit_incident_details",
+						Text: &slackgo.TextBlockObject{
+							Type: slackgo.PlainTextType,
+							Text: "Edit incident",
+						},
+						Style: slackgo.StyleDefault,
 						Value: incident.ID.String(),
 					},
 				},
