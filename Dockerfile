@@ -1,5 +1,5 @@
 # Frontend build stage
-FROM oven/bun:latest AS build-frontend
+FROM oven/bun:1.1.42-alpine AS build-frontend
 WORKDIR /app/frontend
 
 # Copy package files first for better caching
@@ -32,16 +32,18 @@ RUN --mount=type=cache,target=/root/.cache/go-mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download
 
-# Copy source code
-COPY . /app
+# Copy only Go source code and necessary files
+COPY main.go ./
+COPY pkg/ ./pkg/
+COPY graphql/ ./graphql/
 
 # Copy frontend build output
 COPY --from=build-frontend /app/frontend/dist /app/frontend/dist
 
-# Build the application with cache mounts
+# Build the application with cache mounts and embed version
 RUN --mount=type=cache,target=/root/.cache/go-mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -ldflags="-w -s" -o lycaon
+    go build -ldflags="-w -s -X github.com/secmon-lab/lycaon/pkg/domain/types.Version=${BUILD_VERSION}" -o lycaon
 
 # Final stage
 FROM gcr.io/distroless/base:nonroot

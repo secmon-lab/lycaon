@@ -7,6 +7,7 @@ import (
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/urfave/cli/v3"
 )
 
@@ -17,7 +18,7 @@ func Run(ctx context.Context, args []string) error {
 	app := &cli.Command{
 		Name:    "lycaon",
 		Usage:   "Slack-based incident management service",
-		Version: "0.1.0",
+		Version: types.Version,
 		Flags:   loggerCfg.Flags(),
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			// Configure logger
