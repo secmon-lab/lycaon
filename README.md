@@ -75,9 +75,12 @@ LYCAON_LOG_LEVEL=info
 2. Configure OAuth & Permissions:
    - Add redirect URL: `http://your-domain/api/auth/callback`
    - Required scopes:
+     - `app_mentions:read` - Receive app mention events
      - `channels:history` - Read message history from public channels
      - `channels:read` - Read public channel information
      - `channels:manage` - Create and manage public channels (for incident channels)
+     - `channels:write.invites` - Invite users to public channels
+     - `channels:write.topic` - Set channel purpose/topic
      - `chat:write` - Send messages as the bot
      - `users:read` - Read user information
      - `groups:history` - Read message history from private channels (if bot is invited)
