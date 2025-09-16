@@ -86,8 +86,6 @@ LYCAON_LOG_LEVEL=info
      - `groups:history` - Read message history from private channels (if bot is invited)
      - `groups:read` - Read private channel information (if bot is invited)
      - `groups:write` - Create and manage private channels (optional, for future use)
-     - `im:history` - Read direct message history (for app mentions in DMs)
-     - `mpim:history` - Read multi-party direct message history
 3. Configure Event Subscriptions:
    - Request URL: `http://your-domain/hooks/slack/events`
    - Subscribe to events:
