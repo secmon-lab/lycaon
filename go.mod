@@ -11,7 +11,7 @@ require (
 	github.com/m-mizutani/clog v0.1.0
 	github.com/m-mizutani/ctxlog v0.2.0
 	github.com/m-mizutani/goerr/v2 v2.0.0-beta.4
-	github.com/m-mizutani/gollem v0.12.0
+	github.com/m-mizutani/gollem v0.13.0
 	github.com/m-mizutani/gt v0.1.0
 	github.com/slack-go/slack v0.17.3
 	github.com/urfave/cli/v3 v3.4.1
@@ -24,13 +24,10 @@ require (
 
 require (
 	cloud.google.com/go v0.122.0 // indirect
-	cloud.google.com/go/aiplatform v1.100.0 // indirect
 	cloud.google.com/go/auth v0.16.5 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.8.0 // indirect
-	cloud.google.com/go/iam v1.5.2 // indirect
 	cloud.google.com/go/longrunning v0.6.7 // indirect
-	cloud.google.com/go/vertexai v0.15.0 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/anthropics/anthropic-sdk-go v1.5.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
