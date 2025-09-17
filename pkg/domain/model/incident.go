@@ -88,6 +88,10 @@ func NewIncident(prefix string, id types.IncidentID, title, description, categor
 
 // formatIncidentChannelName creates a Slack-compatible channel name from incident ID and title
 func formatIncidentChannelName(prefix string, id types.IncidentID, title string) string {
+	// Use "inc" as fallback if prefix is empty to avoid channel names starting with "-"
+	if prefix == "" {
+		prefix = "inc"
+	}
 	baseChannelName := fmt.Sprintf("%s-%d", prefix, id)
 
 	if title == "" {

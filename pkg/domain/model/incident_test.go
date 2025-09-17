@@ -195,7 +195,7 @@ func TestIncidentWithCustomPrefix(t *testing.T) {
 		{"Custom prefix security", "security", 1, "data breach", "security-1-data-breach"},
 		{"Custom prefix incident", "incident", 2, "", "incident-2"},
 		{"Custom prefix alert", "alert", 100, "system down", "alert-100-system-down"},
-		{"Empty prefix fallback", "", 1, "test", "-1-test"},
+		{"Empty prefix fallback", "", 1, "test", "inc-1-test"},
 	}
 
 	for _, tc := range testCases {

@@ -56,7 +56,7 @@ func (s *Slack) Flags() []cli.Flag {
 			Usage:       "Channel name prefix for incidents",
 			Category:    "Slack",
 			Value:       "inc",
-			Sources:     cli.EnvVars("LYCAON_CHANNEL_PREFIX"),
+			Sources:     cli.EnvVars("LYCAON_SLACK_CHANNEL_PREFIX"),
 			Destination: &s.ChannelPrefix,
 		},
 	}
