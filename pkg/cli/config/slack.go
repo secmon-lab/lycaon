@@ -17,6 +17,7 @@ type Slack struct {
 	SigningSecret string
 	OAuthToken    string
 	AppID         string // API App ID to filter events from correct app
+	ChannelPrefix string // Channel name prefix for incidents
 }
 
 // Flags returns CLI flags for Slack configuration
@@ -49,6 +50,14 @@ func (s *Slack) Flags() []cli.Flag {
 			Category:    "Slack",
 			Sources:     cli.EnvVars("LYCAON_SLACK_OAUTH_TOKEN"),
 			Destination: &s.OAuthToken,
+		},
+		&cli.StringFlag{
+			Name:        "channel-prefix",
+			Usage:       "Channel name prefix for incidents",
+			Category:    "Slack",
+			Value:       "inc",
+			Sources:     cli.EnvVars("LYCAON_CHANNEL_PREFIX"),
+			Destination: &s.ChannelPrefix,
 		},
 	}
 }

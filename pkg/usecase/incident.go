@@ -17,21 +17,26 @@ import (
 
 // Incident implements Incident interface
 type Incident struct {
-	repo         interfaces.Repository
-	slackClient  interfaces.SlackClient
-	blockBuilder *slackSvc.BlockBuilder
-	categories   *model.CategoriesConfig
-	invite       interfaces.Invite
+	repo          interfaces.Repository
+	slackClient   interfaces.SlackClient
+	blockBuilder  *slackSvc.BlockBuilder
+	categories    *model.CategoriesConfig
+	invite        interfaces.Invite
+	channelPrefix string
 }
 
 // NewIncident creates a new Incident instance with a custom SlackClient
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite) *Incident {
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite, channelPrefix string) *Incident {
+	if channelPrefix == "" {
+		channelPrefix = "inc" // default fallback
+	}
 	return &Incident{
-		repo:         repo,
-		slackClient:  slackClient,
-		blockBuilder: slackSvc.NewBlockBuilder(),
-		categories:   categories,
-		invite:       invite,
+		repo:          repo,
+		slackClient:   slackClient,
+		blockBuilder:  slackSvc.NewBlockBuilder(),
+		categories:    categories,
+		invite:        invite,
+		channelPrefix: channelPrefix,
 	}
 }
 
@@ -56,7 +61,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
+	incident, err := model.NewIncident(u.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}

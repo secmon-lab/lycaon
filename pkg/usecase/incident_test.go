@@ -63,7 +63,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Create use case with mock and default categories
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -135,7 +135,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Create first incident
 		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -215,7 +215,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Create an incident
 		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -278,7 +278,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil)
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Try to get non-existent incident
 		incident, err := uc.GetIncident(ctx, 999)
@@ -301,7 +301,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		mockSlack := &mocks.SlackClientMock{}
 		categories := model.GetDefaultCategories()
-		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil)
+		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil, "inc")
 
 		// Try to create incident - should fail due to repository error
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -404,7 +404,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		// Create use case with mock invite
-		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite)
+		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, "inc")
 
 		// Create an incident with security_incident category
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -484,7 +484,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		// Create use case with mock invite
-		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite)
+		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, "inc")
 
 		// Create an incident with unknown category (no invitations)
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -503,5 +503,140 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		// Verify invite was NOT called
 		gt.Equal(t, 0, len(mockInvite.InviteUsersByListCalls()))
+	})
+}
+
+func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Create incident with custom prefix generates correct channel name", func(t *testing.T) {
+		// Use memory repository for testing
+		repo := repository.NewMemory()
+
+		// Create mock Slack client
+		var createdChannelName string
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T123456",
+					Team:   "Test Team",
+				}, nil
+			},
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				// Capture the channel name that was requested
+				createdChannelName = params.ChannelName
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-NEW-INCIDENT",
+						},
+						Name: params.ChannelName,
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
+
+		// Test with custom prefix "security"
+		categories := model.GetDefaultCategories()
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "security")
+
+		// Create an incident
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "data breach",
+			Description:       "Suspicious data access detected",
+			CategoryID:        "security_incident",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "security-alerts",
+			CreatedBy:         "U-SECURITY-ANALYST",
+		})
+
+		// Verify incident was created successfully
+		gt.NoError(t, err).Required()
+		gt.V(t, incident).NotNil()
+
+		// Verify the channel name uses the custom prefix
+		gt.Equal(t, "security-1-data-breach", incident.ChannelName.String())
+		gt.Equal(t, "security-1-data-breach", createdChannelName)
+
+		// Verify other properties
+		gt.Equal(t, "data breach", incident.Title)
+		gt.Equal(t, "security_incident", incident.CategoryID)
+		gt.Equal(t, "C-NEW-INCIDENT", incident.ChannelID.String())
+	})
+
+	t.Run("Create incident with different custom prefixes", func(t *testing.T) {
+		testCases := []struct {
+			name           string
+			prefix         string
+			title          string
+			expectedPrefix string
+		}{
+			{"Alert prefix", "alert", "system down", "alert-1-system-down"},
+			{"Incident prefix", "incident", "api failure", "incident-1-api-failure"},
+			{"Emergency prefix", "emergency", "critical issue", "emergency-1-critical-issue"},
+			{"Empty prefix fallback", "", "test issue", "inc-1-test-issue"}, // Should fallback to default
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				// Use fresh repository for each test to ensure incident ID starts at 1
+				repo := repository.NewMemory()
+
+				var createdChannelName string
+				mockSlack := &mocks.SlackClientMock{
+					AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+						return &slack.AuthTestResponse{TeamID: "T123456"}, nil
+					},
+					CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+						createdChannelName = params.ChannelName
+						return &slack.Channel{
+							GroupConversation: slack.GroupConversation{
+								Conversation: slack.Conversation{ID: "C-NEW"},
+								Name:         params.ChannelName,
+							},
+						}, nil
+					},
+					SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+						return &slack.Channel{}, nil
+					},
+					InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+						return &slack.Channel{}, nil
+					},
+					PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+						return "channel", "timestamp", nil
+					},
+				}
+
+				categories := model.GetDefaultCategories()
+				uc := usecase.NewIncident(repo, mockSlack, categories, nil, tc.prefix)
+
+				// Create an incident
+				incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+					Title:             tc.title,
+					Description:       "Test description",
+					CategoryID:        "unknown",
+					OriginChannelID:   "C-ORIGIN",
+					OriginChannelName: "general",
+					CreatedBy:         "U-CREATOR",
+				})
+
+				// Verify incident was created successfully
+				gt.NoError(t, err).Required()
+				gt.V(t, incident).NotNil()
+
+				// Verify the channel name uses the expected prefix
+				gt.Equal(t, tc.expectedPrefix, incident.ChannelName.String())
+				gt.Equal(t, tc.expectedPrefix, createdChannelName)
+			})
+		}
 	})
 }

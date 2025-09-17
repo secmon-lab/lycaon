@@ -66,6 +66,7 @@ func cmdServe() *cli.Command {
 				slog.String("addr", serverCfg.Addr),
 				slog.String("config", configPath),
 				slog.Int("categories", len(categories.Categories)),
+				slog.String("channel_prefix", slackCfg.ChannelPrefix),
 				slog.Any("slack", slackCfg),
 				slog.Any("firestore", firestoreCfg),
 				slog.Any("gemini", geminiCfg),
@@ -107,7 +108,7 @@ func cmdServe() *cli.Command {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
 			inviteUC := usecase.NewInvite(slackClient)
-			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC)
+			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC, slackCfg.ChannelPrefix)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
 			statusUC := usecase.NewStatusUseCase(repo, slackClient)
 			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, slackClient)

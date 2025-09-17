@@ -23,6 +23,7 @@ func TestStatusUseCase_UpdateStatus(t *testing.T) {
 	// Create a test incident first
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Test Incident",
 		"Test Description",
@@ -80,6 +81,7 @@ func TestStatusUseCase_UpdateStatus_SameStatus(t *testing.T) {
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Test Incident",
 		"Test Description",
@@ -116,6 +118,7 @@ func TestStatusUseCase_GetStatusHistory(t *testing.T) {
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Test Incident",
 		"Test Description",
@@ -183,6 +186,7 @@ func TestStatusUseCase_GetStatusHistory_UserNotFound(t *testing.T) {
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Test Incident",
 		"Test Description",

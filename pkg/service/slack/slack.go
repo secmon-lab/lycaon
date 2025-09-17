@@ -114,7 +114,12 @@ func (s *Service) GetClient() *slack.Client {
 
 // FormatIncidentChannelName formats the incident channel name with proper padding
 func FormatIncidentChannelName(incidentNumber int) string {
-	return fmt.Sprintf("inc-%03d", incidentNumber)
+	return FormatIncidentChannelNameWithPrefix("inc", incidentNumber)
+}
+
+// FormatIncidentChannelNameWithPrefix formats the incident channel name with custom prefix
+func FormatIncidentChannelNameWithPrefix(prefix string, incidentNumber int) string {
+	return fmt.Sprintf("%s-%03d", prefix, incidentNumber)
 }
 
 // OpenView opens a modal view in Slack

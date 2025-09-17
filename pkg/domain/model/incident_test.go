@@ -13,6 +13,7 @@ import (
 func TestNewIncident(t *testing.T) {
 	t.Run("Valid incident creation", func(t *testing.T) {
 		incident, err := model.NewIncident(
+			"inc", // prefix
 			types.IncidentID(1),
 			"database outage",
 			"test description",
@@ -36,6 +37,7 @@ func TestNewIncident(t *testing.T) {
 
 	t.Run("Invalid ID", func(t *testing.T) {
 		incident, err := model.NewIncident(
+			"inc", // prefix
 			0,
 			"test",
 			"",
@@ -53,6 +55,7 @@ func TestNewIncident(t *testing.T) {
 
 	t.Run("Empty origin channel ID", func(t *testing.T) {
 		incident, err := model.NewIncident(
+			"inc", // prefix
 			1,
 			"test",
 			"",
@@ -70,6 +73,7 @@ func TestNewIncident(t *testing.T) {
 
 	t.Run("Empty origin channel name", func(t *testing.T) {
 		incident, err := model.NewIncident(
+			"inc", // prefix
 			1,
 			"test",
 			"",
@@ -87,6 +91,7 @@ func TestNewIncident(t *testing.T) {
 
 	t.Run("Empty creator", func(t *testing.T) {
 		incident, err := model.NewIncident(
+			"inc", // prefix
 			1,
 			"test",
 			"",
@@ -119,6 +124,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.expectedName, func(t *testing.T) {
 			incident, err := model.NewIncident(
+				"inc", // prefix
 				types.IncidentID(tc.id),
 				"",
 				"",
@@ -158,6 +164,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			incident, err := model.NewIncident(
+				"inc", // prefix
 				types.IncidentID(tc.id),
 				tc.title,
 				"",
@@ -173,6 +180,40 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 			gt.Equal(t, tc.title, incident.Title)
 			// Ensure channel name never exceeds 80 characters
 			gt.True(t, len(string(incident.ChannelName)) <= 80)
+		})
+	}
+}
+
+func TestIncidentWithCustomPrefix(t *testing.T) {
+	testCases := []struct {
+		name         string
+		prefix       string
+		id           int
+		title        string
+		expectedName string
+	}{
+		{"Custom prefix security", "security", 1, "data breach", "security-1-data-breach"},
+		{"Custom prefix incident", "incident", 2, "", "incident-2"},
+		{"Custom prefix alert", "alert", 100, "system down", "alert-100-system-down"},
+		{"Empty prefix fallback", "", 1, "test", "-1-test"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			incident, err := model.NewIncident(
+				tc.prefix,
+				types.IncidentID(tc.id),
+				tc.title,
+				"",
+				"unknown",
+				types.ChannelID("C12345"),
+				types.ChannelName("general"),
+				types.TeamID("T12345"),
+				types.SlackUserID("U67890"),
+				false, // initialTriage
+			)
+			gt.NoError(t, err).Required()
+			gt.Equal(t, types.ChannelName(tc.expectedName), incident.ChannelName)
 		})
 	}
 }

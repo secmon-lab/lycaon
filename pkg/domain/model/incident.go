@@ -43,7 +43,7 @@ type CreateIncidentRequest struct {
 }
 
 // NewIncident creates a new Incident instance
-func NewIncident(id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, teamID types.TeamID, createdBy types.SlackUserID, initialTriage bool) (*Incident, error) {
+func NewIncident(prefix string, id types.IncidentID, title, description, categoryID string, originChannelID types.ChannelID, originChannelName types.ChannelName, teamID types.TeamID, createdBy types.SlackUserID, initialTriage bool) (*Incident, error) {
 	if id <= 0 {
 		return nil, goerr.New("incident ID must be positive")
 	}
@@ -57,7 +57,7 @@ func NewIncident(id types.IncidentID, title, description, categoryID string, ori
 		return nil, goerr.New("creator user ID is required")
 	}
 
-	channelName := formatIncidentChannelName(id, title)
+	channelName := formatIncidentChannelName(prefix, id, title)
 
 	// Set initial status based on triage flag
 	var initialStatus types.IncidentStatus
@@ -87,8 +87,8 @@ func NewIncident(id types.IncidentID, title, description, categoryID string, ori
 }
 
 // formatIncidentChannelName creates a Slack-compatible channel name from incident ID and title
-func formatIncidentChannelName(id types.IncidentID, title string) string {
-	baseChannelName := fmt.Sprintf("inc-%d", id)
+func formatIncidentChannelName(prefix string, id types.IncidentID, title string) string {
+	baseChannelName := fmt.Sprintf("%s-%d", prefix, id)
 
 	if title == "" {
 		return baseChannelName
