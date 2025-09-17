@@ -20,6 +20,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/controller/graphql"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
+	slackCtrl "github.com/secmon-lab/lycaon/pkg/controller/slack"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
@@ -67,20 +68,26 @@ func TestServerHealthCheck(t *testing.T) {
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
 
-	server, err := controller.NewServer(
-		ctx,
-		":8080",
-		slackConfig,
-		categories,
-		repo,
-		authUC,
-		messageUC,
-		incidentUC,
-		taskUC,
-		slackInteractionUC,
-		mockSlack,
-		"",
-	)
+	// Create configuration
+	config := controller.NewConfig(":8080", slackConfig, categories, "")
+
+	// Create use cases structure
+	useCases := controller.NewUseCases(authUC, messageUC, incidentUC, taskUC, slackInteractionUC)
+
+	// Create handlers
+	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, useCases.SlackMessage(), useCases.Incident(), useCases.Task(), useCases.SlackInteraction(), mockSlack)
+	authHandler := controller.NewAuthHandler(ctx, slackConfig, useCases.Auth(), "")
+
+	// Create GraphQL handler
+	var graphqlHandler http.Handler
+	if repo != nil && useCases.Incident() != nil && useCases.Task() != nil {
+		graphqlHandler = controller.CreateGraphQLHandler(repo, mockSlack, useCases, categories)
+	}
+
+	// Create controllers
+	controllers := controller.NewController(slackHandler, authHandler, graphqlHandler)
+
+	server, err := controller.NewServer(ctx, config, useCases, controllers, repo)
 	gt.NoError(t, err).Required()
 
 	// Create test request
@@ -114,20 +121,26 @@ func TestServerFallbackHome(t *testing.T) {
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
 
-	server, err := controller.NewServer(
-		ctx,
-		":8080",
-		slackConfig,
-		categories,
-		repo,
-		authUC,
-		messageUC,
-		incidentUC,
-		taskUC,
-		slackInteractionUC,
-		mockSlack,
-		"",
-	)
+	// Create configuration
+	config := controller.NewConfig(":8080", slackConfig, categories, "")
+
+	// Create use cases structure
+	useCases := controller.NewUseCases(authUC, messageUC, incidentUC, taskUC, slackInteractionUC)
+
+	// Create handlers
+	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, useCases.SlackMessage(), useCases.Incident(), useCases.Task(), useCases.SlackInteraction(), mockSlack)
+	authHandler := controller.NewAuthHandler(ctx, slackConfig, useCases.Auth(), "")
+
+	// Create GraphQL handler
+	var graphqlHandler http.Handler
+	if repo != nil && useCases.Incident() != nil && useCases.Task() != nil {
+		graphqlHandler = controller.CreateGraphQLHandler(repo, mockSlack, useCases, categories)
+	}
+
+	// Create controllers
+	controllers := controller.NewController(slackHandler, authHandler, graphqlHandler)
+
+	server, err := controller.NewServer(ctx, config, useCases, controllers, repo)
 	gt.NoError(t, err).Required()
 
 	// Create test request
@@ -1011,23 +1024,23 @@ func TestGraphQL_Firestore_Integration(t *testing.T) {
 		opts := types.PaginationOptions{
 			Limit: 10,
 		}
-		
+
 		incidents, result, err := repo.ListIncidentsPaginated(ctx, opts)
-		
+
 		if err != nil {
 			t.Logf("Firestore ListIncidentsPaginated failed with error: %v", err)
 			t.Logf("This is the actual error that's causing the WebUI issue!")
 		} else {
 			t.Logf("Firestore ListIncidentsPaginated succeeded: found %d incidents", len(incidents))
-			t.Logf("Pagination result: hasNext=%v, hasPrev=%v, total=%d", 
+			t.Logf("Pagination result: hasNext=%v, hasPrev=%v, total=%d",
 				result.HasNextPage, result.HasPreviousPage, result.TotalCount)
-			
+
 			// Check each incident for missing fields
 			for i, incident := range incidents {
 				if i >= 3 { // Just check first 3
 					break
 				}
-				t.Logf("Incident %d: ID=%v, Title=%v, Status=%v", 
+				t.Logf("Incident %d: ID=%v, Title=%v, Status=%v",
 					i, incident.ID, incident.Title, incident.Status)
 			}
 		}

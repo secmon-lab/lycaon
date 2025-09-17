@@ -36,7 +36,6 @@ func (s IncidentStatus) IsValid() bool {
 	}
 }
 
-
 // NewStatusHistoryID generates a new UUID v7 status history ID
 func NewStatusHistoryID() StatusHistoryID {
 	// UUID v7: timestamp (48 bits) + version (4 bits) + random (12 bits) + variant (2 bits) + random (62 bits)

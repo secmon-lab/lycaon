@@ -278,8 +278,8 @@ func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident) sla
 				Text: "Status",
 			},
 			Element: &slack.SelectBlockElement{
-				Type:        slack.OptTypeStatic,
-				ActionID:    "status_select",
+				Type:     slack.OptTypeStatic,
+				ActionID: "status_select",
 				Placeholder: &slack.TextBlockObject{
 					Type: slack.PlainTextType,
 					Text: "Choose a status...",
@@ -296,8 +296,8 @@ func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident) sla
 				Text: "Note (optional)",
 			},
 			Element: &slack.PlainTextInputBlockElement{
-				Type:     slack.METPlainTextInput,
-				ActionID: "note_input",
+				Type:      slack.METPlainTextInput,
+				ActionID:  "note_input",
 				Multiline: true,
 				Placeholder: &slack.TextBlockObject{
 					Type: slack.PlainTextType,
