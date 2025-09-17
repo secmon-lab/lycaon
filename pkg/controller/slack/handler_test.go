@@ -58,7 +58,7 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
@@ -108,7 +108,7 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
@@ -143,7 +143,7 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 

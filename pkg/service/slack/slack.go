@@ -112,10 +112,6 @@ func (s *Service) GetClient() *slack.Client {
 	return s.client
 }
 
-// FormatIncidentChannelName formats the incident channel name with proper padding
-func FormatIncidentChannelName(incidentNumber int) string {
-	return fmt.Sprintf("inc-%03d", incidentNumber)
-}
 
 // OpenView opens a modal view in Slack
 func (s *Service) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {

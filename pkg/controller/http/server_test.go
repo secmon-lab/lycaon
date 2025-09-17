@@ -63,7 +63,7 @@ func TestServerHealthCheck(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
@@ -116,7 +116,7 @@ func TestServerFallbackHome(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
 	gt.NoError(t, err).Required()
 	categories := model.GetDefaultCategories()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil)
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
@@ -189,7 +189,7 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 	categories := model.GetDefaultCategories()
 
 	// Create use cases
-	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil)
+	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 
 	// Create Auth UC with mock Slack config
@@ -316,6 +316,7 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 	// Create test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Single Test Incident",
 		"Single test incident description",
@@ -406,6 +407,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 	// Step 1: Create an incident first
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"CRUD Test Incident",
 		"Test incident for CRUD operations",
@@ -577,6 +579,7 @@ func TestGraphQL_IncidentStatusManagement(t *testing.T) {
 	// Step 1: Create an incident with initial status
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Status Test Incident",
 		"Test incident for status management",
@@ -821,6 +824,7 @@ func TestGraphQL_IncidentCreateWithTriage(t *testing.T) {
 	// Step 1: Create incident with triage flag = true
 	incidentID := types.IncidentID(time.Now().UnixNano())
 	incident, err := model.NewIncident(
+		"inc", // prefix
 		incidentID,
 		"Triage Test Incident",
 		"Test incident for triage status",

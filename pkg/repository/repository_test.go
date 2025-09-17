@@ -394,6 +394,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 
 		// Create and save an incident
 		incident, err := model.NewIncident(
+			"inc", // prefix
 			1,
 			"Test Incident for Channel",
 			"Description",
