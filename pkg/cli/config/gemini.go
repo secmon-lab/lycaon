@@ -25,7 +25,7 @@ func (g *Gemini) Flags() []cli.Flag {
 			Name:        "gemini-project",
 			Usage:       "GCP project ID for Gemini",
 			Category:    "Gemini",
-			Sources:     cli.EnvVars("LYCAON_GEMINI_PROJECT"),
+			Sources:     cli.EnvVars("LYCAON_GEMINI_PROJECT_ID"),
 			Destination: &g.Project,
 		},
 		&cli.StringFlag{
@@ -50,7 +50,7 @@ func (g *Gemini) Flags() []cli.Flag {
 // Configure creates and returns a Gemini LLM client
 func (g *Gemini) Configure(ctx context.Context) (gollem.LLMClient, error) {
 	if !g.IsConfigured() {
-		return nil, goerr.New("Gemini configuration is required. Please provide LYCAON_GEMINI_PROJECT")
+		return nil, goerr.New("Gemini configuration is required. Please provide LYCAON_GEMINI_PROJECT_ID")
 	}
 
 	// Create Gemini client using gollem's gemini package

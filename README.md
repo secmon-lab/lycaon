@@ -62,7 +62,7 @@ LYCAON_FIRESTORE_PROJECT_ID=your-gcp-project
 LYCAON_FIRESTORE_DATABASE_ID=(default)
 
 # Gemini Configuration (Optional)
-LYCAON_GEMINI_PROJECT=your-gcp-project
+LYCAON_GEMINI_PROJECT_ID=your-gcp-project
 LYCAON_GEMINI_MODEL=gemini-1.5-flash
 
 # Logging

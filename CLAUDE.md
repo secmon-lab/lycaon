@@ -76,7 +76,7 @@ LYCAON_FIRESTORE_PROJECT=xxx
 LYCAON_FIRESTORE_DATABASE=xxx
 
 # Gemini (uses Google Default Application Credential)
-LYCAON_GEMINI_PROJECT=xxx       # GCP Project ID
+LYCAON_GEMINI_PROJECT_ID=xxx       # GCP Project ID
 LYCAON_GEMINI_MODEL=gemini-1.5-flash
 
 # Logging
