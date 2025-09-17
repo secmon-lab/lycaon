@@ -92,13 +92,6 @@ func NewController(
 // Server represents the HTTP server
 type Server struct {
 	*http.Server
-	router         chi.Router
-	slackConfig    *config.SlackConfig
-	authUC         interfaces.Auth
-	messageUC      interfaces.SlackMessage
-	authMiddleware *Middleware
-	slackHandler   *slackCtrl.Handler
-	authHandler    *AuthHandler
 }
 
 // NewServer creates a new HTTP server
@@ -179,13 +172,6 @@ func NewServer(
 			Handler:           router,
 			ReadHeaderTimeout: 15 * time.Second,
 		},
-		router:         router,
-		slackConfig:    config.slackConfig,
-		authUC:         useCases.auth,
-		messageUC:      useCases.slackMessage,
-		authMiddleware: authMiddleware,
-		slackHandler:   controllers.slackHandler,
-		authHandler:    controllers.authHandler,
 	}
 
 	return server, nil
