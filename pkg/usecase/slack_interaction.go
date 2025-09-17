@@ -736,8 +736,8 @@ func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Inciden
 				Text: "Title",
 			},
 			Element: &slack.PlainTextInputBlockElement{
-				Type:     slack.METPlainTextInput,
-				ActionID: "title_input",
+				Type:         slack.METPlainTextInput,
+				ActionID:     "title_input",
 				InitialValue: incident.Title,
 				Placeholder: &slack.TextBlockObject{
 					Type: slack.PlainTextType,
@@ -753,9 +753,9 @@ func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Inciden
 				Text: "Description",
 			},
 			Element: &slack.PlainTextInputBlockElement{
-				Type:      slack.METPlainTextInput,
-				ActionID:  "description_input",
-				Multiline: true,
+				Type:         slack.METPlainTextInput,
+				ActionID:     "description_input",
+				Multiline:    true,
 				InitialValue: incident.Description,
 				Placeholder: &slack.TextBlockObject{
 					Type: slack.PlainTextType,
@@ -772,8 +772,8 @@ func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Inciden
 				Text: "Lead",
 			},
 			Element: &slack.SelectBlockElement{
-				Type:     slack.OptTypeUser,
-				ActionID: "lead_select",
+				Type:        slack.OptTypeUser,
+				ActionID:    "lead_select",
 				InitialUser: string(incident.Lead),
 				Placeholder: &slack.TextBlockObject{
 					Type: slack.PlainTextType,

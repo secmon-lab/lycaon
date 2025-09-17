@@ -8,7 +8,7 @@ import (
 
 // User represents a Slack user
 type User struct {
-	ID          types.UserID `json:"id"`  // This is the Slack User ID
+	ID          types.UserID `json:"id"` // This is the Slack User ID
 	Name        string       `json:"name"`
 	RealName    string       `json:"real_name"`
 	DisplayName string       `json:"display_name"`
@@ -22,7 +22,7 @@ type User struct {
 func NewUser(slackUserID types.SlackUserID, name, email string) *User {
 	now := time.Now()
 	return &User{
-		ID:        types.UserID(slackUserID),  // Use Slack User ID as the primary ID
+		ID:        types.UserID(slackUserID), // Use Slack User ID as the primary ID
 		Name:      name,
 		Email:     email,
 		CreatedAt: now,

@@ -20,6 +20,75 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 )
 
+// Config holds configuration for the HTTP server
+type Config struct {
+	slackConfig *config.SlackConfig
+	categories  *model.CategoriesConfig
+	addr        string
+	frontendURL string
+}
+
+// NewConfig creates a new Config instance
+func NewConfig(
+	addr string,
+	slackConfig *config.SlackConfig,
+	categories *model.CategoriesConfig,
+	frontendURL string,
+) *Config {
+	return &Config{
+		slackConfig: slackConfig,
+		categories:  categories,
+		addr:        addr,
+		frontendURL: frontendURL,
+	}
+}
+
+// UseCases holds use case dependencies for the HTTP server
+type UseCases struct {
+	auth             interfaces.Auth
+	slackMessage     interfaces.SlackMessage
+	incident         interfaces.Incident
+	task             interfaces.Task
+	slackInteraction interfaces.SlackInteraction
+}
+
+// NewUseCases creates a new UseCases instance
+func NewUseCases(
+	authUC interfaces.Auth,
+	messageUC interfaces.SlackMessage,
+	incidentUC interfaces.Incident,
+	taskUC interfaces.Task,
+	slackInteractionUC interfaces.SlackInteraction,
+) *UseCases {
+	return &UseCases{
+		auth:             authUC,
+		slackMessage:     messageUC,
+		incident:         incidentUC,
+		task:             taskUC,
+		slackInteraction: slackInteractionUC,
+	}
+}
+
+// Controllers holds controller dependencies for the HTTP server
+type Controllers struct {
+	slackHandler   *slackCtrl.Handler
+	authHandler    *AuthHandler
+	graphqlHandler http.Handler
+}
+
+// NewController creates a new Controllers instance with pre-created handlers
+func NewController(
+	slackHandler *slackCtrl.Handler,
+	authHandler *AuthHandler,
+	graphqlHandler http.Handler,
+) *Controllers {
+	return &Controllers{
+		slackHandler:   slackHandler,
+		authHandler:    authHandler,
+		graphqlHandler: graphqlHandler,
+	}
+}
+
 // Server represents the HTTP server
 type Server struct {
 	*http.Server
@@ -35,20 +104,13 @@ type Server struct {
 // NewServer creates a new HTTP server
 func NewServer(
 	ctx context.Context,
-	addr string,
-	slackConfig *config.SlackConfig,
-	categories *model.CategoriesConfig,
+	config *Config,
+	useCases *UseCases,
+	controllers *Controllers,
 	repo interfaces.Repository,
-	authUC interfaces.Auth,
-	messageUC interfaces.SlackMessage,
-	incidentUC interfaces.Incident,
-	taskUC interfaces.Task,
-	slackInteractionUC interfaces.SlackInteraction,
-	slackClient interfaces.SlackClient,
-	frontendURL string,
 ) (*Server, error) {
 	router := chi.NewRouter()
-	authMiddleware := NewMiddleware(ctx, authUC)
+	authMiddleware := NewMiddleware(ctx, useCases.auth)
 
 	// Apply global middleware
 	router.Use(middleware.RequestID)
@@ -57,9 +119,6 @@ func NewServer(
 	router.Use(AuthContextMiddleware())
 	router.Use(middleware.Recoverer)
 
-	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, slackClient)
-	authHandler := NewAuthHandler(ctx, slackConfig, authUC, frontendURL)
-
 	// Health check
 	router.Get("/health", handleHealth)
 
@@ -67,27 +126,25 @@ func NewServer(
 	router.Route("/api", func(r chi.Router) {
 		// Auth routes
 		r.Route("/auth", func(r chi.Router) {
-			r.Get("/login", authHandler.HandleLogin)
-			r.Get("/callback", authHandler.HandleCallback)
-			r.Post("/logout", authHandler.HandleLogout)
+			r.Get("/login", controllers.authHandler.HandleLogin)
+			r.Get("/callback", controllers.authHandler.HandleCallback)
+			r.Post("/logout", controllers.authHandler.HandleLogout)
 		})
 
 		// User routes (protected)
 		r.Route("/user", func(r chi.Router) {
 			r.Use(authMiddleware.RequireAuth)
-			r.Get("/me", authHandler.HandleUserMe)
+			r.Get("/me", controllers.authHandler.HandleUserMe)
 		})
 	})
 
 	// GraphQL endpoint
-	if repo != nil && incidentUC != nil && taskUC != nil {
-		graphqlHandler := createGraphQLHandler(repo, slackClient, incidentUC, taskUC, authUC, categories)
-
+	if controllers.graphqlHandler != nil {
 		router.Route("/graphql", func(r chi.Router) {
 			// Apply authentication middleware to GraphQL
 			// Note: This ensures GraphQL is protected by authentication
 			r.Use(authMiddleware.RequireAuth)
-			r.Handle("/", graphqlHandler)
+			r.Handle("/", controllers.graphqlHandler)
 		})
 
 		// GraphQL Playground (development only)
@@ -97,8 +154,8 @@ func NewServer(
 
 	// Slack webhook routes
 	router.Route("/hooks/slack", func(r chi.Router) {
-		r.Post("/event", slackHandler.HandleEvent)
-		r.Post("/interaction", slackHandler.HandleInteraction)
+		r.Post("/event", controllers.slackHandler.HandleEvent)
+		r.Post("/interaction", controllers.slackHandler.HandleInteraction)
 	})
 
 	// Frontend routes (serve embedded or filesystem)
@@ -118,17 +175,17 @@ func NewServer(
 
 	server := &Server{
 		Server: &http.Server{
-			Addr:              addr,
+			Addr:              config.addr,
 			Handler:           router,
 			ReadHeaderTimeout: 15 * time.Second,
 		},
 		router:         router,
-		slackConfig:    slackConfig,
-		authUC:         authUC,
-		messageUC:      messageUC,
+		slackConfig:    config.slackConfig,
+		authUC:         useCases.auth,
+		messageUC:      useCases.slackMessage,
 		authMiddleware: authMiddleware,
-		slackHandler:   slackHandler,
-		authHandler:    authHandler,
+		slackHandler:   controllers.slackHandler,
+		authHandler:    controllers.authHandler,
 	}
 
 	return server, nil
@@ -198,15 +255,16 @@ func handleFallbackHome(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// createGraphQLHandler creates a GraphQL handler with dependencies
-func createGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, incidentUC interfaces.Incident, taskUC interfaces.Task, authUC interfaces.Auth, categories *model.CategoriesConfig) http.Handler {
-	useCases := &graphql.UseCases{
-		IncidentUC: incidentUC,
-		TaskUC:     taskUC,
-		AuthUC:     authUC,
+// CreateGraphQLHandler creates a GraphQL handler with dependencies
+// This is a helper function that can be used externally to create the GraphQL handler
+func CreateGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, useCases *UseCases, categories *model.CategoriesConfig) http.Handler {
+	gqlUseCases := &graphql.UseCases{
+		IncidentUC: useCases.incident,
+		TaskUC:     useCases.task,
+		AuthUC:     useCases.auth,
 	}
 
-	resolver := graphql.NewResolver(repo, slackClient, useCases, categories)
+	resolver := graphql.NewResolver(repo, slackClient, gqlUseCases, categories)
 	srv := handler.NewDefaultServer(
 		graphql.NewExecutableSchema(graphql.Config{Resolvers: resolver}),
 	)

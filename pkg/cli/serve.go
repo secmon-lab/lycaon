@@ -13,6 +13,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
+	slackCtrl "github.com/secmon-lab/lycaon/pkg/controller/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/urfave/cli/v3"
 )
@@ -111,20 +112,43 @@ func cmdServe() *cli.Command {
 			statusUC := usecase.NewStatusUseCase(repo, slackClient)
 			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, slackClient)
 
-			// Create HTTP server
-			server, err := controller.NewServer(
-				ctx,
+			// Create configuration
+			config := controller.NewConfig(
 				serverCfg.Addr,
 				&slackCfg,
 				categories,
-				repo,
+				serverCfg.FrontendURL,
+			)
+
+			// Create use cases structure
+			useCases := controller.NewUseCases(
 				authUC,
 				messageUC,
 				incidentUC,
 				taskUC,
 				slackInteractionUC,
-				slackClient,
-				serverCfg.FrontendURL,
+			)
+
+			// Create handlers
+			slackHandler := slackCtrl.NewHandler(ctx, &slackCfg, repo, messageUC, incidentUC, taskUC, slackInteractionUC, slackClient)
+			authHandler := controller.NewAuthHandler(ctx, &slackCfg, authUC, serverCfg.FrontendURL)
+
+			// Create GraphQL handler
+			var graphqlHandler http.Handler
+			if repo != nil && incidentUC != nil && taskUC != nil {
+				graphqlHandler = controller.CreateGraphQLHandler(repo, slackClient, useCases, categories)
+			}
+
+			// Create controllers
+			controllers := controller.NewController(slackHandler, authHandler, graphqlHandler)
+
+			// Create HTTP server
+			server, err := controller.NewServer(
+				ctx,
+				config,
+				useCases,
+				controllers,
+				repo,
 			)
 			if err != nil {
 				return goerr.Wrap(err, "failed to create HTTP server")

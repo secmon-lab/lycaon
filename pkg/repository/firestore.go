@@ -316,7 +316,6 @@ func (f *Firestore) GetIncident(ctx context.Context, id types.IncidentID) (*mode
 		return nil, goerr.Wrap(err, "failed to decode incident")
 	}
 
-
 	return &incident, nil
 }
 
@@ -342,7 +341,6 @@ func (f *Firestore) GetIncidentByChannelID(ctx context.Context, channelID types.
 	if err := doc.DataTo(&incident); err != nil {
 		return nil, goerr.Wrap(err, "failed to decode incident")
 	}
-
 
 	return &incident, nil
 }

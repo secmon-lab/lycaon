@@ -17,5 +17,20 @@ func GetHTTPFS() (http.FileSystem, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Check if the dist directory actually contains built frontend files
+	if !isFrontendBuilt(sub) {
+		return nil, &fs.PathError{Op: "stat", Path: "index.html", Err: fs.ErrNotExist}
+	}
+
 	return http.FS(sub), nil
+}
+
+// isFrontendBuilt checks if the frontend has been properly built
+func isFrontendBuilt(fsys fs.FS) bool {
+	// Check for index.html as a marker that frontend is built
+	if _, err := fs.Stat(fsys, "index.html"); err != nil {
+		return false
+	}
+	return true
 }
