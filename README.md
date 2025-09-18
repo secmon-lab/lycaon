@@ -47,26 +47,29 @@ go build -o lycaon
 Lycaon is configured through environment variables:
 
 ```bash
-# Server
-LYCAON_ADDR=:8080
-LYCAON_DEV=false
+# Server Configuration
+LYCAON_ADDR=localhost:8080
+LYCAON_FRONTEND_URL=http://localhost:8080
 
 # Slack Configuration (Required)
 LYCAON_SLACK_CLIENT_ID=your-slack-client-id
 LYCAON_SLACK_CLIENT_SECRET=your-slack-client-secret
-LYCAON_SLACK_SIGNING_SECRET=your-signing-secret
+LYCAON_SLACK_SIGNING_SECRET=your-slack-signing-secret
 LYCAON_SLACK_OAUTH_TOKEN=xoxb-your-oauth-token
+LYCAON_SLACK_CHANNEL_PREFIX=inc
 
 # Firestore Configuration (Optional)
 LYCAON_FIRESTORE_PROJECT_ID=your-gcp-project
 LYCAON_FIRESTORE_DATABASE_ID=(default)
 
-# Gemini Configuration (Optional)
+# Gemini Configuration (Optional for LLM analysis)
 LYCAON_GEMINI_PROJECT_ID=your-gcp-project
+LYCAON_GEMINI_LOCATION=us-central1
 LYCAON_GEMINI_MODEL=gemini-1.5-flash
 
-# Logging
+# Logging Configuration
 LYCAON_LOG_LEVEL=info
+LYCAON_LOG_FORMAT=auto
 ```
 
 ## Slack App Setup
@@ -74,25 +77,20 @@ LYCAON_LOG_LEVEL=info
 1. Create a new Slack App at https://api.slack.com/apps
 2. Configure OAuth & Permissions:
    - Add redirect URL: `http://your-domain/api/auth/callback`
-   - Required scopes:
+   - Required Bot Token Scopes:
      - `app_mentions:read` - Receive app mention events
-     - `channels:history` - Read message history from public channels
-     - `channels:read` - Read public channel information
-     - `channels:manage` - Create and manage public channels (for incident channels)
-     - `channels:write.invites` - Invite users to public channels
-     - `channels:write.topic` - Set channel purpose/topic
-     - `chat:write` - Send messages as the bot
+     - `channels:history` - Read message history from channels
+     - `channels:manage` - Create and manage public channels
+     - `channels:read` - Read channel information
+     - `chat:write` - Send and update messages
      - `users:read` - Read user information
-     - `groups:history` - Read message history from private channels (if bot is invited)
-     - `groups:read` - Read private channel information (if bot is invited)
-     - `groups:write` - Create and manage private channels (optional, for future use)
 3. Configure Event Subscriptions:
-   - Request URL: `http://your-domain/hooks/slack/events`
-   - Subscribe to events:
-     - `message.channels`
-     - `app_mention`
-4. Configure Interactivity:
-   - Request URL: `http://your-domain/hooks/slack/interactions`
+   - Request URL: `http://your-domain/hooks/slack/event`
+   - Subscribe to Bot Events:
+     - `message.channels` - Listen to messages in public channels
+     - `app_mention` - Listen to app mentions
+4. Configure Interactivity & Shortcuts:
+   - Request URL: `http://your-domain/hooks/slack/interaction`
 
 ## Usage
 

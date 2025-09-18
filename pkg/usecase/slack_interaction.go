@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 
@@ -216,7 +217,7 @@ func (s *SlackInteraction) handleViewSubmission(ctx context.Context, interaction
 
 	default:
 		// Check if it's a task edit modal submission
-		if strings.HasPrefix(interaction.View.CallbackID, "task_edit_submit_") {
+		if strings.HasPrefix(interaction.View.CallbackID, "task_edit_submit:") {
 			return s.handleTaskEditSubmission(ctx, interaction)
 		}
 
@@ -461,8 +462,28 @@ func (s *SlackInteraction) handleTaskEdit(ctx context.Context, interaction *slac
 func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interaction *slack.InteractionCallback) error {
 	logger := ctxlog.From(ctx)
 
-	// Extract task ID from callback ID
-	taskIDStr := strings.TrimPrefix(interaction.View.CallbackID, "task_edit_submit_")
+	// Extract incident ID and task ID from callback ID
+	callbackData := strings.TrimPrefix(interaction.View.CallbackID, "task_edit_submit:")
+	parts := strings.SplitN(callbackData, ":", 2)
+	if len(parts) != 2 {
+		return goerr.New("invalid callback ID format",
+			goerr.V("callbackID", interaction.View.CallbackID))
+	}
+
+	incidentIDStr, taskIDStr := parts[0], parts[1]
+	incidentIDUint, err := strconv.ParseUint(incidentIDStr, 10, 64)
+	if err != nil {
+		return goerr.Wrap(err, "invalid incident ID in callback",
+			goerr.V("incidentIDStr", incidentIDStr))
+	}
+
+	// Check for overflow when converting uint64 to int
+	if incidentIDUint > math.MaxInt64 {
+		return goerr.New("incident ID too large",
+			goerr.V("incidentID", incidentIDUint))
+	}
+
+	incidentID := types.IncidentID(incidentIDUint)
 	taskID := types.TaskID(taskIDStr)
 
 	// Extract values from modal
@@ -498,14 +519,7 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 		}
 	}
 
-	// Get incident ID from channel for efficient task update
-	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
-	if err != nil {
-		logger.Error("Failed to get incident for task update", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
-		return goerr.Wrap(err, "failed to get incident for task update")
-	}
-
-	// Update the task efficiently
+	// Update the task efficiently using incident ID from callback
 	updatedTask, err := s.taskUC.UpdateTaskByIncident(ctx, incidentID, taskID, updates)
 	if err != nil {
 		logger.Error("Failed to update task", "error", err, "incidentID", incidentID, "taskID", taskID)

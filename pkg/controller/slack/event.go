@@ -242,7 +242,9 @@ func (h *EventHandler) handleTaskCommand(ctx context.Context, event *slackevents
 	incident, err := h.findIncidentByChannel(ctx, types.ChannelID(event.Channel))
 	if err != nil {
 		logger.Warn("Failed to find incident for channel", "error", err, "channel", event.Channel)
-		return h.sendTaskErrorMessage(ctx, event.Channel, event.TimeStamp, "Please create an incident first.")
+
+		errorMsg := "No incident found for this channel. Task commands can only be used in incident channels (channels that start with 'inc-'). Please either:\n1. Create an incident first by messaging the bot with '@lycaon inc <description>'\n2. Use task commands in an existing incident channel"
+		return h.sendTaskErrorMessage(ctx, event.Channel, event.TimeStamp, errorMsg)
 	}
 
 	// Parse task command
