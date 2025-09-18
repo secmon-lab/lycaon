@@ -461,8 +461,20 @@ func (s *SlackInteraction) handleTaskEdit(ctx context.Context, interaction *slac
 func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interaction *slack.InteractionCallback) error {
 	logger := ctxlog.From(ctx)
 
-	// Extract task ID from callback ID
-	taskIDStr := strings.TrimPrefix(interaction.View.CallbackID, "task_edit_submit_")
+	// Extract incident ID and task ID from callback ID
+	callbackData := strings.TrimPrefix(interaction.View.CallbackID, "task_edit_submit:")
+	parts := strings.Split(callbackData, ":")
+	if len(parts) != 2 {
+		return goerr.New("invalid callback ID format",
+			goerr.V("callbackID", interaction.View.CallbackID))
+	}
+
+	incidentIDStr, taskIDStr := parts[0], parts[1]
+	incidentID, err := strconv.ParseUint(incidentIDStr, 10, 64)
+	if err != nil {
+		return goerr.Wrap(err, "invalid incident ID in callback",
+			goerr.V("incidentIDStr", incidentIDStr))
+	}
 	taskID := types.TaskID(taskIDStr)
 
 	// Extract values from modal
@@ -498,15 +510,8 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 		}
 	}
 
-	// Get incident ID from channel for efficient task update
-	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
-	if err != nil {
-		logger.Error("Failed to get incident for task update", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
-		return goerr.Wrap(err, "failed to get incident for task update")
-	}
-
-	// Update the task efficiently
-	updatedTask, err := s.taskUC.UpdateTaskByIncident(ctx, incidentID, taskID, updates)
+	// Update the task efficiently using incident ID from callback
+	updatedTask, err := s.taskUC.UpdateTaskByIncident(ctx, types.IncidentID(incidentID), taskID, updates)
 	if err != nil {
 		logger.Error("Failed to update task", "error", err, "incidentID", incidentID, "taskID", taskID)
 		return goerr.Wrap(err, "failed to update task")

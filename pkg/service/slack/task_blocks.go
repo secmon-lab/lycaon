@@ -246,7 +246,7 @@ func BuildTaskEditModal(task *model.Task, channelMembers []types.SlackUserID) sl
 		Title:      slack.NewTextBlockObject(slack.PlainTextType, "Edit Task", false, false),
 		Submit:     slack.NewTextBlockObject(slack.PlainTextType, "Save", false, false),
 		Close:      slack.NewTextBlockObject(slack.PlainTextType, "Cancel", false, false),
-		CallbackID: fmt.Sprintf("task_edit_submit_%s", task.ID),
+		CallbackID: fmt.Sprintf("task_edit_submit:%d:%s", task.IncidentID, task.ID),
 		Blocks: slack.Blocks{
 			BlockSet: []slack.Block{
 				titleBlock,
