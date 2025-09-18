@@ -43,7 +43,6 @@ func (c *CategoriesConfig) Validate() error {
 	return nil
 }
 
-
 // FindCategoryByID finds a category by its ID
 func (c *CategoriesConfig) FindCategoryByID(id string) *Category {
 	for _, cat := range c.Categories {

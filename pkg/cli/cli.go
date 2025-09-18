@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"github.com/m-mizutani/ctxlog"
-	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/urfave/cli/v3"
@@ -14,7 +13,7 @@ import (
 // Run runs the CLI application
 func Run(ctx context.Context, args []string) error {
 	var loggerCfg config.Logger
-
+	var logger *slog.Logger
 	app := &cli.Command{
 		Name:    "lycaon",
 		Usage:   "Slack-based incident management service",
@@ -22,7 +21,8 @@ func Run(ctx context.Context, args []string) error {
 		Flags:   loggerCfg.Flags(),
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			// Configure logger
-			logger, err := loggerCfg.Configure()
+			var err error
+			logger, err = loggerCfg.Configure()
 			if err != nil {
 				return nil, err
 			}
@@ -38,7 +38,12 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	if err := app.Run(ctx, args); err != nil {
-		return goerr.Wrap(err, "CLI execution failed")
+		if logger == nil {
+			logger = slog.Default()
+		}
+		logger.Error("CLI execution failed", slog.Any("error", err))
+
+		return err
 	}
 
 	return nil
