@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -34,9 +35,177 @@ func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
 				User:   "test-bot",
 			}, nil
 		},
+		GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+			// Return basic channel info for testing
+			channel := &slack.Channel{}
+			channel.Name = "test-channel"
+			channel.Topic = slack.Topic{Value: "Test channel"}
+			channel.Purpose = slack.Purpose{Value: "Testing"}
+			return channel, nil
+		},
 	}
 
 	return mockLLM, mockSlack
+}
+
+// Test for the enhanced ParseIncidentCommand with LLM always being used
+func TestParseIncidentCommand_AlwaysUsesLLM(t *testing.T) {
+	tests := []struct {
+		name                   string
+		messageText            string
+		channelID              string
+		channelName            string
+		channelTopic           string
+		messageHistory         []slack.Message
+		expectedPromptContains []string
+		expectedLLMResponse    string
+		expectChannelAPICall   bool
+		expectLLMCall          bool
+	}{
+		{
+			name:        "with title text - should use LLM with additional prompt",
+			messageText: "<@U_TEST_BOT> inc database error",
+			channelID:   "C123456",
+			channelName: "production-alerts",
+			channelTopic: "Production system monitoring",
+			messageHistory: []slack.Message{
+				{Msg: slack.Msg{Text: "システムが重い", User: "user1", Timestamp: "1234567890.123"}},
+			},
+			expectedPromptContains: []string{
+				"**Channel Name**: production-alerts",
+				"**Topic**: Production system monitoring",
+				"database error", // additional prompt
+				"システムが重い", // message history
+			},
+			expectedLLMResponse: `{"title":"データベース接続障害","description":"本番環境でデータベース接続エラーが発生","category_id":"system_failure"}`,
+			expectChannelAPICall: true,
+			expectLLMCall:        true,
+		},
+		{
+			name:        "without title text - should use LLM with message history only",
+			messageText: "<@U_TEST_BOT> inc",
+			channelID:   "C123456",
+			channelName: "api-team",
+			channelTopic: "API development discussions",
+			messageHistory: []slack.Message{
+				{Msg: slack.Msg{Text: "APIが遅い", User: "user1", Timestamp: "1234567890.123"}},
+				{Msg: slack.Msg{Text: "レスポンス時間が長い", User: "user2", Timestamp: "1234567891.456"}},
+			},
+			expectedPromptContains: []string{
+				"**Channel Name**: api-team",
+				"**Topic**: API development discussions",
+				"APIが遅い",
+				"レスポンス時間が長い",
+			},
+			expectedLLMResponse: `{"title":"API パフォーマンス問題","description":"APIレスポンス時間の遅延が発生","category_id":"performance_issue"}`,
+			expectChannelAPICall: true,
+			expectLLMCall:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup
+			ctx := context.Background()
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+			ctx = ctxlog.With(ctx, logger)
+			repo := repository.NewMemory()
+
+			// Mock LLM client with detailed verification
+			var actualPrompt string
+			mockLLM := &mock.LLMClientMock{
+				NewSessionFunc: func(ctx context.Context, opts ...gollem.SessionOption) (gollem.Session, error) {
+					// Verify session options
+					gt.A(t, opts).Longer(0) // Should have content type option
+
+					return &mock.SessionMock{
+						GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+							// Verify prompt content
+							gt.Equal(t, len(input), 1)
+							textInput, ok := input[0].(gollem.Text)
+							gt.True(t, ok)
+
+							actualPrompt = string(textInput)
+							for _, expectedContent := range tt.expectedPromptContains {
+								if !strings.Contains(actualPrompt, expectedContent) {
+									t.Logf("Prompt should contain: %s\nActual prompt: %s", expectedContent, actualPrompt)
+									t.Fail()
+								}
+							}
+
+							// Return mock response
+							return &gollem.Response{
+								Texts: []string{tt.expectedLLMResponse},
+							}, nil
+						},
+					}, nil
+				},
+			}
+
+			// Mock Slack client with channel info verification
+			var channelAPICallCount int
+			mockSlack := &mocks.SlackClientMock{
+				AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+					return &slack.AuthTestResponse{UserID: "U_TEST_BOT", User: "test-bot"}, nil
+				},
+				GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+					channelAPICallCount++
+					gt.Equal(t, tt.channelID, channelID)
+					gt.False(t, includeLocale) // Should be false
+
+					channel := &slack.Channel{}
+					channel.Name = tt.channelName
+					channel.Topic = slack.Topic{Value: tt.channelTopic}
+					channel.Purpose = slack.Purpose{Value: "Test channel purpose"}
+					channel.IsPrivate = false
+					channel.NumMembers = 10
+					return channel, nil
+				},
+				GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+					return &slack.GetConversationHistoryResponse{
+						Messages: tt.messageHistory,
+					}, nil
+				},
+			}
+
+			// Create UseCase with mocks
+			categories := model.GetDefaultCategories()
+			slackMessage, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, categories)
+			gt.NoError(t, err)
+
+			// Create test message
+			message := &model.Message{
+				ID:        types.MessageID("test-msg-001"),
+				UserID:    types.SlackUserID("user1"),
+				ChannelID: types.ChannelID(tt.channelID),
+				Text:      tt.messageText,
+				EventTS:   types.EventTS("1234567890.123"),
+			}
+
+			// Execute
+			result := slackMessage.ParseIncidentCommand(ctx, message)
+
+			// Verify LLM call expectations
+			if tt.expectLLMCall {
+				gt.True(t, result.IsIncidentTrigger)
+				gt.NotEqual(t, "", result.Title)
+				gt.NotEqual(t, "", result.Description)
+				gt.NotEqual(t, "", result.CategoryID)
+
+				// Verify LLM client was called
+				gt.Equal(t, 1, len(mockLLM.NewSessionCalls()))
+			} else {
+				gt.False(t, result.IsIncidentTrigger)
+			}
+
+			// Verify channel API call expectations
+			if tt.expectChannelAPICall {
+				gt.Equal(t, 1, channelAPICallCount)
+			} else {
+				gt.Equal(t, 0, channelAPICallCount)
+			}
+		})
+	}
 }
 
 func TestSlackMessageProcessMessage(t *testing.T) {
@@ -227,6 +396,14 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 				UserID: "U123BOT",
 				User:   "lycaon-bot",
 			}, nil
+		},
+		GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+			// Return basic channel info for testing
+			channel := &slack.Channel{}
+			channel.Name = "test-channel"
+			channel.Topic = slack.Topic{Value: "Test channel"}
+			channel.Purpose = slack.Purpose{Value: "Testing"}
+			return channel, nil
 		},
 	}
 
@@ -578,6 +755,14 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
 				}, nil
 			},
+			GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+				// Return basic channel info for testing
+				channel := &slack.Channel{}
+				channel.Name = "test-channel"
+				channel.Topic = slack.Topic{Value: "Test channel"}
+				channel.Purpose = slack.Purpose{Value: "Testing"}
+				return channel, nil
+			},
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -644,6 +829,14 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
 				}, nil
 			},
+			GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+				// Return basic channel info for testing
+				channel := &slack.Channel{}
+				channel.Name = "test-channel"
+				channel.Topic = slack.Topic{Value: "Test channel"}
+				channel.Purpose = slack.Purpose{Value: "Testing"}
+				return channel, nil
+			},
 			GetConversationRepliesContextFunc: func(ctx context.Context, params *slack.GetConversationRepliesParameters) ([]slack.Message, bool, bool, error) {
 				return []slack.Message{
 					{
@@ -705,6 +898,14 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
 				}, nil
 			},
+			GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+				// Return basic channel info for testing
+				channel := &slack.Channel{}
+				channel.Name = "test-channel"
+				channel.Topic = slack.Topic{Value: "Test channel"}
+				channel.Purpose = slack.Purpose{Value: "Testing"}
+				return channel, nil
+			},
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -760,6 +961,14 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
 				}, nil
 			},
+			GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+				// Return basic channel info for testing
+				channel := &slack.Channel{}
+				channel.Name = "test-channel"
+				channel.Topic = slack.Topic{Value: "Test channel"}
+				channel.Purpose = slack.Purpose{Value: "Testing"}
+				return channel, nil
+			},
 			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
 				return &slack.GetConversationHistoryResponse{
 					Messages: []slack.Message{
@@ -793,9 +1002,24 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 		gt.Equal(t, "", result.Description) // Should fallback to empty
 	})
 
-	t.Run("Manual title specified (no LLM enhancement)", func(t *testing.T) {
-		// Mock that should not be called since title is provided
-		mockGollem := &mock.LLMClientMock{}
+	t.Run("Manual title specified (LLM enhancement with additional prompt)", func(t *testing.T) {
+		// Mock LLM client that will be called with additional prompt
+		mockGollem := &mock.LLMClientMock{
+			NewSessionFunc: func(ctx context.Context, options ...gollem.SessionOption) (gollem.Session, error) {
+				mockSession := &mock.SessionMock{
+					GenerateContentFunc: func(ctx context.Context, input ...gollem.Input) (*gollem.Response, error) {
+						return &gollem.Response{
+							Texts: []string{`{
+								"title": "Enhanced Manual Incident Title",
+								"description": "LLM-enhanced description based on manual title and message history",
+								"category_id": "system_failure"
+							}`},
+						}, nil
+					},
+				}
+				return mockSession, nil
+			},
+		}
 		mockSlack := &mocks.SlackClientMock{
 			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 				return &slack.AuthTestResponse{
@@ -803,12 +1027,33 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 					User:   fmt.Sprintf("bot-%d", time.Now().UnixNano()%1000000),
 				}, nil
 			},
+			GetConversationInfoFunc: func(ctx context.Context, channelID string, includeLocale bool) (*slack.Channel, error) {
+				// Return basic channel info for testing
+				channel := &slack.Channel{}
+				channel.Name = "test-channel"
+				channel.Topic = slack.Topic{Value: "Test channel"}
+				channel.Purpose = slack.Purpose{Value: "Testing"}
+				return channel, nil
+			},
+			GetConversationHistoryContextFunc: func(ctx context.Context, params *slack.GetConversationHistoryParameters) (*slack.GetConversationHistoryResponse, error) {
+				return &slack.GetConversationHistoryResponse{
+					Messages: []slack.Message{
+						{
+							Msg: slack.Msg{
+								Timestamp: fmt.Sprintf("%d.000001", time.Now().Unix()),
+								User:      fmt.Sprintf("U%d", time.Now().UnixNano()%1000000),
+								Text:      "Manual incident title test",
+							},
+						},
+					},
+				}, nil
+			},
 		}
 
 		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
 		gt.NoError(t, err).Required()
 
-		// With manual title - should not trigger LLM
+		// With manual title - should trigger LLM with title as additional prompt
 		message := &model.Message{
 			ID:        types.MessageID(fmt.Sprintf("msg-%d", time.Now().UnixNano()%1000000)),
 			Text:      fmt.Sprintf("<@%s> inc Manual Incident Title", botUserID),
@@ -819,7 +1064,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 
 		result := uc.ParseIncidentCommand(ctx, message)
 		gt.Equal(t, true, result.IsIncidentTrigger)
-		gt.Equal(t, "Manual Incident Title", result.Title)
-		gt.Equal(t, "", result.Description) // No description when manually specified
+		gt.Equal(t, "Enhanced Manual Incident Title", result.Title) // LLM enhanced title
+		gt.Equal(t, "LLM-enhanced description based on manual title and message history", result.Description) // LLM generated description
+		gt.Equal(t, "system_failure", result.CategoryID) // LLM selected category
 	})
 }

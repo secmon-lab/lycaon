@@ -38,6 +38,15 @@ type IncidentSummary struct {
 	CategoryID  string `json:"category_id"`
 }
 
+// ChannelInfo represents Slack channel information for LLM context
+type ChannelInfo struct {
+	Name        string
+	Topic       string
+	Purpose     string
+	IsPrivate   bool
+	MemberCount int
+}
+
 // TemplateMessage represents a message for template rendering
 type TemplateMessage struct {
 	Timestamp string
@@ -47,8 +56,10 @@ type TemplateMessage struct {
 
 // IncidentAnalysisTemplateData contains data for comprehensive incident analysis template
 type IncidentAnalysisTemplateData struct {
-	Categories []model.Category
-	Messages   []TemplateMessage
+	Categories       []model.Category
+	Messages         []TemplateMessage
+	AdditionalPrompt string
+	ChannelInfo      *ChannelInfo
 }
 
 // NewLLMService creates a new LLMService instance
@@ -69,6 +80,86 @@ func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Messa
 	templateData := IncidentAnalysisTemplateData{
 		Categories: categories.Categories,
 		Messages:   s.buildTemplateMessages(messages),
+	}
+
+	// Generate prompt using the unified template
+	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to render incident analysis template",
+			goerr.T(ErrTagTemplateFailure))
+	}
+
+	// Create session with JSON content type
+	session, err := s.llmClient.NewSession(ctx, gollem.WithSessionContentType(gollem.ContentTypeJSON))
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to create LLM session")
+	}
+
+	// Generate response from LLM
+	response, err := session.GenerateContent(ctx, gollem.Text(prompt))
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to generate LLM response")
+	}
+
+	// Check if response has content
+	if len(response.Texts) == 0 || response.Texts[0] == "" {
+		return nil, goerr.New("empty response from LLM",
+			goerr.T(ErrTagEmptyResponse))
+	}
+
+	// Parse JSON response
+	var summary IncidentSummary
+	if err := json.Unmarshal([]byte(response.Texts[0]), &summary); err != nil {
+		return nil, goerr.Wrap(err, "failed to parse LLM response as JSON",
+			goerr.V("response", response.Texts[0]),
+			goerr.T(ErrTagInvalidJSON))
+	}
+
+	// Validate response
+	if summary.Title == "" {
+		return nil, goerr.New("LLM response missing title",
+			goerr.T(ErrTagMissingField),
+			goerr.V("field", "title"))
+	}
+	if summary.Description == "" {
+		return nil, goerr.New("LLM response missing description",
+			goerr.T(ErrTagMissingField),
+			goerr.V("field", "description"))
+	}
+
+	// Validate category ID
+	if summary.CategoryID == "" {
+		summary.CategoryID = "unknown"
+	} else {
+		// Check if the selected category is valid
+		found := false
+		for _, cat := range categories.Categories {
+			if cat.ID == summary.CategoryID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			summary.CategoryID = "unknown"
+		}
+	}
+
+	return &summary, nil
+}
+
+// AnalyzeIncidentWithContext performs comprehensive incident analysis with additional context
+// This method extends AnalyzeIncident to include additional prompt and channel information
+func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, additionalPrompt string, channelInfo *slack.Channel) (*IncidentSummary, error) {
+	if len(messages) == 0 {
+		return nil, goerr.New("no messages provided for incident analysis")
+	}
+
+	// Build template data with additional context
+	templateData := IncidentAnalysisTemplateData{
+		Categories:       categories.Categories,
+		Messages:         s.buildTemplateMessages(messages),
+		AdditionalPrompt: additionalPrompt,
+		ChannelInfo:      s.buildChannelInfo(channelInfo),
 	}
 
 	// Generate prompt using the unified template
@@ -201,4 +292,18 @@ func parseSlackTimestamp(timestamp string) (time.Time, error) {
 	sec := int64(ts)
 	nsec := int64((ts - float64(sec)) * 1e9)
 	return time.Unix(sec, nsec), nil
+}
+
+// buildChannelInfo converts Slack channel to ChannelInfo for template rendering
+func (s *LLMService) buildChannelInfo(channel *slack.Channel) *ChannelInfo {
+	if channel == nil {
+		return nil
+	}
+	return &ChannelInfo{
+		Name:        channel.Name,
+		Topic:       channel.Topic.Value,
+		Purpose:     channel.Purpose.Value,
+		IsPrivate:   channel.IsPrivate,
+		MemberCount: channel.NumMembers,
+	}
 }
