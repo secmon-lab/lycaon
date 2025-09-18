@@ -38,6 +38,9 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	if err := app.Run(ctx, args); err != nil {
+		if logger == nil {
+			logger = slog.Default()
+		}
 		logger.Error("CLI execution failed", slog.Any("error", err))
 
 		return err
