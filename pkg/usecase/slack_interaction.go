@@ -463,7 +463,7 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 
 	// Extract incident ID and task ID from callback ID
 	callbackData := strings.TrimPrefix(interaction.View.CallbackID, "task_edit_submit:")
-	parts := strings.Split(callbackData, ":")
+	parts := strings.SplitN(callbackData, ":", 2)
 	if len(parts) != 2 {
 		return goerr.New("invalid callback ID format",
 			goerr.V("callbackID", interaction.View.CallbackID))
