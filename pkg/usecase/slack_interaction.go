@@ -216,7 +216,7 @@ func (s *SlackInteraction) handleViewSubmission(ctx context.Context, interaction
 
 	default:
 		// Check if it's a task edit modal submission
-		if strings.HasPrefix(interaction.View.CallbackID, "task_edit_submit_") {
+		if strings.HasPrefix(interaction.View.CallbackID, "task_edit_submit:") {
 			return s.handleTaskEditSubmission(ctx, interaction)
 		}
 
