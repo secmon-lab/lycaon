@@ -56,6 +56,7 @@ func (g *Gemini) Configure(ctx context.Context) (gollem.LLMClient, error) {
 	// Create Gemini client using gollem's gemini package
 	client, err := gemini.New(ctx, g.Project, g.Location,
 		gemini.WithModel(g.Model),
+		gemini.WithThinkingBudget(0),
 	)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create Gemini client",

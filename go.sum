@@ -1,7 +1,5 @@
 cloud.google.com/go v0.122.0 h1:0JTLGrcSIs3HIGsgVPvTx3cfyFSP/k9CI8vLPHTd6Wc=
 cloud.google.com/go v0.122.0/go.mod h1:xBoMV08QcqUGuPW65Qfm1o9Y4zKZBpGS+7bImXLTAZU=
-cloud.google.com/go/aiplatform v1.100.0 h1:MhppQFDTXGPPwXMnh4NViBZDV2KYlD9b1NNqFKToe3A=
-cloud.google.com/go/aiplatform v1.100.0/go.mod h1:oZUOTz6+cMt9eVNe62CXPfIQQQ+QjR4rW3GBGD9r6Fg=
 cloud.google.com/go/auth v0.16.5 h1:mFWNQ2FEVWAliEQWpAdH80omXFokmrnbDhUS9cBywsI=
 cloud.google.com/go/auth v0.16.5/go.mod h1:utzRfHMP+Vv0mpOkTRQoWD2q3BatTOoWbA7gCc2dUhQ=
 cloud.google.com/go/auth/oauth2adapt v0.2.8 h1:keo8NaayQZ6wimpNSmW5OPc283g65QNIiLpZnkHRbnc=
@@ -10,12 +8,8 @@ cloud.google.com/go/compute/metadata v0.8.0 h1:HxMRIbao8w17ZX6wBnjhcDkW6lTFpgcao
 cloud.google.com/go/compute/metadata v0.8.0/go.mod h1:sYOGTp851OV9bOFJ9CH7elVvyzopvWQFNNghtDQ/Biw=
 cloud.google.com/go/firestore v1.18.0 h1:cuydCaLS7Vl2SatAeivXyhbhDEIR8BDmtn4egDhIn2s=
 cloud.google.com/go/firestore v1.18.0/go.mod h1:5ye0v48PhseZBdcl0qbl3uttu7FIEwEYVaWm0UIEOEU=
-cloud.google.com/go/iam v1.5.2 h1:qgFRAGEmd8z6dJ/qyEchAuL9jpswyODjA2lS+w234g8=
-cloud.google.com/go/iam v1.5.2/go.mod h1:SE1vg0N81zQqLzQEwxL2WI6yhetBdbNQuTvIKCSkUHE=
 cloud.google.com/go/longrunning v0.6.7 h1:IGtfDWHhQCgCjwQjV9iiLnUta9LBCo8R9QmAFsS/PrE=
 cloud.google.com/go/longrunning v0.6.7/go.mod h1:EAFV3IZAKmM56TyiE6VAP3VoTzhZzySwI/YI1s/nRsY=
-cloud.google.com/go/vertexai v0.15.0 h1:FRVdUsm07qX9P/19SMDd/RZVwLR9sCm3HN0Ze7wSEpc=
-cloud.google.com/go/vertexai v0.15.0/go.mod h1:YTy1fUT3yH57nClxotpyY29T0MhnNUHIyysef8u69ow=
 github.com/99designs/gqlgen v0.17.78 h1:bhIi7ynrc3js2O8wu1sMQj1YHPENDt3jQGyifoBvoVI=
 github.com/99designs/gqlgen v0.17.78/go.mod h1:yI/o31IauG2kX0IsskM4R894OCCG1jXJORhtLQqB7Oc=
 github.com/PuerkitoBio/goquery v1.10.3 h1:pFYcNSqHxBD06Fpj/KsbStFRsgRATgnf3LeXiUkhzPo=
@@ -94,8 +88,8 @@ github.com/m-mizutani/ctxlog v0.2.0 h1:9uS18pV/mb/90mc/DJp8no67pdOIlCai+L5hv/MkC
 github.com/m-mizutani/ctxlog v0.2.0/go.mod h1:BTVGSqZO4JJgKBUJWBNo+Yy2j2xTGCYeEQ65h2VBMXE=
 github.com/m-mizutani/goerr/v2 v2.0.0-beta.4 h1:7ILEckLU2j0DshbYhVIxWfJKiQPK8bKHQgw2vy7hwXI=
 github.com/m-mizutani/goerr/v2 v2.0.0-beta.4/go.mod h1:Ax59zs+j3NmzB/mPLc1w3g4yIutdrwcY7cB6IRO18EU=
-github.com/m-mizutani/gollem v0.12.0 h1:eiba26VD2UaydRCvCOJevNPB0IooFLzptXEJVY8Fjkg=
-github.com/m-mizutani/gollem v0.12.0/go.mod h1:Wo1mx6NRK4o6+xUuxYIHWH6V/IlNRwJXzF/AMuThRW4=
+github.com/m-mizutani/gollem v0.13.0 h1:KL8phLFfSZXV1DML91n9AWez+Co2jz0m9gR7DvZb/S4=
+github.com/m-mizutani/gollem v0.13.0/go.mod h1:CeDxjBLlRtkpmn9FKcn3sXhqANDWlQG8BbSZDG9UVRk=
 github.com/m-mizutani/gt v0.1.0 h1:HCz+dE6zmlpceb4smal4hOyZyS+WHxGtiOTUJwA9n1A=
 github.com/m-mizutani/gt v0.1.0/go.mod h1:0MPYSfGBLmYjTduzADVmIqD58ELQ5IfBFiK/f0FmB3k=
 github.com/m-mizutani/jsonex v0.0.1 h1:YhWGBjp6uVZKCCr/6PEiTzq3Zl6kt+xtkiDV4lv5A8E=

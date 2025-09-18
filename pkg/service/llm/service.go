@@ -38,6 +38,15 @@ type IncidentSummary struct {
 	CategoryID  string `json:"category_id"`
 }
 
+// ChannelInfo represents Slack channel information for LLM context
+type ChannelInfo struct {
+	Name        string
+	Topic       string
+	Purpose     string
+	IsPrivate   bool
+	MemberCount int
+}
+
 // TemplateMessage represents a message for template rendering
 type TemplateMessage struct {
 	Timestamp string
@@ -47,8 +56,10 @@ type TemplateMessage struct {
 
 // IncidentAnalysisTemplateData contains data for comprehensive incident analysis template
 type IncidentAnalysisTemplateData struct {
-	Categories []model.Category
-	Messages   []TemplateMessage
+	Categories       []model.Category
+	Messages         []TemplateMessage
+	AdditionalPrompt string
+	ChannelInfo      *ChannelInfo
 }
 
 // NewLLMService creates a new LLMService instance
@@ -65,12 +76,36 @@ func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Messa
 		return nil, goerr.New("no messages provided for incident analysis")
 	}
 
-	// Build template data
+	// Build template data without additional context
 	templateData := IncidentAnalysisTemplateData{
 		Categories: categories.Categories,
 		Messages:   s.buildTemplateMessages(messages),
 	}
 
+	return s.analyze(ctx, templateData, categories)
+}
+
+// AnalyzeIncidentWithContext performs comprehensive incident analysis with additional context
+// This method extends AnalyzeIncident to include additional prompt and channel information
+func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, additionalPrompt string, channelInfo *slack.Channel) (*IncidentSummary, error) {
+	if len(messages) == 0 {
+		return nil, goerr.New("no messages provided for incident analysis")
+	}
+
+	// Build template data with additional context
+	templateData := IncidentAnalysisTemplateData{
+		Categories:       categories.Categories,
+		Messages:         s.buildTemplateMessages(messages),
+		AdditionalPrompt: additionalPrompt,
+		ChannelInfo:      s.buildChannelInfo(channelInfo),
+	}
+
+	return s.analyze(ctx, templateData, categories)
+}
+
+// analyze performs the common LLM analysis logic
+// This is the shared implementation used by both AnalyzeIncident and AnalyzeIncidentWithContext
+func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisTemplateData, categories *model.CategoriesConfig) (*IncidentSummary, error) {
 	// Generate prompt using the unified template
 	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
 	if err != nil {
@@ -117,20 +152,8 @@ func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Messa
 	}
 
 	// Validate category ID
-	if summary.CategoryID == "" {
+	if summary.CategoryID == "" || !categories.IsValidCategoryID(summary.CategoryID) {
 		summary.CategoryID = "unknown"
-	} else {
-		// Check if the selected category is valid
-		found := false
-		for _, cat := range categories.Categories {
-			if cat.ID == summary.CategoryID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			summary.CategoryID = "unknown"
-		}
 	}
 
 	return &summary, nil
@@ -201,4 +224,18 @@ func parseSlackTimestamp(timestamp string) (time.Time, error) {
 	sec := int64(ts)
 	nsec := int64((ts - float64(sec)) * 1e9)
 	return time.Unix(sec, nsec), nil
+}
+
+// buildChannelInfo converts Slack channel to ChannelInfo for template rendering
+func (s *LLMService) buildChannelInfo(channel *slack.Channel) *ChannelInfo {
+	if channel == nil {
+		return nil
+	}
+	return &ChannelInfo{
+		Name:        channel.Name,
+		Topic:       channel.Topic.Value,
+		Purpose:     channel.Purpose.Value,
+		IsPrivate:   channel.IsPrivate,
+		MemberCount: channel.NumMembers,
+	}
 }

@@ -38,6 +38,38 @@ var ConfigInitCommand = &cli.Command{
 	},
 }
 
+// getDefaultCategoriesForConfig returns default categories for configuration file generation
+func getDefaultCategoriesForConfig() *model.CategoriesConfig {
+	return &model.CategoriesConfig{
+		Categories: []model.Category{
+			{
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
+			},
+			{
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
+			},
+			{
+				ID:          "performance_issue",
+				Name:        "Performance Issue",
+				Description: "System performance degradation or response time issues",
+			},
+			{
+				ID:          "unknown",
+				Name:        "Unknown",
+				Description: "Incidents that cannot be categorized",
+			},
+		},
+	}
+}
+
 func configInitAction(ctx context.Context, c *cli.Command) error {
 	filename := c.String("output")
 	force := c.Bool("force")
@@ -55,7 +87,7 @@ func configInitAction(ctx context.Context, c *cli.Command) error {
 	}
 
 	// Generate template
-	config := model.GetDefaultCategories()
+	config := getDefaultCategoriesForConfig()
 
 	// Create encoder with proper indentation (2 spaces)
 	var buf bytes.Buffer

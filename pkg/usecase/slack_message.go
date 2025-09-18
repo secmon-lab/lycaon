@@ -224,23 +224,43 @@ func (s *SlackMessage) ParseIncidentCommand(ctx context.Context, message *model.
 		return basicCommand
 	}
 
-	// If title is provided, return as-is
+	// Always use LLM for analysis - title text becomes additional prompt
 	if basicCommand.Title != "" {
-		ctxlog.From(ctx).Debug("Incident command with title provided",
-			"title", basicCommand.Title)
-		return basicCommand
+		ctxlog.From(ctx).Debug("Incident command with additional prompt provided",
+			"prompt", basicCommand.Title)
+	} else {
+		ctxlog.From(ctx).Info("No additional prompt for incident command, analyzing message history only")
 	}
 
-	// No title provided - analyze message history with LLM
-	ctxlog.From(ctx).Info("No title provided for incident command, analyzing message history")
 	enhancedCommand := s.enhanceIncidentCommandWithLLM(ctx, message, basicCommand)
 	return enhancedCommand
 }
 
 // enhanceIncidentCommandWithLLM enhances an incident command by analyzing message history with LLM
 func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, message *model.Message, baseCommand interfaces.IncidentCommand) interfaces.IncidentCommand {
-	// Determine message retrieval strategy
+	// Extract additional prompt from base command title
+	additionalPrompt := ""
+	if baseCommand.Title != "" {
+		additionalPrompt = baseCommand.Title
+		ctxlog.From(ctx).Debug("Using inc command text as additional prompt",
+			"prompt", additionalPrompt)
+	}
+
+	// Get channel information for context
 	channelID := string(message.ChannelID)
+	channelInfo, err := s.slackClient.GetConversationInfo(ctx, channelID, false)
+	if err != nil {
+		ctxlog.From(ctx).Warn("Failed to get channel info",
+			"channelID", channelID,
+			"error", err)
+		channelInfo = nil // Continue without channel info
+	} else {
+		ctxlog.From(ctx).Debug("Retrieved channel info for incident analysis",
+			"channelName", channelInfo.Name,
+			"topic", channelInfo.Topic.Value)
+	}
+
+	// Determine message retrieval strategy
 	threadTS := string(message.ThreadTS)
 
 	var opts slackSvc.MessageHistoryOptions
@@ -283,14 +303,17 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 	}
 
 	ctxlog.From(ctx).Debug("Analyzing messages with LLM",
-		"messageCount", len(messages))
+		"messageCount", len(messages),
+		"hasAdditionalPrompt", additionalPrompt != "",
+		"hasChannelInfo", channelInfo != nil)
 
-	// Perform comprehensive incident analysis in a single LLM call
-	summary, err := s.llmService.AnalyzeIncident(ctx, messages, s.categories)
+	// Perform comprehensive incident analysis with additional context
+	summary, err := s.llmService.AnalyzeIncidentWithContext(ctx, messages, s.categories, additionalPrompt, channelInfo)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to analyze incident with LLM",
 			"error", err,
-			"messageCount", len(messages))
+			"messageCount", len(messages),
+			"additionalPrompt", additionalPrompt)
 		// Return basic command on LLM failure
 		return baseCommand
 	}

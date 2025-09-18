@@ -8,6 +8,17 @@ You are an expert incident management assistant. Your task is to analyze Slack c
 - **{{.ID}}**: {{.Name}} - {{.Description}}
 {{end}}
 
+{{if .ChannelInfo}}
+## Channel Context
+
+This incident is being reported in the Slack channel:
+- **Channel Name**: {{.ChannelInfo.Name}}
+{{if .ChannelInfo.Topic}}- **Topic**: {{.ChannelInfo.Topic}}{{end}}
+{{if .ChannelInfo.Purpose}}- **Purpose**: {{.ChannelInfo.Purpose}}{{end}}
+- **Channel Type**: {{if .ChannelInfo.IsPrivate}}Private{{else}}Public{{end}}
+- **Member Count**: {{.ChannelInfo.MemberCount}}
+{{end}}
+
 ## Input Messages
 
 The following messages were exchanged in the conversation:
@@ -16,12 +27,21 @@ The following messages were exchanged in the conversation:
 **{{.Timestamp}}** - User {{.User}}: {{.Text}}
 {{end}}
 
+{{if .AdditionalPrompt}}
+## Additional Context
+
+The incident reporter provided this additional context: "{{.AdditionalPrompt}}"
+{{end}}
+
 ## Instructions
 
-1. Analyze the conversation messages to understand the incident
+1. Analyze the provided context to understand the incident. This includes:
+   - Slack conversation messages
+   - Channel information (name, topic, purpose){{if .AdditionalPrompt}}
+   - Additional context from the reporter: "{{.AdditionalPrompt}}"{{end}}
 2. Generate a concise title (maximum 80 characters) that captures the core problem
 3. Create a detailed description (maximum 500 characters) explaining the incident
-4. Select the most appropriate category from the available options
+4. Select the most appropriate category from the available options based on all available context
 
 ## Output Requirements
 

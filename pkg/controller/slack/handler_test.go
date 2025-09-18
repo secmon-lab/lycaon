@@ -29,6 +29,38 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
+// getTestCategoriesForController returns categories for controller testing purposes
+func getTestCategoriesForController() *model.CategoriesConfig {
+	return &model.CategoriesConfig{
+		Categories: []model.Category{
+			{
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
+			},
+			{
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
+			},
+			{
+				ID:          "performance_issue",
+				Name:        "Performance Issue",
+				Description: "System performance degradation or response time issues",
+			},
+			{
+				ID:          "unknown",
+				Name:        "Unknown",
+				Description: "Incidents that cannot be categorized",
+			},
+		},
+	}
+}
+
 // Helper function to create mock clients for controller tests
 func createMockClientsForController() (gollem.LLMClient, *mocks.SlackClientMock) {
 	mockLLM := &mock.LLMClientMock{}
@@ -55,9 +87,9 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
 	gt.NoError(t, err).Required()
-	categories := model.GetDefaultCategories()
+	categories := getTestCategoriesForController()
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
@@ -105,9 +137,9 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
 	gt.NoError(t, err).Required()
-	categories := model.GetDefaultCategories()
+	categories := getTestCategoriesForController()
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
@@ -140,9 +172,9 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
 	gt.NoError(t, err).Required()
-	categories := model.GetDefaultCategories()
+	categories := getTestCategoriesForController()
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
