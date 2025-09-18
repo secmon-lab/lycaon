@@ -3,8 +3,8 @@ package http
 import (
 	"io"
 	"net/http"
+	"os"
 	"path"
-	"strings"
 
 	"github.com/m-mizutani/goerr/v2"
 )
@@ -37,36 +37,39 @@ func NewSPAHandler(filesystem http.FileSystem) (*SPAHandler, error) {
 
 // ServeHTTP implements the http.Handler interface for SPA routing
 func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Clean the path
+	// Clean the path to prevent directory traversal attacks.
 	cleanPath := path.Clean(r.URL.Path)
 
-	// Try to open the requested file
+	// Try to open the requested file.
 	file, err := h.fileSystem.Open(cleanPath)
-	if err == nil {
-		defer file.Close()
-
-		// Check if it's a directory
-		if stat, err := file.Stat(); err == nil && !stat.IsDir() {
-			// File exists and is not a directory, serve it
-			h.serveFile(w, r, file, cleanPath)
+	if err != nil {
+		// If the file doesn't exist, it's likely a SPA route.
+		// Fallback to serving index.html.
+		if os.IsNotExist(err) {
+			h.serveSPAFallback(w, r)
 			return
 		}
+		// For other errors (e.g., permission denied), return an internal server error.
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Get file stats.
+	stat, err := file.Stat()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
-	// If file doesn't exist or is a directory, check for index.html in that directory
-	if strings.HasSuffix(cleanPath, "/") || cleanPath == "" {
-		indexPath := path.Join(cleanPath, "index.html")
-		if indexFile, err := h.fileSystem.Open(indexPath); err == nil {
-			defer indexFile.Close()
-			if stat, err := indexFile.Stat(); err == nil && !stat.IsDir() {
-				h.serveFile(w, r, indexFile, indexPath)
-				return
-			}
-		}
+	// If the path is a directory, it's not a static asset. Fallback to index.html.
+	if stat.IsDir() {
+		h.serveSPAFallback(w, r)
+		return
 	}
 
-	// Fallback to root index.html for SPA routing
-	h.serveSPAFallback(w, r)
+	// The path corresponds to an existing file, so serve it.
+	h.serveFile(w, r, file, cleanPath)
 }
 
 // serveFile serves a specific file with appropriate headers
@@ -95,37 +98,25 @@ func (h *SPAHandler) serveSPAFallback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var mimeTypes = map[string]string{
+	".html":  "text/html; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".js":    "application/javascript; charset=utf-8",
+	".json":  "application/json; charset=utf-8",
+	".png":   "image/png",
+	".jpg":   "image/jpeg",
+	".jpeg":  "image/jpeg",
+	".gif":   "image/gif",
+	".svg":   "image/svg+xml",
+	".ico":   "image/x-icon",
+	".woff":  "font/woff",
+	".woff2": "font/woff2",
+	".ttf":   "font/ttf",
+	".eot":   "application/vnd.ms-fontobject",
+}
+
 // getContentType returns the content type for common file extensions
 func getContentType(filePath string) string {
 	ext := path.Ext(filePath)
-	switch ext {
-	case ".html":
-		return "text/html; charset=utf-8"
-	case ".css":
-		return "text/css; charset=utf-8"
-	case ".js":
-		return "application/javascript; charset=utf-8"
-	case ".json":
-		return "application/json; charset=utf-8"
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".svg":
-		return "image/svg+xml"
-	case ".ico":
-		return "image/x-icon"
-	case ".woff":
-		return "font/woff"
-	case ".woff2":
-		return "font/woff2"
-	case ".ttf":
-		return "font/ttf"
-	case ".eot":
-		return "application/vnd.ms-fontobject"
-	default:
-		return ""
-	}
+	return mimeTypes[ext]
 }
