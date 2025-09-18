@@ -116,9 +116,8 @@ func TestSPAHandlerContentTypes(t *testing.T) {
 
 		handler.ServeHTTP(w, req)
 
-		if w.Code == http.StatusOK {
-			gt.Equal(t, w.Header().Get("Content-Type"), tc.contentType)
-		}
+		gt.Equal(t, w.Code, http.StatusOK)
+		gt.Equal(t, w.Header().Get("Content-Type"), tc.contentType)
 	}
 }
 
@@ -131,13 +130,3 @@ func TestNewSPAHandlerError(t *testing.T) {
 	gt.S(t, err.Error()).Contains("failed to open index.html")
 }
 
-// Setup test data files for testing
-func init() {
-	// This would normally be handled by test setup
-	// For real tests, you'd need to create testdata/spa directory with:
-	// - index.html
-	// - static/app.js
-	// - static/style.css
-	// - static/data.json
-	// - static/favicon.ico
-}
