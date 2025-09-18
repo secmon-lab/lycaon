@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -68,6 +69,11 @@ func TestCallbackIDParsing(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name:        "Invalid incident ID - overflow (too large)",
+			callbackID:  "task_edit_submit:18446744073709551615:test-task", // MaxUint64
+			expectError: true,
+		},
+		{
 			name:        "Old format - should fail",
 			callbackID:  "task_edit_submit_test-task-12345",
 			expectError: true,
@@ -95,6 +101,14 @@ func TestCallbackIDParsing(t *testing.T) {
 					return // Expected error
 				}
 				t.Fatalf("Expected valid incident ID but got error: %v", err)
+			}
+
+			// Check for overflow when converting uint64 to int (matches actual implementation)
+			if incidentID > math.MaxInt64 {
+				if tc.expectError {
+					return // Expected error
+				}
+				t.Fatal("Expected valid incident ID but got overflow")
 			}
 
 			if tc.expectError {

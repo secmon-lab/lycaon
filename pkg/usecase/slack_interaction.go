@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 
@@ -470,11 +471,19 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 	}
 
 	incidentIDStr, taskIDStr := parts[0], parts[1]
-	incidentID, err := strconv.ParseUint(incidentIDStr, 10, 64)
+	incidentIDUint, err := strconv.ParseUint(incidentIDStr, 10, 64)
 	if err != nil {
 		return goerr.Wrap(err, "invalid incident ID in callback",
 			goerr.V("incidentIDStr", incidentIDStr))
 	}
+
+	// Check for overflow when converting uint64 to int
+	if incidentIDUint > math.MaxInt64 {
+		return goerr.New("incident ID too large",
+			goerr.V("incidentID", incidentIDUint))
+	}
+
+	incidentID := types.IncidentID(incidentIDUint)
 	taskID := types.TaskID(taskIDStr)
 
 	// Extract values from modal
@@ -511,7 +520,7 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 	}
 
 	// Update the task efficiently using incident ID from callback
-	updatedTask, err := s.taskUC.UpdateTaskByIncident(ctx, types.IncidentID(incidentID), taskID, updates)
+	updatedTask, err := s.taskUC.UpdateTaskByIncident(ctx, incidentID, taskID, updates)
 	if err != nil {
 		logger.Error("Failed to update task", "error", err, "incidentID", incidentID, "taskID", taskID)
 		return goerr.Wrap(err, "failed to update task")
