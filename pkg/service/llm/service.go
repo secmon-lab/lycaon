@@ -152,20 +152,8 @@ func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisT
 	}
 
 	// Validate category ID
-	if summary.CategoryID == "" {
+	if summary.CategoryID == "" || !categories.IsValidCategoryID(summary.CategoryID) {
 		summary.CategoryID = "unknown"
-	} else {
-		// Check if the selected category is valid
-		found := false
-		for _, cat := range categories.Categories {
-			if cat.ID == summary.CategoryID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			summary.CategoryID = "unknown"
-		}
 	}
 
 	return &summary, nil

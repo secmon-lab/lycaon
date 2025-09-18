@@ -87,6 +87,11 @@ func (c *CategoriesConfig) FindCategoryByID(id string) *Category {
 	return nil
 }
 
+// IsValidCategoryID checks if the given category ID exists in the configuration
+func (c *CategoriesConfig) IsValidCategoryID(id string) bool {
+	return c.FindCategoryByID(id) != nil
+}
+
 // FindCategoryByIDWithFallback finds a category or returns unknown category info
 func (c *CategoriesConfig) FindCategoryByIDWithFallback(id string) *Category {
 	if cat := c.FindCategoryByID(id); cat != nil {

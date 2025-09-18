@@ -17,8 +17,6 @@ This incident is being reported in the Slack channel:
 {{if .ChannelInfo.Purpose}}- **Purpose**: {{.ChannelInfo.Purpose}}{{end}}
 - **Channel Type**: {{if .ChannelInfo.IsPrivate}}Private{{else}}Public{{end}}
 - **Member Count**: {{.ChannelInfo.MemberCount}}
-
-Consider this channel context when analyzing the incident.
 {{end}}
 
 ## Input Messages
@@ -33,23 +31,17 @@ The following messages were exchanged in the conversation:
 ## Additional Context
 
 The incident reporter provided this additional context: "{{.AdditionalPrompt}}"
-
-Please incorporate this context into your analysis.
 {{end}}
 
 ## Instructions
 
-1. Analyze the conversation messages and channel context to understand the incident
-{{if .AdditionalPrompt}}
-2. Consider the additional context provided by the incident reporter
-3. Consider the channel information to better understand the domain and scope
-4. Generate a title and description that incorporates the conversation, additional context, and channel context
-{{else}}
-2. Consider the channel information to better understand the domain and scope
-3. Generate a concise title (maximum 80 characters) that captures the core problem
-4. Create a detailed description (maximum 500 characters) explaining the incident
-{{end}}
-5. Select the most appropriate category from the available options based on all available context
+1. Analyze the provided context to understand the incident. This includes:
+   - Slack conversation messages
+   - Channel information (name, topic, purpose){{if .AdditionalPrompt}}
+   - Additional context from the reporter: "{{.AdditionalPrompt}}"{{end}}
+2. Generate a concise title (maximum 80 characters) that captures the core problem
+3. Create a detailed description (maximum 500 characters) explaining the incident
+4. Select the most appropriate category from the available options based on all available context
 
 ## Output Requirements
 
