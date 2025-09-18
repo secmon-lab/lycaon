@@ -152,7 +152,7 @@ func NewServer(
 	})
 
 	// Frontend routes (serve embedded or filesystem)
-	// In production, serve embedded files
+	// In production, serve embedded files with SPA support
 	fs, err := frontend.GetHTTPFS()
 	if err != nil {
 		ctxlog.From(ctx).Warn("Failed to get embedded frontend, using fallback",
@@ -161,9 +161,17 @@ func NewServer(
 		// Fallback to a simple handler
 		router.Get("/*", handleFallbackHome)
 	} else {
-		ctxlog.From(ctx).Info("Serving frontend from embedded files")
-		fileServer := http.FileServer(fs)
-		router.Handle("/*", fileServer)
+		ctxlog.From(ctx).Info("Serving frontend from embedded files with SPA support")
+		spaHandler, err := NewSPAHandler(fs)
+		if err != nil {
+			ctxlog.From(ctx).Error("Failed to create SPA handler, using simple file server",
+				"error", err,
+			)
+			fileServer := http.FileServer(fs)
+			router.Handle("/*", fileServer)
+		} else {
+			router.Handle("/*", spaHandler)
+		}
 	}
 
 	server := &Server{

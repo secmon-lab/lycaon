@@ -112,7 +112,6 @@ func (s *Service) GetClient() *slack.Client {
 	return s.client
 }
 
-
 // OpenView opens a modal view in Slack
 func (s *Service) OpenView(ctx context.Context, triggerID string, view slack.ModalViewRequest) (*slack.ViewResponse, error) {
 	resp, err := s.client.OpenView(triggerID, view)

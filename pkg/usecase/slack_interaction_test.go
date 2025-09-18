@@ -47,10 +47,10 @@ func TestCallbackIDParsing(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "Invalid format - too many parts",
-			callbackID:  "task_edit_submit:42:test:task:12345",
-			expectError: false,
-			expectedInc: 42,
+			name:         "Invalid format - too many parts",
+			callbackID:   "task_edit_submit:42:test:task:12345",
+			expectError:  false,
+			expectedInc:  42,
 			expectedTask: "test:task:12345",
 		},
 		{

@@ -41,12 +41,15 @@ func NewLoggerWithFormat(level slog.Level, w io.Writer, format Format) *slog.Log
 			clog.WithLevel(level),
 			clog.WithTimeFmt("15:04:05"),
 			clog.WithSource(false),
+			clog.WithAttrHook(clog.GoerrHook),
 		)
 	case FormatJSON:
 		// Force JSON output
 		handler = slog.NewJSONHandler(w, &slog.HandlerOptions{
-			Level: level,
+			Level:     level,
+			AddSource: true,
 		})
+
 	case FormatAuto:
 		// Auto-detect based on terminal
 		isTerminal := false
@@ -61,6 +64,7 @@ func NewLoggerWithFormat(level slog.Level, w io.Writer, format Format) *slog.Log
 				clog.WithLevel(level),
 				clog.WithTimeFmt("15:04:05"),
 				clog.WithSource(false),
+				clog.WithAttrHook(clog.GoerrHook),
 			)
 		} else {
 			// JSON output for non-terminal (logs, CI/CD, etc.)

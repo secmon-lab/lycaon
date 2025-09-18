@@ -95,10 +95,10 @@ func TestParseIncidentCommand_AlwaysUsesLLM(t *testing.T) {
 		expectLLMCall          bool
 	}{
 		{
-			name:        "with title text - should use LLM with additional prompt",
-			messageText: "<@U_TEST_BOT> inc database error",
-			channelID:   "C123456",
-			channelName: "production-alerts",
+			name:         "with title text - should use LLM with additional prompt",
+			messageText:  "<@U_TEST_BOT> inc database error",
+			channelID:    "C123456",
+			channelName:  "production-alerts",
 			channelTopic: "Production system monitoring",
 			messageHistory: []slack.Message{
 				{Msg: slack.Msg{Text: "システムが重い", User: "user1", Timestamp: "1234567890.123"}},
@@ -107,17 +107,17 @@ func TestParseIncidentCommand_AlwaysUsesLLM(t *testing.T) {
 				"**Channel Name**: production-alerts",
 				"**Topic**: Production system monitoring",
 				"database error", // additional prompt
-				"システムが重い", // message history
+				"システムが重い",        // message history
 			},
-			expectedLLMResponse: `{"title":"データベース接続障害","description":"本番環境でデータベース接続エラーが発生","category_id":"system_failure"}`,
+			expectedLLMResponse:  `{"title":"データベース接続障害","description":"本番環境でデータベース接続エラーが発生","category_id":"system_failure"}`,
 			expectChannelAPICall: true,
 			expectLLMCall:        true,
 		},
 		{
-			name:        "without title text - should use LLM with message history only",
-			messageText: "<@U_TEST_BOT> inc",
-			channelID:   "C123456",
-			channelName: "api-team",
+			name:         "without title text - should use LLM with message history only",
+			messageText:  "<@U_TEST_BOT> inc",
+			channelID:    "C123456",
+			channelName:  "api-team",
 			channelTopic: "API development discussions",
 			messageHistory: []slack.Message{
 				{Msg: slack.Msg{Text: "APIが遅い", User: "user1", Timestamp: "1234567890.123"}},
@@ -129,7 +129,7 @@ func TestParseIncidentCommand_AlwaysUsesLLM(t *testing.T) {
 				"APIが遅い",
 				"レスポンス時間が長い",
 			},
-			expectedLLMResponse: `{"title":"API パフォーマンス問題","description":"APIレスポンス時間の遅延が発生","category_id":"performance_issue"}`,
+			expectedLLMResponse:  `{"title":"API パフォーマンス問題","description":"APIレスポンス時間の遅延が発生","category_id":"performance_issue"}`,
 			expectChannelAPICall: true,
 			expectLLMCall:        true,
 		},
@@ -1096,8 +1096,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 
 		result := uc.ParseIncidentCommand(ctx, message)
 		gt.Equal(t, true, result.IsIncidentTrigger)
-		gt.Equal(t, "Enhanced Manual Incident Title", result.Title) // LLM enhanced title
+		gt.Equal(t, "Enhanced Manual Incident Title", result.Title)                                           // LLM enhanced title
 		gt.Equal(t, "LLM-enhanced description based on manual title and message history", result.Description) // LLM generated description
-		gt.Equal(t, "system_failure", result.CategoryID) // LLM selected category
+		gt.Equal(t, "system_failure", result.CategoryID)                                                      // LLM selected category
 	})
 }
