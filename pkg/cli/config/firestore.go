@@ -21,18 +21,18 @@ type Firestore struct {
 func (f *Firestore) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "firestore-project",
+			Name:        "firestore-project-id",
 			Usage:       "GCP project ID for Firestore",
 			Category:    "Firestore",
-			Sources:     cli.EnvVars("LYCAON_FIRESTORE_PROJECT"),
+			Sources:     cli.EnvVars("LYCAON_FIRESTORE_PROJECT_ID"),
 			Destination: &f.ProjectID,
 		},
 		&cli.StringFlag{
-			Name:        "firestore-database",
+			Name:        "firestore-database-id",
 			Usage:       "Firestore database ID",
 			Category:    "Firestore",
 			Value:       "(default)",
-			Sources:     cli.EnvVars("LYCAON_FIRESTORE_DATABASE"),
+			Sources:     cli.EnvVars("LYCAON_FIRESTORE_DATABASE_ID"),
 			Destination: &f.DatabaseID,
 		},
 	}
