@@ -14,6 +14,38 @@ import (
 	"github.com/slack-go/slack"
 )
 
+// getTestCategoriesForIncident returns categories for incident testing purposes
+func getTestCategoriesForIncident() *model.CategoriesConfig {
+	return &model.CategoriesConfig{
+		Categories: []model.Category{
+			{
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
+			},
+			{
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
+			},
+			{
+				ID:          "performance_issue",
+				Name:        "Performance Issue",
+				Description: "System performance degradation or response time issues",
+			},
+			{
+				ID:          "unknown",
+				Name:        "Unknown",
+				Description: "Incidents that cannot be categorized",
+			},
+		},
+	}
+}
+
 func TestIncidentUseCaseCreateIncident(t *testing.T) {
 	ctx := context.Background()
 
@@ -62,7 +94,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		}
 
 		// Create use case with mock and default categories
-		categories := model.GetDefaultCategories()
+		categories := getTestCategoriesForIncident()
 		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Create an incident
@@ -134,7 +166,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		categories := model.GetDefaultCategories()
+		categories := getTestCategoriesForIncident()
 		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Create first incident
@@ -214,7 +246,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		categories := model.GetDefaultCategories()
+		categories := getTestCategoriesForIncident()
 		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Create an incident
@@ -277,7 +309,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		categories := model.GetDefaultCategories()
+		categories := getTestCategoriesForIncident()
 		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
 
 		// Try to get non-existent incident
@@ -300,7 +332,7 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		mockSlack := &mocks.SlackClientMock{}
-		categories := model.GetDefaultCategories()
+		categories := getTestCategoriesForIncident()
 		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil, "inc")
 
 		// Try to create incident - should fail due to repository error
@@ -546,7 +578,7 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 		}
 
 		// Test with custom prefix "security"
-		categories := model.GetDefaultCategories()
+		categories := getTestCategoriesForIncident()
 		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "security")
 
 		// Create an incident
@@ -616,7 +648,7 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 					},
 				}
 
-				categories := model.GetDefaultCategories()
+				categories := getTestCategoriesForIncident()
 				uc := usecase.NewIncident(repo, mockSlack, categories, nil, tc.prefix)
 
 				// Create an incident

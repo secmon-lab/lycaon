@@ -22,6 +22,38 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
+// getTestCategories returns categories for testing purposes
+func getTestCategories() *model.CategoriesConfig {
+	return &model.CategoriesConfig{
+		Categories: []model.Category{
+			{
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
+			},
+			{
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
+			},
+			{
+				ID:          "performance_issue",
+				Name:        "Performance Issue",
+				Description: "System performance degradation or response time issues",
+			},
+			{
+				ID:          "unknown",
+				Name:        "Unknown",
+				Description: "Incidents that cannot be categorized",
+			},
+		},
+	}
+}
+
 // Helper function to create default mock clients for testing
 func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
 	// Create default mock LLM client
@@ -169,7 +201,7 @@ func TestParseIncidentCommand_AlwaysUsesLLM(t *testing.T) {
 			}
 
 			// Create UseCase with mocks
-			categories := model.GetDefaultCategories()
+			categories := getTestCategories()
 			slackMessage, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, categories)
 			gt.NoError(t, err)
 
@@ -216,7 +248,7 @@ func TestSlackMessageProcessMessage(t *testing.T) {
 	// Create mock clients
 	mockGollem, mockSlack := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 	gt.NoError(t, err).Required()
 
 	// Use random IDs as per CLAUDE.md
@@ -270,7 +302,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		// Create mock clients
 		_, mockSlack := createMockClients()
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -292,7 +324,7 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		}
 		_, mockSlack := createMockClients()
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -328,7 +360,7 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 	// Create mock slack client
 	_, mockSlack := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 	gt.NoError(t, err).Required()
 
 	t.Run("With ClientMsgID", func(t *testing.T) {
@@ -410,7 +442,7 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 	// Create mock LLM client
 	mockGollem, _ := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 	gt.NoError(t, err).Required()
 
 	testCases := []struct {
@@ -785,7 +817,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		// Test parsing incident command without title (should trigger LLM enhancement)
@@ -857,7 +889,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		// Test with thread timestamp (should use thread messages)
@@ -921,7 +953,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -984,7 +1016,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -1050,7 +1082,7 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, model.GetDefaultCategories())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, getTestCategories())
 		gt.NoError(t, err).Required()
 
 		// With manual title - should trigger LLM with title as additional prompt

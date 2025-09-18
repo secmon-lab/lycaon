@@ -29,6 +29,38 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
+// getTestCategoriesForHTTP returns categories for HTTP controller testing purposes
+func getTestCategoriesForHTTP() *model.CategoriesConfig {
+	return &model.CategoriesConfig{
+		Categories: []model.Category{
+			{
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
+			},
+			{
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
+			},
+			{
+				ID:          "performance_issue",
+				Name:        "Performance Issue",
+				Description: "System performance degradation or response time issues",
+			},
+			{
+				ID:          "unknown",
+				Name:        "Unknown",
+				Description: "Incidents that cannot be categorized",
+			},
+		},
+	}
+}
+
 // Helper to create mock clients for HTTP tests
 func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
 	return &mock.LLMClientMock{}, &mocks.SlackClientMock{
@@ -60,9 +92,9 @@ func TestServerHealthCheck(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForHTTP())
 	gt.NoError(t, err).Required()
-	categories := model.GetDefaultCategories()
+	categories := getTestCategoriesForHTTP()
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
@@ -113,9 +145,9 @@ func TestServerFallbackHome(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, model.GetDefaultCategories())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForHTTP())
 	gt.NoError(t, err).Required()
-	categories := model.GetDefaultCategories()
+	categories := getTestCategoriesForHTTP()
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
@@ -186,7 +218,7 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 	_, mockSlack := createMockClients()
 
 	// Create minimal categories config
-	categories := model.GetDefaultCategories()
+	categories := getTestCategoriesForHTTP()
 
 	// Create use cases
 	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")

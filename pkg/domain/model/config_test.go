@@ -7,9 +7,41 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 )
 
+// getTestCategories returns categories for testing purposes
+func getTestCategories() *model.CategoriesConfig {
+	return &model.CategoriesConfig{
+		Categories: []model.Category{
+			{
+				ID:           "security_incident",
+				Name:         "Security Incident",
+				Description:  "Security-related incidents including unauthorized access and malware infections",
+				InviteUsers:  []string{"@security-lead"},
+				InviteGroups: []string{"@security-team"},
+			},
+			{
+				ID:           "system_failure",
+				Name:         "System Failure",
+				Description:  "System or service failures and outages",
+				InviteUsers:  []string{"@sre-lead"},
+				InviteGroups: []string{"@sre-oncall"},
+			},
+			{
+				ID:          "performance_issue",
+				Name:        "Performance Issue",
+				Description: "System performance degradation or response time issues",
+			},
+			{
+				ID:          "unknown",
+				Name:        "Unknown",
+				Description: "Incidents that cannot be categorized",
+			},
+		},
+	}
+}
+
 func TestCategoriesConfig_IsValidCategoryID(t *testing.T) {
-	// Use default categories for testing
-	config := model.GetDefaultCategories()
+	// Use test categories
+	config := getTestCategories()
 
 	testCases := []struct {
 		name       string

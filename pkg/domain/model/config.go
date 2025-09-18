@@ -43,37 +43,6 @@ func (c *CategoriesConfig) Validate() error {
 	return nil
 }
 
-// GetDefaultCategories returns default categories
-func GetDefaultCategories() *CategoriesConfig {
-	return &CategoriesConfig{
-		Categories: []Category{
-			{
-				ID:           "security_incident",
-				Name:         "Security Incident",
-				Description:  "Security-related incidents including unauthorized access and malware infections",
-				InviteUsers:  []string{"@security-lead"},
-				InviteGroups: []string{"@security-team"},
-			},
-			{
-				ID:           "system_failure",
-				Name:         "System Failure",
-				Description:  "System or service failures and outages",
-				InviteUsers:  []string{"@sre-lead"},
-				InviteGroups: []string{"@sre-oncall"},
-			},
-			{
-				ID:          "performance_issue",
-				Name:        "Performance Issue",
-				Description: "System performance degradation or response time issues",
-			},
-			{
-				ID:          "unknown",
-				Name:        "Unknown",
-				Description: "Incidents that cannot be categorized",
-			},
-		},
-	}
-}
 
 // FindCategoryByID finds a category by its ID
 func (c *CategoriesConfig) FindCategoryByID(id string) *Category {
