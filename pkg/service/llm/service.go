@@ -76,75 +76,13 @@ func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Messa
 		return nil, goerr.New("no messages provided for incident analysis")
 	}
 
-	// Build template data
+	// Build template data without additional context
 	templateData := IncidentAnalysisTemplateData{
 		Categories: categories.Categories,
 		Messages:   s.buildTemplateMessages(messages),
 	}
 
-	// Generate prompt using the unified template
-	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to render incident analysis template",
-			goerr.T(ErrTagTemplateFailure))
-	}
-
-	// Create session with JSON content type
-	session, err := s.llmClient.NewSession(ctx, gollem.WithSessionContentType(gollem.ContentTypeJSON))
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to create LLM session")
-	}
-
-	// Generate response from LLM
-	response, err := session.GenerateContent(ctx, gollem.Text(prompt))
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to generate LLM response")
-	}
-
-	// Check if response has content
-	if len(response.Texts) == 0 || response.Texts[0] == "" {
-		return nil, goerr.New("empty response from LLM",
-			goerr.T(ErrTagEmptyResponse))
-	}
-
-	// Parse JSON response
-	var summary IncidentSummary
-	if err := json.Unmarshal([]byte(response.Texts[0]), &summary); err != nil {
-		return nil, goerr.Wrap(err, "failed to parse LLM response as JSON",
-			goerr.V("response", response.Texts[0]),
-			goerr.T(ErrTagInvalidJSON))
-	}
-
-	// Validate response
-	if summary.Title == "" {
-		return nil, goerr.New("LLM response missing title",
-			goerr.T(ErrTagMissingField),
-			goerr.V("field", "title"))
-	}
-	if summary.Description == "" {
-		return nil, goerr.New("LLM response missing description",
-			goerr.T(ErrTagMissingField),
-			goerr.V("field", "description"))
-	}
-
-	// Validate category ID
-	if summary.CategoryID == "" {
-		summary.CategoryID = "unknown"
-	} else {
-		// Check if the selected category is valid
-		found := false
-		for _, cat := range categories.Categories {
-			if cat.ID == summary.CategoryID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			summary.CategoryID = "unknown"
-		}
-	}
-
-	return &summary, nil
+	return s.analyze(ctx, templateData, categories)
 }
 
 // AnalyzeIncidentWithContext performs comprehensive incident analysis with additional context
@@ -162,6 +100,12 @@ func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []
 		ChannelInfo:      s.buildChannelInfo(channelInfo),
 	}
 
+	return s.analyze(ctx, templateData, categories)
+}
+
+// analyze performs the common LLM analysis logic
+// This is the shared implementation used by both AnalyzeIncident and AnalyzeIncidentWithContext
+func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisTemplateData, categories *model.CategoriesConfig) (*IncidentSummary, error) {
 	// Generate prompt using the unified template
 	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
 	if err != nil {
