@@ -13,6 +13,7 @@ import {
   User,
   Calendar,
   Edit,
+  Tag,
 } from 'lucide-react';
 
 const IncidentDetail: React.FC = () => {
@@ -47,7 +48,11 @@ const IncidentDetail: React.FC = () => {
   }
 
   const incident = data.incident;
-  
+
+  // Debug: Log user data to check avatar URLs
+  console.log('Incident leadUser:', incident.leadUser);
+  console.log('Incident createdByUser:', incident.createdByUser);
+
   // Validate and convert status safely
   const validStatus = toIncidentStatus(incident.status);
   if (!validStatus) {
@@ -128,12 +133,35 @@ const IncidentDetail: React.FC = () => {
 
               <div>
                 <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                  <Tag className="h-3 w-3" />
+                  Category
+                </div>
+                <p className="text-sm font-medium">
+                  {incident.categoryName || 'No category assigned'}
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
                   <User className="h-3 w-3" />
                   Lead
                 </div>
-                <p className="text-sm font-medium">
-                  {incident.leadUser?.name || incident.lead || 'Not assigned'}
-                </p>
+                <div className="flex items-center gap-2">
+                  {incident.leadUser?.avatarUrl ? (
+                    <img
+                      src={incident.leadUser.avatarUrl}
+                      alt={incident.leadUser.name || 'User'}
+                      className="h-5 w-5 rounded-full"
+                    />
+                  ) : incident.leadUser ? (
+                    <div className="h-5 w-5 rounded-full bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+                      {(incident.leadUser.name || incident.leadUser.displayName || '?').charAt(0).toUpperCase()}
+                    </div>
+                  ) : null}
+                  <p className="text-sm font-medium">
+                    {incident.leadUser?.name || incident.lead || 'Not assigned'}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -141,9 +169,22 @@ const IncidentDetail: React.FC = () => {
                   <User className="h-3 w-3" />
                   Created By
                 </div>
-                <p className="text-sm font-medium">
-                  {incident.createdByUser?.name || incident.createdBy}
-                </p>
+                <div className="flex items-center gap-2">
+                  {incident.createdByUser?.avatarUrl ? (
+                    <img
+                      src={incident.createdByUser.avatarUrl}
+                      alt={incident.createdByUser.name || 'User'}
+                      className="h-5 w-5 rounded-full"
+                    />
+                  ) : incident.createdByUser ? (
+                    <div className="h-5 w-5 rounded-full bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+                      {(incident.createdByUser.name || incident.createdByUser.displayName || '?').charAt(0).toUpperCase()}
+                    </div>
+                  ) : null}
+                  <p className="text-sm font-medium">
+                    {incident.createdByUser?.name || incident.createdBy}
+                  </p>
+                </div>
               </div>
 
               <div>

@@ -272,7 +272,14 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle view submission", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
+		mockUC := &mocks.IncidentMock{
+			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID, title, description, categoryID, userID string) (*model.Incident, error) {
+				return &model.Incident{
+					ID:    types.IncidentID(1),
+					Title: title,
+				}, nil
+			},
+		}
 		mockTaskUC := &mocks.TaskMock{}
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}

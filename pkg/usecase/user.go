@@ -35,15 +35,21 @@ func (u *UserUseCase) GetOrFetchUser(ctx context.Context, slackUserID types.Slac
 	// Try to get from repository first
 	user, err := u.repo.GetUserBySlackID(ctx, slackUserID)
 	if err == nil && user != nil {
-		// Check if cache is still valid
-		if !user.IsExpired(u.cacheTTL) {
+		// Check if cache is still valid and avatar URL is present
+		if !user.IsExpired(u.cacheTTL) && user.AvatarURL != "" {
 			logger.Debug("User cache hit",
 				"slackUserID", slackUserID,
 				"name", user.GetDisplayName())
 			return user, nil
 		}
-		// User exists but is expired, try to refresh
-		logger.Debug("User data expired, refreshing", "slackUserID", slackUserID)
+		// User exists but is expired or missing avatar, try to refresh
+		if user.AvatarURL == "" {
+			logger.Debug("User missing avatar URL, refreshing",
+				"slackUserID", slackUserID)
+		} else {
+			logger.Debug("User data expired, refreshing",
+				"slackUserID", slackUserID)
+		}
 	}
 
 	// Fetch from Slack API
@@ -70,6 +76,38 @@ func (u *UserUseCase) GetOrFetchUser(ctx context.Context, slackUserID types.Slac
 	if err := u.repo.SaveUser(ctx, freshUser); err != nil {
 		// Log error but don't fail - we have the user data
 		logger.Warn("Failed to save user data",
+			"slackUserID", slackUserID,
+			"error", err)
+	}
+
+	return freshUser, nil
+}
+
+// RefreshUser forces a refresh of user data from Slack API, bypassing cache
+func (u *UserUseCase) RefreshUser(ctx context.Context, slackUserID types.SlackUserID) (*model.User, error) {
+	logger := ctxlog.From(ctx)
+
+	logger.Debug("Force refreshing user from Slack", "slackUserID", slackUserID)
+
+	// Get existing user for ID preservation
+	existingUser, _ := u.repo.GetUserBySlackID(ctx, slackUserID)
+
+	// Fetch fresh data from Slack API
+	freshUser, err := u.fetchUserFromSlack(ctx, slackUserID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to refresh user from Slack",
+			goerr.V("slackUserID", slackUserID))
+	}
+
+	// Preserve existing user ID and creation time if user exists
+	if existingUser != nil {
+		freshUser.ID = existingUser.ID
+		freshUser.CreatedAt = existingUser.CreatedAt
+	}
+
+	// Save updated user
+	if err := u.repo.SaveUser(ctx, freshUser); err != nil {
+		logger.Warn("Failed to save refreshed user data",
 			"slackUserID", slackUserID,
 			"error", err)
 	}

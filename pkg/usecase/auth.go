@@ -24,13 +24,24 @@ import (
 type Auth struct {
 	repo        interfaces.Repository
 	slackConfig *config.SlackConfig
+	userUC      *UserUseCase
 }
 
 // NewAuth creates a new Auth use case
 func NewAuth(ctx context.Context, repo interfaces.Repository, slackConfig *config.SlackConfig) *Auth {
+	// Create Slack client for user usecase
+	var userUC *UserUseCase
+	if slackConfig.OAuthToken != "" {
+		slackClient, err := slackConfig.Configure(ctx)
+		if err == nil {
+			userUC = NewUserUseCase(repo, slackClient)
+		}
+	}
+
 	return &Auth{
 		repo:        repo,
 		slackConfig: slackConfig,
+		userUC:      userUC,
 	}
 }
 
@@ -207,6 +218,18 @@ func (a *Auth) GetUserFromSession(ctx context.Context, sessionID string) (*model
 		return nil, goerr.New("session expired")
 	}
 
+	// Try to use UserUseCase for avatar refresh if available
+	if a.userUC != nil {
+		// Convert UserID to SlackUserID (they should be the same based on our design)
+		slackUserID := types.SlackUserID(session.UserID)
+		user, err := a.userUC.GetOrFetchUser(ctx, slackUserID)
+		if err == nil {
+			return user, nil
+		}
+		// If UserUseCase fails, fall back to repository
+	}
+
+	// Fallback to direct repository access
 	user, err := a.repo.GetUser(ctx, session.UserID)
 	if err != nil {
 		return nil, goerr.Wrap(err, "user not found")
