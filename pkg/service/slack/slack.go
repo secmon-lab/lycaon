@@ -235,6 +235,15 @@ func (s *Service) GetUserGroupMembersContext(ctx context.Context, groupID string
 	return members, nil
 }
 
+// GetUsersInConversationContext retrieves the member IDs of a conversation (channel)
+func (s *Service) GetUsersInConversationContext(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error) {
+	users, nextCursor, err := s.client.GetUsersInConversationContext(ctx, params)
+	if err != nil {
+		return nil, "", goerr.Wrap(err, "failed to get users in conversation", goerr.V("channelID", params.ChannelID))
+	}
+	return users, nextCursor, nil
+}
+
 // AddBookmark adds a bookmark to a Slack channel
 func (s *Service) AddBookmark(ctx context.Context, channelID, title, link string) error {
 	logger := ctxlog.From(ctx)

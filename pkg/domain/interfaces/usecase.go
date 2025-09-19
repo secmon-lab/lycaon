@@ -1,6 +1,6 @@
 package interfaces
 
-//go:generate moq -out mocks/usecase_mock.go -pkg mocks . SlackMessage Incident Task Invite StatusUseCase
+//go:generate moq -out mocks/usecase_mock.go -pkg mocks . SlackMessage Incident Task Invite StatusUseCase Auth
 
 import (
 	"context"
@@ -99,6 +99,9 @@ type Auth interface {
 
 	// GetUserFromSession gets user information from a session
 	GetUserFromSession(ctx context.Context, sessionID string) (*model.User, error)
+
+	// GetChannelMembers gets all members of a Slack channel
+	GetChannelMembers(ctx context.Context, channelID string) ([]*model.User, error)
 }
 
 // Incident defines the interface for incident management

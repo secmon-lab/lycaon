@@ -122,7 +122,7 @@ func cmdServe() *cli.Command {
 			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC, incidentConfig)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
 			statusUC := usecase.NewStatusUseCase(repo, slackClient)
-			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, slackClient)
+			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, slackClient)
 
 			// Create configuration
 			config := controller.NewConfig(

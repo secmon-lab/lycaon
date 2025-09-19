@@ -22,16 +22,18 @@ type SlackInteraction struct {
 	incidentUC   interfaces.Incident
 	taskUC       interfaces.Task
 	statusUC     interfaces.StatusUseCase
+	authUC       interfaces.Auth
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackblocks.BlockBuilder
 }
 
 // NewSlackInteraction creates a new SlackInteraction instance
-func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, slackClient interfaces.SlackClient) *SlackInteraction {
+func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, authUC interfaces.Auth, slackClient interfaces.SlackClient) *SlackInteraction {
 	return &SlackInteraction{
 		incidentUC:   incidentUC,
 		taskUC:       taskUC,
 		statusUC:     statusUC,
+		authUC:       authUC,
 		slackClient:  slackClient,
 		blockBuilder: slackblocks.NewBlockBuilder(),
 	}
@@ -441,8 +443,13 @@ func (s *SlackInteraction) handleTaskEdit(ctx context.Context, interaction *slac
 	}
 
 	// Get channel members for assignee selection
-	// For now, use empty list - this should be implemented to get actual channel members
-	var channelMembers []types.SlackUserID
+	channelMembers, err := s.getChannelMembersForTask(ctx, interaction.Channel.ID)
+	if err != nil {
+		logger.Warn("Failed to get channel members, using empty list for assignee selection",
+			"error", err,
+			"channelID", interaction.Channel.ID)
+		channelMembers = []types.SlackUserID{}
+	}
 
 	// Build edit modal
 	modal := slackblocks.BuildTaskEditModal(task, channelMembers)
@@ -892,4 +899,29 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 	)
 
 	return nil
+}
+
+// getChannelMembersForTask retrieves channel members as SlackUserIDs for task assignment
+func (s *SlackInteraction) getChannelMembersForTask(ctx context.Context, channelID string) ([]types.SlackUserID, error) {
+	logger := ctxlog.From(ctx)
+
+	// Get channel members using the Auth UseCase
+	users, err := s.authUC.GetChannelMembers(ctx, channelID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get channel members",
+			goerr.V("channelID", channelID))
+	}
+
+	// Convert User models to SlackUserIDs
+	var memberIDs []types.SlackUserID
+	for _, user := range users {
+		// User.ID is already the Slack User ID based on our design
+		memberIDs = append(memberIDs, types.SlackUserID(user.ID))
+	}
+
+	logger.Debug("Retrieved channel members for task assignment",
+		"channelID", channelID,
+		"memberCount", len(memberIDs))
+
+	return memberIDs, nil
 }

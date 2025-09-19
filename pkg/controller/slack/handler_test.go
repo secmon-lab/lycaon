@@ -95,7 +95,8 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack)
 
 	// Create challenge request with type field
@@ -146,7 +147,8 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack)
 
 	// Create request with invalid signature
@@ -182,7 +184,8 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
+	authUC := usecase.NewAuth(ctx, repo, slackConfig)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
 	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack)
 
 	// Create request with valid JSON body

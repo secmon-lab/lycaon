@@ -503,6 +503,11 @@ func (r *queryResolver) Task(ctx context.Context, id string) (*model.Task, error
 	return r.repo.GetTask(ctx, types.TaskID(id))
 }
 
+// ChannelMembers is the resolver for the channelMembers field.
+func (r *queryResolver) ChannelMembers(ctx context.Context, channelID string) ([]*model.User, error) {
+	return r.authUC.GetChannelMembers(ctx, channelID)
+}
+
 // ID is the resolver for the id field.
 func (r *statusHistoryResolver) ID(ctx context.Context, obj *model.StatusHistory) (string, error) {
 	return string(obj.ID), nil

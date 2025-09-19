@@ -168,3 +168,65 @@ func (u *UserUseCase) updateAndSaveUser(ctx context.Context, freshUser, existing
 			"error", err)
 	}
 }
+
+// GetChannelMembers retrieves all members of a Slack channel
+func (u *UserUseCase) GetChannelMembers(ctx context.Context, channelID string) ([]*model.User, error) {
+	logger := ctxlog.From(ctx)
+
+	if channelID == "" {
+		return nil, goerr.New("channel ID is required")
+	}
+
+	// Get channel members from Slack API
+	params := &slack.GetUsersInConversationParameters{
+		ChannelID: channelID,
+		Limit:     200, // Get up to 200 members per request
+	}
+
+	var allMemberIDs []string
+	for {
+		memberIDs, nextCursor, err := u.slackClient.GetUsersInConversationContext(ctx, params)
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to get channel members from Slack",
+				goerr.V("channelID", channelID))
+		}
+
+		allMemberIDs = append(allMemberIDs, memberIDs...)
+
+		// If there's no next cursor, we've got all members
+		if nextCursor == "" {
+			break
+		}
+		params.Cursor = nextCursor
+	}
+
+	logger.Debug("Retrieved channel member IDs from Slack",
+		"channelID", channelID,
+		"memberCount", len(allMemberIDs))
+
+	// Convert Slack user IDs to User models
+	var users []*model.User
+	for _, memberID := range allMemberIDs {
+		slackUserID := types.SlackUserID(memberID)
+
+		// Get or fetch user information
+		user, err := u.GetOrFetchUser(ctx, slackUserID)
+		if err != nil {
+			// Log error but continue with other users
+			logger.Warn("Failed to get user information for channel member",
+				"channelID", channelID,
+				"slackUserID", slackUserID,
+				"error", err)
+			continue
+		}
+
+		users = append(users, user)
+	}
+
+	logger.Info("Retrieved channel members",
+		"channelID", channelID,
+		"totalMemberIDs", len(allMemberIDs),
+		"successfulUsers", len(users))
+
+	return users, nil
+}

@@ -27,6 +27,7 @@ type SlackClient interface {
 	GetUserInfoContext(ctx context.Context, userID string) (*slack.User, error)
 	GetUserGroupsContext(ctx context.Context) ([]slack.UserGroup, error)
 	GetUserGroupMembersContext(ctx context.Context, groupID string) ([]string, error)
+	GetUsersInConversationContext(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error)
 
 	// Bookmark management
 	AddBookmark(ctx context.Context, channelID, title, link string) error

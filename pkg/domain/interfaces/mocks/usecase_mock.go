@@ -1943,3 +1943,399 @@ func (mock *StatusUseCaseMock) UpdateStatusCalls() []struct {
 	mock.lockUpdateStatus.RUnlock()
 	return calls
 }
+
+// Ensure, that AuthMock does implement interfaces.Auth.
+// If this is not the case, regenerate this file with moq.
+var _ interfaces.Auth = &AuthMock{}
+
+// AuthMock is a mock implementation of interfaces.Auth.
+//
+//	func TestSomethingThatUsesAuth(t *testing.T) {
+//
+//		// make and configure a mocked interfaces.Auth
+//		mockedAuth := &AuthMock{
+//			CreateSessionFunc: func(ctx context.Context, slackUserID string, userName string, userEmail string) (*model.Session, error) {
+//				panic("mock out the CreateSession method")
+//			},
+//			DeleteSessionFunc: func(ctx context.Context, sessionID string) error {
+//				panic("mock out the DeleteSession method")
+//			},
+//			GenerateOAuthURLFunc: func(ctx context.Context, config interfaces.OAuthConfig) (*interfaces.OAuthURL, error) {
+//				panic("mock out the GenerateOAuthURL method")
+//			},
+//			GetChannelMembersFunc: func(ctx context.Context, channelID string) ([]*model.User, error) {
+//				panic("mock out the GetChannelMembers method")
+//			},
+//			GetUserFromSessionFunc: func(ctx context.Context, sessionID string) (*model.User, error) {
+//				panic("mock out the GetUserFromSession method")
+//			},
+//			HandleCallbackFunc: func(ctx context.Context, code string, redirectURI string) (*model.User, error) {
+//				panic("mock out the HandleCallback method")
+//			},
+//			ValidateSessionFunc: func(ctx context.Context, sessionID string, sessionSecret string) (*model.Session, error) {
+//				panic("mock out the ValidateSession method")
+//			},
+//		}
+//
+//		// use mockedAuth in code that requires interfaces.Auth
+//		// and then make assertions.
+//
+//	}
+type AuthMock struct {
+	// CreateSessionFunc mocks the CreateSession method.
+	CreateSessionFunc func(ctx context.Context, slackUserID string, userName string, userEmail string) (*model.Session, error)
+
+	// DeleteSessionFunc mocks the DeleteSession method.
+	DeleteSessionFunc func(ctx context.Context, sessionID string) error
+
+	// GenerateOAuthURLFunc mocks the GenerateOAuthURL method.
+	GenerateOAuthURLFunc func(ctx context.Context, config interfaces.OAuthConfig) (*interfaces.OAuthURL, error)
+
+	// GetChannelMembersFunc mocks the GetChannelMembers method.
+	GetChannelMembersFunc func(ctx context.Context, channelID string) ([]*model.User, error)
+
+	// GetUserFromSessionFunc mocks the GetUserFromSession method.
+	GetUserFromSessionFunc func(ctx context.Context, sessionID string) (*model.User, error)
+
+	// HandleCallbackFunc mocks the HandleCallback method.
+	HandleCallbackFunc func(ctx context.Context, code string, redirectURI string) (*model.User, error)
+
+	// ValidateSessionFunc mocks the ValidateSession method.
+	ValidateSessionFunc func(ctx context.Context, sessionID string, sessionSecret string) (*model.Session, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CreateSession holds details about calls to the CreateSession method.
+		CreateSession []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// SlackUserID is the slackUserID argument value.
+			SlackUserID string
+			// UserName is the userName argument value.
+			UserName string
+			// UserEmail is the userEmail argument value.
+			UserEmail string
+		}
+		// DeleteSession holds details about calls to the DeleteSession method.
+		DeleteSession []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// SessionID is the sessionID argument value.
+			SessionID string
+		}
+		// GenerateOAuthURL holds details about calls to the GenerateOAuthURL method.
+		GenerateOAuthURL []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Config is the config argument value.
+			Config interfaces.OAuthConfig
+		}
+		// GetChannelMembers holds details about calls to the GetChannelMembers method.
+		GetChannelMembers []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID string
+		}
+		// GetUserFromSession holds details about calls to the GetUserFromSession method.
+		GetUserFromSession []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// SessionID is the sessionID argument value.
+			SessionID string
+		}
+		// HandleCallback holds details about calls to the HandleCallback method.
+		HandleCallback []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Code is the code argument value.
+			Code string
+			// RedirectURI is the redirectURI argument value.
+			RedirectURI string
+		}
+		// ValidateSession holds details about calls to the ValidateSession method.
+		ValidateSession []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// SessionID is the sessionID argument value.
+			SessionID string
+			// SessionSecret is the sessionSecret argument value.
+			SessionSecret string
+		}
+	}
+	lockCreateSession      sync.RWMutex
+	lockDeleteSession      sync.RWMutex
+	lockGenerateOAuthURL   sync.RWMutex
+	lockGetChannelMembers  sync.RWMutex
+	lockGetUserFromSession sync.RWMutex
+	lockHandleCallback     sync.RWMutex
+	lockValidateSession    sync.RWMutex
+}
+
+// CreateSession calls CreateSessionFunc.
+func (mock *AuthMock) CreateSession(ctx context.Context, slackUserID string, userName string, userEmail string) (*model.Session, error) {
+	if mock.CreateSessionFunc == nil {
+		panic("AuthMock.CreateSessionFunc: method is nil but Auth.CreateSession was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		SlackUserID string
+		UserName    string
+		UserEmail   string
+	}{
+		Ctx:         ctx,
+		SlackUserID: slackUserID,
+		UserName:    userName,
+		UserEmail:   userEmail,
+	}
+	mock.lockCreateSession.Lock()
+	mock.calls.CreateSession = append(mock.calls.CreateSession, callInfo)
+	mock.lockCreateSession.Unlock()
+	return mock.CreateSessionFunc(ctx, slackUserID, userName, userEmail)
+}
+
+// CreateSessionCalls gets all the calls that were made to CreateSession.
+// Check the length with:
+//
+//	len(mockedAuth.CreateSessionCalls())
+func (mock *AuthMock) CreateSessionCalls() []struct {
+	Ctx         context.Context
+	SlackUserID string
+	UserName    string
+	UserEmail   string
+} {
+	var calls []struct {
+		Ctx         context.Context
+		SlackUserID string
+		UserName    string
+		UserEmail   string
+	}
+	mock.lockCreateSession.RLock()
+	calls = mock.calls.CreateSession
+	mock.lockCreateSession.RUnlock()
+	return calls
+}
+
+// DeleteSession calls DeleteSessionFunc.
+func (mock *AuthMock) DeleteSession(ctx context.Context, sessionID string) error {
+	if mock.DeleteSessionFunc == nil {
+		panic("AuthMock.DeleteSessionFunc: method is nil but Auth.DeleteSession was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		SessionID string
+	}{
+		Ctx:       ctx,
+		SessionID: sessionID,
+	}
+	mock.lockDeleteSession.Lock()
+	mock.calls.DeleteSession = append(mock.calls.DeleteSession, callInfo)
+	mock.lockDeleteSession.Unlock()
+	return mock.DeleteSessionFunc(ctx, sessionID)
+}
+
+// DeleteSessionCalls gets all the calls that were made to DeleteSession.
+// Check the length with:
+//
+//	len(mockedAuth.DeleteSessionCalls())
+func (mock *AuthMock) DeleteSessionCalls() []struct {
+	Ctx       context.Context
+	SessionID string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		SessionID string
+	}
+	mock.lockDeleteSession.RLock()
+	calls = mock.calls.DeleteSession
+	mock.lockDeleteSession.RUnlock()
+	return calls
+}
+
+// GenerateOAuthURL calls GenerateOAuthURLFunc.
+func (mock *AuthMock) GenerateOAuthURL(ctx context.Context, config interfaces.OAuthConfig) (*interfaces.OAuthURL, error) {
+	if mock.GenerateOAuthURLFunc == nil {
+		panic("AuthMock.GenerateOAuthURLFunc: method is nil but Auth.GenerateOAuthURL was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Config interfaces.OAuthConfig
+	}{
+		Ctx:    ctx,
+		Config: config,
+	}
+	mock.lockGenerateOAuthURL.Lock()
+	mock.calls.GenerateOAuthURL = append(mock.calls.GenerateOAuthURL, callInfo)
+	mock.lockGenerateOAuthURL.Unlock()
+	return mock.GenerateOAuthURLFunc(ctx, config)
+}
+
+// GenerateOAuthURLCalls gets all the calls that were made to GenerateOAuthURL.
+// Check the length with:
+//
+//	len(mockedAuth.GenerateOAuthURLCalls())
+func (mock *AuthMock) GenerateOAuthURLCalls() []struct {
+	Ctx    context.Context
+	Config interfaces.OAuthConfig
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Config interfaces.OAuthConfig
+	}
+	mock.lockGenerateOAuthURL.RLock()
+	calls = mock.calls.GenerateOAuthURL
+	mock.lockGenerateOAuthURL.RUnlock()
+	return calls
+}
+
+// GetChannelMembers calls GetChannelMembersFunc.
+func (mock *AuthMock) GetChannelMembers(ctx context.Context, channelID string) ([]*model.User, error) {
+	if mock.GetChannelMembersFunc == nil {
+		panic("AuthMock.GetChannelMembersFunc: method is nil but Auth.GetChannelMembers was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		ChannelID string
+	}{
+		Ctx:       ctx,
+		ChannelID: channelID,
+	}
+	mock.lockGetChannelMembers.Lock()
+	mock.calls.GetChannelMembers = append(mock.calls.GetChannelMembers, callInfo)
+	mock.lockGetChannelMembers.Unlock()
+	return mock.GetChannelMembersFunc(ctx, channelID)
+}
+
+// GetChannelMembersCalls gets all the calls that were made to GetChannelMembers.
+// Check the length with:
+//
+//	len(mockedAuth.GetChannelMembersCalls())
+func (mock *AuthMock) GetChannelMembersCalls() []struct {
+	Ctx       context.Context
+	ChannelID string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		ChannelID string
+	}
+	mock.lockGetChannelMembers.RLock()
+	calls = mock.calls.GetChannelMembers
+	mock.lockGetChannelMembers.RUnlock()
+	return calls
+}
+
+// GetUserFromSession calls GetUserFromSessionFunc.
+func (mock *AuthMock) GetUserFromSession(ctx context.Context, sessionID string) (*model.User, error) {
+	if mock.GetUserFromSessionFunc == nil {
+		panic("AuthMock.GetUserFromSessionFunc: method is nil but Auth.GetUserFromSession was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		SessionID string
+	}{
+		Ctx:       ctx,
+		SessionID: sessionID,
+	}
+	mock.lockGetUserFromSession.Lock()
+	mock.calls.GetUserFromSession = append(mock.calls.GetUserFromSession, callInfo)
+	mock.lockGetUserFromSession.Unlock()
+	return mock.GetUserFromSessionFunc(ctx, sessionID)
+}
+
+// GetUserFromSessionCalls gets all the calls that were made to GetUserFromSession.
+// Check the length with:
+//
+//	len(mockedAuth.GetUserFromSessionCalls())
+func (mock *AuthMock) GetUserFromSessionCalls() []struct {
+	Ctx       context.Context
+	SessionID string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		SessionID string
+	}
+	mock.lockGetUserFromSession.RLock()
+	calls = mock.calls.GetUserFromSession
+	mock.lockGetUserFromSession.RUnlock()
+	return calls
+}
+
+// HandleCallback calls HandleCallbackFunc.
+func (mock *AuthMock) HandleCallback(ctx context.Context, code string, redirectURI string) (*model.User, error) {
+	if mock.HandleCallbackFunc == nil {
+		panic("AuthMock.HandleCallbackFunc: method is nil but Auth.HandleCallback was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Code        string
+		RedirectURI string
+	}{
+		Ctx:         ctx,
+		Code:        code,
+		RedirectURI: redirectURI,
+	}
+	mock.lockHandleCallback.Lock()
+	mock.calls.HandleCallback = append(mock.calls.HandleCallback, callInfo)
+	mock.lockHandleCallback.Unlock()
+	return mock.HandleCallbackFunc(ctx, code, redirectURI)
+}
+
+// HandleCallbackCalls gets all the calls that were made to HandleCallback.
+// Check the length with:
+//
+//	len(mockedAuth.HandleCallbackCalls())
+func (mock *AuthMock) HandleCallbackCalls() []struct {
+	Ctx         context.Context
+	Code        string
+	RedirectURI string
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Code        string
+		RedirectURI string
+	}
+	mock.lockHandleCallback.RLock()
+	calls = mock.calls.HandleCallback
+	mock.lockHandleCallback.RUnlock()
+	return calls
+}
+
+// ValidateSession calls ValidateSessionFunc.
+func (mock *AuthMock) ValidateSession(ctx context.Context, sessionID string, sessionSecret string) (*model.Session, error) {
+	if mock.ValidateSessionFunc == nil {
+		panic("AuthMock.ValidateSessionFunc: method is nil but Auth.ValidateSession was just called")
+	}
+	callInfo := struct {
+		Ctx           context.Context
+		SessionID     string
+		SessionSecret string
+	}{
+		Ctx:           ctx,
+		SessionID:     sessionID,
+		SessionSecret: sessionSecret,
+	}
+	mock.lockValidateSession.Lock()
+	mock.calls.ValidateSession = append(mock.calls.ValidateSession, callInfo)
+	mock.lockValidateSession.Unlock()
+	return mock.ValidateSessionFunc(ctx, sessionID, sessionSecret)
+}
+
+// ValidateSessionCalls gets all the calls that were made to ValidateSession.
+// Check the length with:
+//
+//	len(mockedAuth.ValidateSessionCalls())
+func (mock *AuthMock) ValidateSessionCalls() []struct {
+	Ctx           context.Context
+	SessionID     string
+	SessionSecret string
+} {
+	var calls []struct {
+		Ctx           context.Context
+		SessionID     string
+		SessionSecret string
+	}
+	mock.lockValidateSession.RLock()
+	calls = mock.calls.ValidateSession
+	mock.lockValidateSession.RUnlock()
+	return calls
+}
