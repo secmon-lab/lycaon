@@ -95,7 +95,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Create use case with mock and default categories
 		categories := getTestCategoriesForIncident()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -167,7 +168,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := getTestCategoriesForIncident()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
 
 		// Create first incident
 		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -247,7 +249,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := getTestCategoriesForIncident()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
 
 		// Create an incident
 		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -310,7 +313,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		categories := getTestCategoriesForIncident()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
 
 		// Try to get non-existent incident
 		incident, err := uc.GetIncident(ctx, 999)
@@ -333,7 +337,8 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		mockSlack := &mocks.SlackClientMock{}
 		categories := getTestCategoriesForIncident()
-		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil, config)
 
 		// Try to create incident - should fail due to repository error
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -436,7 +441,8 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		// Create use case with mock invite
-		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, config)
 
 		// Create an incident with security_incident category
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -516,7 +522,8 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		// Create use case with mock invite
-		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, "inc")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, config)
 
 		// Create an incident with unknown category (no invitations)
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -579,7 +586,8 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 
 		// Test with custom prefix "security"
 		categories := getTestCategoriesForIncident()
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, "security")
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("security"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -649,7 +657,14 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 				}
 
 				categories := getTestCategoriesForIncident()
-				uc := usecase.NewIncident(repo, mockSlack, categories, nil, tc.prefix)
+				var config *usecase.IncidentConfig
+				if tc.prefix == "" {
+					// Test default value by not specifying prefix
+					config = usecase.NewIncidentConfig()
+				} else {
+					config = usecase.NewIncidentConfig(usecase.WithChannelPrefix(tc.prefix))
+				}
+				uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
 
 				// Create an incident
 				incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -670,5 +685,189 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 				gt.Equal(t, tc.expectedPrefix, createdChannelName)
 			})
 		}
+	})
+}
+
+func TestIncidentUseCaseWithBookmark(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Add bookmark when frontend URL is configured", func(t *testing.T) {
+		repo := repository.NewMemory()
+		var addedBookmarks []struct {
+			channelID string
+			title     string
+			link      string
+		}
+
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-TEST-CHANNEL",
+						},
+					},
+				}, nil
+			},
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T-TEST-TEAM",
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
+				addedBookmarks = append(addedBookmarks, struct {
+					channelID string
+					title     string
+					link      string
+				}{channelID, title, link})
+				return nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return channelID, "1234567890.123456", nil
+			},
+		}
+
+		categories := getTestCategoriesForIncident()
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+
+		// Create an incident
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "Test Incident",
+			Description:       "Test description",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-CREATOR",
+		})
+
+		// Verify incident was created successfully
+		gt.NoError(t, err).Required()
+		gt.V(t, incident).NotNil()
+
+		// Verify bookmark was added
+		gt.Equal(t, 1, len(addedBookmarks))
+		bookmark := addedBookmarks[0]
+		gt.Equal(t, "C-TEST-CHANNEL", bookmark.channelID)
+		gt.Equal(t, "Incident #1 - Web UI", bookmark.title)
+		gt.Equal(t, "https://lycaon.example.com/incidents/1", bookmark.link)
+
+		// Verify AddBookmark was called once
+		gt.Equal(t, 1, len(mockSlack.AddBookmarkCalls()))
+	})
+
+	t.Run("Skip bookmark when frontend URL is not configured", func(t *testing.T) {
+		repo := repository.NewMemory()
+
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-TEST-CHANNEL",
+						},
+					},
+				}, nil
+			},
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T-TEST-TEAM",
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
+				t.Error("AddBookmark should not be called when frontend URL is not configured")
+				return nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return channelID, "1234567890.123456", nil
+			},
+		}
+
+		categories := getTestCategoriesForIncident()
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc")) // No frontend URL
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+
+		// Create an incident
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "Test Incident",
+			Description:       "Test description",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-CREATOR",
+		})
+
+		// Verify incident was created successfully
+		gt.NoError(t, err).Required()
+		gt.V(t, incident).NotNil()
+
+		// Verify AddBookmark was not called
+		gt.Equal(t, 0, len(mockSlack.AddBookmarkCalls()))
+	})
+
+	t.Run("Handle bookmark failure gracefully", func(t *testing.T) {
+		repo := repository.NewMemory()
+
+		mockSlack := &mocks.SlackClientMock{
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{
+							ID: "C-TEST-CHANNEL",
+						},
+					},
+				}, nil
+			},
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{
+					TeamID: "T-TEST-TEAM",
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
+				return goerr.New("bookmark API failed")
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return channelID, "1234567890.123456", nil
+			},
+		}
+
+		categories := getTestCategoriesForIncident()
+		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
+		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+
+		// Create an incident - should succeed even if bookmark fails
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "Test Incident",
+			Description:       "Test description",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-CREATOR",
+		})
+
+		// Verify incident was created successfully despite bookmark failure
+		gt.NoError(t, err).Required()
+		gt.V(t, incident).NotNil()
+
+		// Verify AddBookmark was called (and failed)
+		gt.Equal(t, 1, len(mockSlack.AddBookmarkCalls()))
 	})
 }

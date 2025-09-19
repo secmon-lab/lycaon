@@ -90,7 +90,8 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
 	gt.NoError(t, err).Required()
 	categories := getTestCategoriesForController()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
+	config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, config)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
@@ -140,7 +141,8 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
 	gt.NoError(t, err).Required()
 	categories := getTestCategoriesForController()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
+	config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, config)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
@@ -175,7 +177,8 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
 	gt.NoError(t, err).Required()
 	categories := getTestCategoriesForController()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
+	config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, config)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 
