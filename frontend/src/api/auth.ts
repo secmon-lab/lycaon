@@ -5,6 +5,7 @@ export interface User {
   name: string
   email: string
   slack_user_id: string
+  avatar_url?: string
 }
 
 /**

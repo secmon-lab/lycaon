@@ -129,4 +129,3 @@ func TestNewSPAHandlerError(t *testing.T) {
 	gt.Error(t, err)
 	gt.S(t, err.Error()).Contains("failed to open index.html")
 }
-
