@@ -693,11 +693,6 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 
 	t.Run("Add bookmark when frontend URL is configured", func(t *testing.T) {
 		repo := repository.NewMemory()
-		var addedBookmarks []struct {
-			channelID string
-			title     string
-			link      string
-		}
 
 		mockSlack := &mocks.SlackClientMock{
 			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
@@ -721,11 +716,6 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 				return &slack.Channel{}, nil
 			},
 			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
-				addedBookmarks = append(addedBookmarks, struct {
-					channelID string
-					title     string
-					link      string
-				}{channelID, title, link})
 				return nil
 			},
 			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
@@ -751,15 +741,13 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 		gt.NoError(t, err).Required()
 		gt.V(t, incident).NotNil()
 
-		// Verify bookmark was added
-		gt.Equal(t, 1, len(addedBookmarks))
-		bookmark := addedBookmarks[0]
-		gt.Equal(t, "C-TEST-CHANNEL", bookmark.channelID)
-		gt.Equal(t, "Incident #1 - Web UI", bookmark.title)
-		gt.Equal(t, "https://lycaon.example.com/incidents/1", bookmark.link)
-
-		// Verify AddBookmark was called once
-		gt.Equal(t, 1, len(mockSlack.AddBookmarkCalls()))
+		// Verify AddBookmark was called once with correct arguments
+		addBookmarkCalls := mockSlack.AddBookmarkCalls()
+		gt.Equal(t, 1, len(addBookmarkCalls))
+		bookmarkCall := addBookmarkCalls[0]
+		gt.Equal(t, "C-TEST-CHANNEL", bookmarkCall.ChannelID)
+		gt.Equal(t, "Incident #1 - Web UI", bookmarkCall.Title)
+		gt.Equal(t, "https://lycaon.example.com/incidents/1", bookmarkCall.Link)
 	})
 
 	t.Run("Skip bookmark when frontend URL is not configured", func(t *testing.T) {
