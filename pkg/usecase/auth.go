@@ -226,7 +226,8 @@ func (a *Auth) GetUserFromSession(ctx context.Context, sessionID string) (*model
 		if err == nil {
 			return user, nil
 		}
-		// If UserUseCase fails, fall back to repository
+		// Log error for debugging but continue with fallback
+		apperr.Handle(ctx, err)
 	}
 
 	// Fallback to direct repository access
