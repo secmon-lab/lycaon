@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { IncidentStatus, StatusHistory, getStatusConfig } from '../../types/incident';
 import StatusBadge from '../IncidentList/StatusBadge';
-import StatusIcon from '../common/StatusIcon';
 import StatusChangeModal from './StatusChangeModal';
 import { Button } from '../ui/Button';
 
@@ -20,7 +19,6 @@ export const StatusSection: React.FC<StatusSectionProps> = ({
   className = ''
 }) => {
   const [showChangeModal, setShowChangeModal] = useState(false);
-  const currentConfig = getStatusConfig(currentStatus);
   
   // Sort histories by timestamp (newest first for display)
   const sortedHistories = [...statusHistories].sort(
@@ -39,7 +37,7 @@ export const StatusSection: React.FC<StatusSectionProps> = ({
         <h3 className="text-lg font-semibold">Status</h3>
         <Button
           onClick={() => setShowChangeModal(true)}
-          variant="primary"
+          variant="default"
           size="sm"
           className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all duration-200 hover:shadow-md"
         >
