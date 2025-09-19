@@ -95,7 +95,8 @@ func TestServerHealthCheck(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForHTTP())
 	gt.NoError(t, err).Required()
 	categories := getTestCategoriesForHTTP()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
+	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
@@ -148,7 +149,8 @@ func TestServerFallbackHome(t *testing.T) {
 	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForHTTP())
 	gt.NoError(t, err).Required()
 	categories := getTestCategoriesForHTTP()
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, "inc")
+	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+	incidentUC := usecase.NewIncident(repo, nil, categories, nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
 	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
@@ -221,7 +223,8 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 	categories := getTestCategoriesForHTTP()
 
 	// Create use cases
-	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil, "inc")
+	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 
 	// Create Auth UC with mock Slack config

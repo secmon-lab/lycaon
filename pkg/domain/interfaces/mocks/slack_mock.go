@@ -20,6 +20,9 @@ var _ interfaces.SlackClient = &SlackClientMock{}
 //
 //		// make and configure a mocked interfaces.SlackClient
 //		mockedSlackClient := &SlackClientMock{
+//			AddBookmarkFunc: func(ctx context.Context, channelID string, title string, link string) error {
+//				panic("mock out the AddBookmark method")
+//			},
 //			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
 //				panic("mock out the AuthTestContext method")
 //			},
@@ -72,6 +75,9 @@ var _ interfaces.SlackClient = &SlackClientMock{}
 //
 //	}
 type SlackClientMock struct {
+	// AddBookmarkFunc mocks the AddBookmark method.
+	AddBookmarkFunc func(ctx context.Context, channelID string, title string, link string) error
+
 	// AuthTestContextFunc mocks the AuthTestContext method.
 	AuthTestContextFunc func(ctx context.Context) (*slack.AuthTestResponse, error)
 
@@ -119,6 +125,17 @@ type SlackClientMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// AddBookmark holds details about calls to the AddBookmark method.
+		AddBookmark []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID string
+			// Title is the title argument value.
+			Title string
+			// Link is the link argument value.
+			Link string
+		}
 		// AuthTestContext holds details about calls to the AuthTestContext method.
 		AuthTestContext []struct {
 			// Ctx is the ctx argument value.
@@ -237,6 +254,7 @@ type SlackClientMock struct {
 			Options []slack.MsgOption
 		}
 	}
+	lockAddBookmark                     sync.RWMutex
 	lockAuthTestContext                 sync.RWMutex
 	lockCreateConversation              sync.RWMutex
 	lockGetConversationHistoryContext   sync.RWMutex
@@ -252,6 +270,50 @@ type SlackClientMock struct {
 	lockSendContextMessage              sync.RWMutex
 	lockSetPurposeOfConversationContext sync.RWMutex
 	lockUpdateMessage                   sync.RWMutex
+}
+
+// AddBookmark calls AddBookmarkFunc.
+func (mock *SlackClientMock) AddBookmark(ctx context.Context, channelID string, title string, link string) error {
+	if mock.AddBookmarkFunc == nil {
+		panic("SlackClientMock.AddBookmarkFunc: method is nil but SlackClient.AddBookmark was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		ChannelID string
+		Title     string
+		Link      string
+	}{
+		Ctx:       ctx,
+		ChannelID: channelID,
+		Title:     title,
+		Link:      link,
+	}
+	mock.lockAddBookmark.Lock()
+	mock.calls.AddBookmark = append(mock.calls.AddBookmark, callInfo)
+	mock.lockAddBookmark.Unlock()
+	return mock.AddBookmarkFunc(ctx, channelID, title, link)
+}
+
+// AddBookmarkCalls gets all the calls that were made to AddBookmark.
+// Check the length with:
+//
+//	len(mockedSlackClient.AddBookmarkCalls())
+func (mock *SlackClientMock) AddBookmarkCalls() []struct {
+	Ctx       context.Context
+	ChannelID string
+	Title     string
+	Link      string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		ChannelID string
+		Title     string
+		Link      string
+	}
+	mock.lockAddBookmark.RLock()
+	calls = mock.calls.AddBookmark
+	mock.lockAddBookmark.RUnlock()
+	return calls
 }
 
 // AuthTestContext calls AuthTestContextFunc.

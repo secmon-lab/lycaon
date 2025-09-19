@@ -17,6 +17,7 @@ Lycaon is an incident management service that integrates with Slack to help team
 - **Web Dashboard**: View and manage incidents through a web interface
 - **Session-based Authentication**: Secure OAuth2 authentication with Slack
 - **Firestore Persistence**: Store incident messages in Google Firestore
+- **Automatic Bookmarks**: Automatically add Web UI links to incident channels as bookmarks
 
 ## Installation
 
@@ -49,7 +50,7 @@ Lycaon is configured through environment variables:
 ```bash
 # Server Configuration
 LYCAON_ADDR=localhost:8080
-LYCAON_FRONTEND_URL=http://localhost:8080
+LYCAON_FRONTEND_URL=http://localhost:8080  # Optional: enables automatic bookmark creation to incident Web UI
 
 # Slack Configuration (Required)
 LYCAON_SLACK_CLIENT_ID=your-slack-client-id

@@ -108,7 +108,18 @@ func cmdServe() *cli.Command {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
 			inviteUC := usecase.NewInvite(slackClient)
-			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC, slackCfg.ChannelPrefix)
+
+			// Create incident configuration with optional settings
+			var incidentOpts []usecase.IncidentOption
+			if slackCfg.ChannelPrefix != "" {
+				incidentOpts = append(incidentOpts, usecase.WithChannelPrefix(slackCfg.ChannelPrefix))
+			}
+			if serverCfg.FrontendURL != "" {
+				incidentOpts = append(incidentOpts, usecase.WithFrontendURL(serverCfg.FrontendURL))
+			}
+			incidentConfig := usecase.NewIncidentConfig(incidentOpts...)
+
+			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC, incidentConfig)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
 			statusUC := usecase.NewStatusUseCase(repo, slackClient)
 			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, slackClient)

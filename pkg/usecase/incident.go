@@ -15,28 +15,62 @@ import (
 	"github.com/slack-go/slack"
 )
 
-// Incident implements Incident interface
-type Incident struct {
-	repo          interfaces.Repository
-	slackClient   interfaces.SlackClient
-	blockBuilder  *slackSvc.BlockBuilder
-	categories    *model.CategoriesConfig
-	invite        interfaces.Invite
+// IncidentConfig holds configuration for Incident use case
+type IncidentConfig struct {
 	channelPrefix string
+	frontendURL   string
 }
 
-// NewIncident creates a new Incident instance with a custom SlackClient
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite, channelPrefix string) *Incident {
-	if channelPrefix == "" {
-		channelPrefix = "inc" // default fallback
+// IncidentOption is a functional option for configuring Incident
+type IncidentOption func(*IncidentConfig)
+
+// WithChannelPrefix sets the channel prefix for incident channels
+func WithChannelPrefix(prefix string) IncidentOption {
+	return func(c *IncidentConfig) {
+		c.channelPrefix = prefix
 	}
+}
+
+// WithFrontendURL sets the frontend URL for bookmark generation
+func WithFrontendURL(url string) IncidentOption {
+	return func(c *IncidentConfig) {
+		c.frontendURL = url
+	}
+}
+
+// NewIncidentConfig creates a new IncidentConfig with default values and optional settings
+func NewIncidentConfig(opts ...IncidentOption) *IncidentConfig {
+	config := &IncidentConfig{
+		channelPrefix: "inc", // Default value
+	}
+
+	// Apply optional configurations
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	return config
+}
+
+// Incident implements Incident interface
+type Incident struct {
+	repo         interfaces.Repository
+	slackClient  interfaces.SlackClient
+	blockBuilder *slackSvc.BlockBuilder
+	categories   *model.CategoriesConfig
+	invite       interfaces.Invite
+	config       *IncidentConfig
+}
+
+// NewIncident creates a new Incident instance with configuration
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite, config *IncidentConfig) *Incident {
 	return &Incident{
-		repo:          repo,
-		slackClient:   slackClient,
-		blockBuilder:  slackSvc.NewBlockBuilder(),
-		categories:    categories,
-		invite:        invite,
-		channelPrefix: channelPrefix,
+		repo:         repo,
+		slackClient:  slackClient,
+		blockBuilder: slackSvc.NewBlockBuilder(),
+		categories:   categories,
+		invite:       invite,
+		config:       config,
 	}
 }
 
@@ -61,7 +95,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(u.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
+	incident, err := model.NewIncident(u.config.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}
@@ -94,6 +128,23 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	if err != nil {
 		// Log error but don't fail - user might already be in channel or invitation might fail for other reasons
 		apperr.Handle(ctx, err)
+	}
+
+	// Add bookmark to Web UI if frontend URL is configured
+	if u.config.frontendURL != "" {
+		bookmarkTitle := fmt.Sprintf("Incident #%d - Web UI", incidentNumber)
+		bookmarkURL := fmt.Sprintf("%s/incidents/%d", u.config.frontendURL, incident.ID)
+
+		err = u.slackClient.AddBookmark(ctx, channel.ID, bookmarkTitle, bookmarkURL)
+		if err != nil {
+			// Log error but don't fail - bookmark is nice to have but not critical
+			apperr.Handle(ctx, err)
+		} else {
+			ctxlog.From(ctx).Info("Added incident bookmark to channel",
+				"channelID", channel.ID,
+				"incidentID", incident.ID,
+				"bookmarkURL", bookmarkURL)
+		}
 	}
 
 	// Post welcome message to the incident channel

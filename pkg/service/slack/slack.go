@@ -234,3 +234,33 @@ func (s *Service) GetUserGroupMembersContext(ctx context.Context, groupID string
 	}
 	return members, nil
 }
+
+// AddBookmark adds a bookmark to a Slack channel
+func (s *Service) AddBookmark(ctx context.Context, channelID, title, link string) error {
+	logger := ctxlog.From(ctx)
+
+	logger.Debug("Adding bookmark to channel",
+		"channelID", channelID,
+		"title", title,
+		"link", link)
+
+	// Use the bookmarks.add API endpoint
+	_, err := s.client.AddBookmarkContext(ctx, channelID, slack.AddBookmarkParameters{
+		Title: title,
+		Link:  link,
+		Type:  "link",
+	})
+	if err != nil {
+		return goerr.Wrap(err, "failed to add bookmark",
+			goerr.V("channelID", channelID),
+			goerr.V("title", title),
+			goerr.V("link", link))
+	}
+
+	logger.Info("Successfully added bookmark to channel",
+		"channelID", channelID,
+		"title", title,
+		"link", link)
+
+	return nil
+}
