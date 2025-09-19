@@ -66,19 +66,8 @@ func (u *UserUseCase) GetOrFetchUser(ctx context.Context, slackUserID types.Slac
 			goerr.V("slackUserID", slackUserID))
 	}
 
-	// If we had an existing user, preserve the ID
-	if user != nil {
-		freshUser.ID = user.ID
-		freshUser.CreatedAt = user.CreatedAt
-	}
-
-	// Save updated user
-	if err := u.repo.SaveUser(ctx, freshUser); err != nil {
-		// Log error but don't fail - we have the user data
-		logger.Warn("Failed to save user data",
-			"slackUserID", slackUserID,
-			"error", err)
-	}
+	// Update and save user with preserved fields
+	u.updateAndSaveUser(ctx, freshUser, user, slackUserID)
 
 	return freshUser, nil
 }
@@ -99,18 +88,8 @@ func (u *UserUseCase) RefreshUser(ctx context.Context, slackUserID types.SlackUs
 			goerr.V("slackUserID", slackUserID))
 	}
 
-	// Preserve existing user ID and creation time if user exists
-	if existingUser != nil {
-		freshUser.ID = existingUser.ID
-		freshUser.CreatedAt = existingUser.CreatedAt
-	}
-
-	// Save updated user
-	if err := u.repo.SaveUser(ctx, freshUser); err != nil {
-		logger.Warn("Failed to save refreshed user data",
-			"slackUserID", slackUserID,
-			"error", err)
-	}
+	// Update and save user with preserved fields
+	u.updateAndSaveUser(ctx, freshUser, existingUser, slackUserID)
 
 	return freshUser, nil
 }
@@ -169,4 +148,23 @@ func (u *UserUseCase) getBestAvatarURL(user *slack.User) string {
 		return user.Profile.Image24
 	}
 	return user.Profile.ImageOriginal
+}
+
+// updateAndSaveUser preserves existing user fields and saves the updated user to repository
+func (u *UserUseCase) updateAndSaveUser(ctx context.Context, freshUser, existingUser *model.User, slackUserID types.SlackUserID) {
+	logger := ctxlog.From(ctx)
+
+	// Preserve existing user ID and creation time if user exists
+	if existingUser != nil {
+		freshUser.ID = existingUser.ID
+		freshUser.CreatedAt = existingUser.CreatedAt
+	}
+
+	// Save updated user
+	if err := u.repo.SaveUser(ctx, freshUser); err != nil {
+		// Log error but don't fail - we have the user data
+		logger.Warn("Failed to save user data",
+			"slackUserID", slackUserID,
+			"error", err)
+	}
 }
