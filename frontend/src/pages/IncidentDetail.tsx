@@ -105,9 +105,10 @@ const IncidentDetail: React.FC = () => {
 
           {/* Tasks */}
           <div className="mt-6 bg-white rounded-lg border p-6">
-            <TaskList 
-              incidentId={incident.id} 
-              tasks={incident.tasks || []} 
+            <TaskList
+              incidentId={incident.id}
+              incident={incident}
+              tasks={incident.tasks || []}
             />
           </div>
         </div>

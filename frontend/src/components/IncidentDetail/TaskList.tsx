@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client/react';
-import { Task, TaskStatus } from '../../types/incident';
+import { Task, TaskStatus, Incident } from '../../types/incident';
 import { CREATE_TASK, UPDATE_TASK, DELETE_TASK } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
 import ConfirmationModal from '../common/ConfirmationModal';
+import AssigneeSelector from '../common/AssigneeSelector';
+import TaskEditModal from './TaskEditModal';
 import {
   Plus,
   CheckCircle2,
@@ -17,18 +19,20 @@ import {
 
 interface TaskListProps {
   incidentId: string;
+  incident: Incident;
   tasks: Task[];
 }
 
 interface TaskFormData {
   title: string;
   description: string;
+  assigneeId?: string;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
+const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
   const [isCreating, setIsCreating] = useState(false);
-  const [editingTask, setEditingTask] = useState<string | null>(null);
-  const [formData, setFormData] = useState<TaskFormData>({ title: '', description: '' });
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [formData, setFormData] = useState<TaskFormData>({ title: '', description: '', assigneeId: undefined });
 
   const [createTask] = useMutation(CREATE_TASK, {
     refetchQueries: [{ query: GET_INCIDENT, variables: { id: incidentId } }]
@@ -46,16 +50,20 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
     if (!formData.title.trim()) return;
 
     try {
+      const input: any = {
+        incidentId,
+        title: formData.title.trim(),
+        description: formData.description.trim()
+      };
+
+      if (formData.assigneeId) {
+        input.assigneeId = formData.assigneeId;
+      }
+
       await createTask({
-        variables: {
-          input: {
-            incidentId,
-            title: formData.title.trim(),
-            description: formData.description.trim()
-          }
-        }
+        variables: { input }
       });
-      setFormData({ title: '', description: '' });
+      setFormData({ title: '', description: '', assigneeId: undefined });
       setIsCreating(false);
     } catch (error) {
       console.error('Failed to create task:', error);
@@ -70,7 +78,6 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
           input: updates
         }
       });
-      setEditingTask(null);
     } catch (error) {
       console.error('Failed to update task:', error);
     }
@@ -100,14 +107,11 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
     }
   };
 
-  const TaskForm: React.FC<{ 
-    task?: Task; 
-    onSubmit: (data: TaskFormData) => void; 
-    onCancel: () => void 
-  }> = ({ task, onSubmit, onCancel }) => {
-    const [localData, setLocalData] = useState<TaskFormData>(
-      task ? { title: task.title, description: task.description } : formData
-    );
+  const TaskForm: React.FC<{
+    onSubmit: (data: TaskFormData) => void;
+    onCancel: () => void
+  }> = ({ onSubmit, onCancel }) => {
+    const [localData, setLocalData] = useState<TaskFormData>(formData);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -133,6 +137,18 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
             className="w-full px-2.5 py-1.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
             rows={2}
           />
+
+          {/* Assignee Selector */}
+          <div className="space-y-1">
+            <label className="text-xs text-slate-600 font-medium">Assignee</label>
+            <AssigneeSelector
+              channelId={incident.channelId}
+              selectedUserId={localData.assigneeId}
+              onAssigneeChange={(userId) => setLocalData({ ...localData, assigneeId: userId })}
+              placeholder="Select assignee..."
+              className="text-sm"
+            />
+          </div>
           <div className="flex gap-1.5">
             <button
               type="submit"
@@ -140,7 +156,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
               className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Check className="h-3 w-3" />
-              {task ? 'Update' : 'Create'}
+              Create
             </button>
             <button
               type="button"
@@ -158,17 +174,6 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
 
   const TaskItem: React.FC<{ task: Task }> = ({ task }) => {
     const isCompleted = task.status === TaskStatus.COMPLETED;
-    const isEditing = editingTask === task.id;
-
-    if (isEditing) {
-      return (
-        <TaskForm
-          task={task}
-          onSubmit={(data) => handleUpdateTask(task.id, data)}
-          onCancel={() => setEditingTask(null)}
-        />
-      );
-    }
 
     return (
       <div className={`group border border-slate-200 rounded-lg bg-white hover:border-slate-300 hover:shadow-sm transition-all ${
@@ -185,7 +190,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
               <Circle className="h-5 w-5 hover:text-blue-500" />
             )}
           </button>
-          
+
           <div className="flex-1 min-w-0 mr-2">
             <h4 className={`text-sm font-medium ${isCompleted ? 'line-through text-slate-400' : 'text-slate-900'}`}>
               {task.title}
@@ -195,13 +200,13 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
                 {task.description}
               </p>
             )}
-            
+
             <div className="mt-1.5 flex items-center gap-1.5">
               {task.assigneeUser ? (
                 <>
                   {task.assigneeUser.avatarUrl ? (
-                    <img 
-                      src={task.assigneeUser.avatarUrl} 
+                    <img
+                      src={task.assigneeUser.avatarUrl}
                       alt={task.assigneeUser.name}
                       className="h-5 w-5 rounded-full"
                     />
@@ -225,7 +230,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
 
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             <button
-              onClick={() => setEditingTask(task.id)}
+              onClick={() => setEditingTask(task)}
               className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
               title="Edit task"
             >
@@ -282,7 +287,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
           onSubmit={handleCreateTask}
           onCancel={() => {
             setIsCreating(false);
-            setFormData({ title: '', description: '' });
+            setFormData({ title: '', description: '', assigneeId: undefined });
           }}
         />
       )}
@@ -332,6 +337,16 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, tasks }) => {
         confirmText="Delete"
         cancelText="Cancel"
       />
+
+      {/* Edit task modal */}
+      {editingTask && (
+        <TaskEditModal
+          isOpen={!!editingTask}
+          onClose={() => setEditingTask(null)}
+          task={editingTask}
+          incident={incident}
+        />
+      )}
     </div>
   );
 };

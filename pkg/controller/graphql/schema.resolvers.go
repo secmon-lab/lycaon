@@ -45,7 +45,7 @@ func (r *incidentResolver) CategoryName(ctx context.Context, obj *model.Incident
 }
 
 // Status is the resolver for the status field.
-func (r *incidentResolver) Status(ctx context.Context, obj *model.Incident) (*types.IncidentStatus, error) {
+func (r *incidentResolver) Status(ctx context.Context, obj *model.Incident) (*graphql1.IncidentStatus, error) {
 	if obj.Status == "" {
 		return nil, nil
 	}
@@ -220,7 +220,7 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 }
 
 // UpdateIncidentStatus is the resolver for the updateIncidentStatus field.
-func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID string, status types.IncidentStatus, note *string) (*model.Incident, error) {
+func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID string, status graphql1.IncidentStatus, note *string) (*model.Incident, error) {
 	// Parse incident ID
 	incidentIDInt, err := strconv.Atoi(incidentID)
 	if err != nil {
@@ -516,6 +516,11 @@ func (r *statusHistoryResolver) ID(ctx context.Context, obj *model.StatusHistory
 // IncidentID is the resolver for the incidentId field.
 func (r *statusHistoryResolver) IncidentID(ctx context.Context, obj *model.StatusHistory) (string, error) {
 	return fmt.Sprintf("%d", obj.IncidentID), nil
+}
+
+// Status is the resolver for the status field.
+func (r *statusHistoryResolver) Status(ctx context.Context, obj *model.StatusHistory) (graphql1.IncidentStatus, error) {
+	panic(fmt.Errorf("not implemented: Status - status"))
 }
 
 // ChangedBy is the resolver for the changedBy field.
