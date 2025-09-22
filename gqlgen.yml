@@ -1,0 +1,64 @@
+# Where are all the schema files located? globs are supported eg  src/**/*.graphqls
+schema:
+  - graphql/*.graphql
+
+# Where should the generated server code go?
+exec:
+  filename: pkg/controller/graphql/generated.go
+  package: graphql
+
+# Where should any generated models go?
+model:
+  filename: pkg/domain/model/graphql/models_gen.go
+  package: graphql
+
+# Where should the resolver implementations go?
+resolver:
+  layout: follow-schema
+  dir: pkg/controller/graphql
+  package: graphql
+  filename_template: "{name}.resolvers.go"
+
+# gqlgen will search for any type names in the schema in these go packages
+# if they match it will use them, otherwise it will generate them.
+autobind:
+  - "github.com/secmon-lab/lycaon/pkg/domain/model"
+  - "github.com/secmon-lab/lycaon/pkg/domain/types"
+
+# This section declares type mapping between the GraphQL and go type systems
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  Time:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
+  Incident:
+    model: github.com/secmon-lab/lycaon/pkg/domain/model.Incident
+    fields:
+      tasks:
+        resolver: true
+      categoryName:
+        resolver: true
+      createdByUser:
+        resolver: true
+      statusHistories:
+        resolver: true
+      status:
+        resolver: true
+      teamId:
+        resolver: true
+  User:
+    model: github.com/secmon-lab/lycaon/pkg/domain/model.User
+  Task:
+    model: github.com/secmon-lab/lycaon/pkg/domain/model.Task
+  TaskStatus:
+    model: github.com/secmon-lab/lycaon/pkg/domain/model.TaskStatus
