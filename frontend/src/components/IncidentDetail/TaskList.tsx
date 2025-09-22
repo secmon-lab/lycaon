@@ -56,11 +56,9 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
         description: data.description.trim()
       };
 
-      if (data.assigneeId) {
-        input.assigneeId = data.assigneeId;
+      if (data.assigneeId !== undefined) {
+        input.assigneeId = data.assigneeId || null;
       }
-
-      console.log('Creating task with input:', input);
 
       await createTask({
         variables: { input }

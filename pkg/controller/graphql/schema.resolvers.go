@@ -261,12 +261,6 @@ func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID 
 
 // CreateTask is the resolver for the createTask field.
 func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.CreateTaskInput) (*model.Task, error) {
-	// Debug log the input
-	if input.AssigneeID != nil {
-		fmt.Printf("CreateTask: assigneeId received: %s\n", *input.AssigneeID)
-	} else {
-		fmt.Printf("CreateTask: no assigneeId provided\n")
-	}
 
 	// Parse incident ID
 	incidentIDInt, err := strconv.Atoi(input.IncidentID)
@@ -310,12 +304,12 @@ func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.Create
 	}
 
 	// Set assignee if provided
-	if input.AssigneeID != nil && *input.AssigneeID != "" {
+	if input.AssigneeID != nil {
 		task.Assign(types.SlackUserID(*input.AssigneeID))
 	}
 
 	// Save task with all updates
-	if input.Description != nil || (input.AssigneeID != nil && *input.AssigneeID != "") {
+	if input.Description != nil || input.AssigneeID != nil {
 		if err := r.repo.UpdateTask(ctx, task); err != nil {
 			return nil, goerr.Wrap(err, "failed to update task")
 		}
@@ -357,7 +351,11 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 				}
 			}
 			if input.AssigneeID != nil {
-				task.Assign(types.SlackUserID(*input.AssigneeID))
+				if *input.AssigneeID == "" {
+					task.Assign(types.SlackUserID(""))
+				} else {
+					task.Assign(types.SlackUserID(*input.AssigneeID))
+				}
 			}
 			updatedTask = task
 			return nil
@@ -385,7 +383,11 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 		}
 	}
 	if input.AssigneeID != nil {
-		task.Assign(types.SlackUserID(*input.AssigneeID))
+		if *input.AssigneeID == "" {
+			task.Assign(types.SlackUserID(""))
+		} else {
+			task.Assign(types.SlackUserID(*input.AssigneeID))
+		}
 	}
 
 	// Save updated task

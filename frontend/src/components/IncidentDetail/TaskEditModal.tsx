@@ -48,8 +48,8 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
         status: formData.status
       };
 
-      // Only include assigneeId if it's set, otherwise let backend handle null assignment
-      if (formData.assigneeId !== undefined) {
+      // Handle assignee update, including clearing it.
+      if (formData.assigneeId !== task.assigneeId) {
         updates.assigneeId = formData.assigneeId || null;
       }
 
