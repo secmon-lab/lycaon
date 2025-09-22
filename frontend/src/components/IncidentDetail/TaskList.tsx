@@ -46,19 +46,21 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     refetchQueries: [{ query: GET_INCIDENT, variables: { id: incidentId } }]
   });
 
-  const handleCreateTask = async () => {
-    if (!formData.title.trim()) return;
+  const handleCreateTask = async (data: TaskFormData) => {
+    if (!data.title.trim()) return;
 
     try {
       const input: any = {
         incidentId,
-        title: formData.title.trim(),
-        description: formData.description.trim()
+        title: data.title.trim(),
+        description: data.description.trim()
       };
 
-      if (formData.assigneeId) {
-        input.assigneeId = formData.assigneeId;
+      if (data.assigneeId) {
+        input.assigneeId = data.assigneeId;
       }
+
+      console.log('Creating task with input:', input);
 
       await createTask({
         variables: { input }
@@ -108,15 +110,15 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
   };
 
   const TaskForm: React.FC<{
-    onSubmit: (data: TaskFormData) => void;
+    onSubmit: (data: TaskFormData) => Promise<void>;
     onCancel: () => void
   }> = ({ onSubmit, onCancel }) => {
     const [localData, setLocalData] = useState<TaskFormData>(formData);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!localData.title.trim()) return;
-      onSubmit(localData);
+      await onSubmit(localData);
     };
 
     return (
@@ -176,72 +178,68 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     const isCompleted = task.status === TaskStatus.COMPLETED;
 
     return (
-      <div className={`group border border-slate-200 rounded-lg bg-white hover:border-slate-300 hover:shadow-sm transition-all ${
+      <div className={`group border border-slate-200 rounded-md bg-white hover:border-slate-300 transition-all ${
         isCompleted ? 'bg-slate-50 border-slate-100' : ''
       }`}>
-        <div className="flex items-start gap-2 p-3">
+        <div className="flex items-center gap-3 px-2.5 py-1.5">
           <button
             onClick={() => handleToggleTaskStatus(task)}
-            className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-blue-600 transition-colors"
+            className="flex-shrink-0 text-slate-400 hover:text-blue-600 transition-colors"
           >
             {isCompleted ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
             ) : (
-              <Circle className="h-5 w-5 hover:text-blue-500" />
+              <Circle className="h-4 w-4 hover:text-blue-500" />
             )}
           </button>
 
-          <div className="flex-1 min-w-0 mr-2">
-            <h4 className={`text-sm font-medium ${isCompleted ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-              {task.title}
-            </h4>
-            {task.description && (
-              <p className={`mt-0.5 text-xs text-slate-600 ${isCompleted ? 'line-through text-slate-400' : ''}`}>
-                {task.description}
-              </p>
-            )}
-
-            <div className="mt-1.5 flex items-center gap-1.5">
-              {task.assigneeUser ? (
-                <>
-                  {task.assigneeUser.avatarUrl ? (
-                    <img
-                      src={task.assigneeUser.avatarUrl}
-                      alt={task.assigneeUser.name}
-                      className="h-5 w-5 rounded-full"
-                    />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center">
-                      <User className="h-3 w-3 text-slate-500" />
-                    </div>
-                  )}
-                  <span className="text-xs text-slate-500">{task.assigneeUser.name || task.assigneeUser.displayName || task.assigneeUser.realName}</span>
-                </>
-              ) : (
-                <>
-                  <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center">
-                    <User className="h-3 w-3 text-slate-400" />
+          <div className="flex-1 min-w-0 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className={`text-sm font-medium ${isCompleted ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                  {task.title}
+                </h4>
+                {task.assigneeUser && (
+                  <div className="flex items-center gap-1">
+                    {task.assigneeUser.avatarUrl ? (
+                      <img
+                        src={task.assigneeUser.avatarUrl}
+                        alt={task.assigneeUser.name}
+                        className="h-4 w-4 rounded-full"
+                      />
+                    ) : (
+                      <div className="h-4 w-4 rounded-full bg-slate-200 flex items-center justify-center">
+                        <User className="h-2.5 w-2.5 text-slate-500" />
+                      </div>
+                    )}
+                    <span className="text-xs text-slate-500 font-medium">
+                      {task.assigneeUser.name || task.assigneeUser.displayName || task.assigneeUser.realName}
+                    </span>
                   </div>
-                  <span className="text-xs text-slate-400">No assign</span>
-                </>
+                )}
+              </div>
+              {task.description && (
+                <p className={`text-xs text-slate-500 mt-0.5 ${isCompleted ? 'line-through text-slate-400' : ''}`}>
+                  {task.description}
+                </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <div className="flex items-center gap-0.5 flex-shrink-0">
             <button
               onClick={() => setEditingTask(task)}
-              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
               title="Edit task"
             >
-              <Edit3 className="h-3 w-3" />
+              <Edit3 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setDeletingTaskId(task.id)}
-              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
               title="Delete task"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -253,9 +251,9 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
   const incompleteTasks = (tasks || []).filter(task => task.status === TaskStatus.INCOMPLETED);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-slate-900">Tasks</h3>
           <div className="flex items-center gap-1.5 text-xs">
@@ -304,7 +302,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
           <>
             {incompleteTasks.length > 0 && (
               <div className="pt-2 mt-2">
-                <h4 className="text-xs font-medium text-slate-500 mb-2">Completed Tasks</h4>
+                <h4 className="text-xs font-medium text-slate-500 mb-2 px-1">Completed Tasks</h4>
               </div>
             )}
             <div className="space-y-2">

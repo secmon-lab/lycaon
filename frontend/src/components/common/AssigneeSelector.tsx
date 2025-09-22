@@ -165,16 +165,24 @@ const AssigneeSelector: React.FC<AssigneeSelectorProps> = ({
                 {getUserDisplayName(selectedUser)}
               </span>
               {!disabled && (
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleClearAssignment();
                   }}
-                  className="ml-auto p-1 hover:bg-gray-100 rounded transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleClearAssignment();
+                    }
+                  }}
+                  className="ml-auto p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4 text-gray-400" />
-                </button>
+                </div>
               )}
             </>
           ) : (

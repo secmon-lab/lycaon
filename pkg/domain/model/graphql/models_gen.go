@@ -3,12 +3,8 @@
 package graphql
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"strconv"
-
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 type CreateTaskInput struct {
@@ -43,10 +39,10 @@ type Query struct {
 }
 
 type UpdateIncidentInput struct {
-	Title       *string         `json:"title,omitempty"`
-	Description *string         `json:"description,omitempty"`
-	Lead        *string         `json:"lead,omitempty"`
-	Status      *IncidentStatus `json:"status,omitempty"`
+	Title       *string               `json:"title,omitempty"`
+	Description *string               `json:"description,omitempty"`
+	Lead        *string               `json:"lead,omitempty"`
+	Status      *types.IncidentStatus `json:"status,omitempty"`
 }
 
 type UpdateTaskInput struct {
@@ -54,63 +50,4 @@ type UpdateTaskInput struct {
 	Description *string           `json:"description,omitempty"`
 	Status      *model.TaskStatus `json:"status,omitempty"`
 	AssigneeID  *string           `json:"assigneeId,omitempty"`
-}
-
-type IncidentStatus string
-
-const (
-	IncidentStatusTriage     IncidentStatus = "triage"
-	IncidentStatusHandling   IncidentStatus = "handling"
-	IncidentStatusMonitoring IncidentStatus = "monitoring"
-	IncidentStatusClosed     IncidentStatus = "closed"
-)
-
-var AllIncidentStatus = []IncidentStatus{
-	IncidentStatusTriage,
-	IncidentStatusHandling,
-	IncidentStatusMonitoring,
-	IncidentStatusClosed,
-}
-
-func (e IncidentStatus) IsValid() bool {
-	switch e {
-	case IncidentStatusTriage, IncidentStatusHandling, IncidentStatusMonitoring, IncidentStatusClosed:
-		return true
-	}
-	return false
-}
-
-func (e IncidentStatus) String() string {
-	return string(e)
-}
-
-func (e *IncidentStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = IncidentStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid IncidentStatus", str)
-	}
-	return nil
-}
-
-func (e IncidentStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *IncidentStatus) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e IncidentStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
 }

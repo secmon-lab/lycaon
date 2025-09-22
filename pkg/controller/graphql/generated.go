@@ -16,6 +16,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	graphql1 "github.com/secmon-lab/lycaon/pkg/domain/model/graphql"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -90,7 +91,7 @@ type ComplexityRoot struct {
 		CreateTask           func(childComplexity int, input graphql1.CreateTaskInput) int
 		DeleteTask           func(childComplexity int, id string) int
 		UpdateIncident       func(childComplexity int, id string, input graphql1.UpdateIncidentInput) int
-		UpdateIncidentStatus func(childComplexity int, incidentID string, status graphql1.IncidentStatus, note *string) int
+		UpdateIncidentStatus func(childComplexity int, incidentID string, status types.IncidentStatus, note *string) int
 		UpdateTask           func(childComplexity int, id string, input graphql1.UpdateTaskInput) int
 	}
 
@@ -152,7 +153,7 @@ type IncidentResolver interface {
 	ChannelName(ctx context.Context, obj *model.Incident) (string, error)
 
 	CategoryName(ctx context.Context, obj *model.Incident) (string, error)
-	Status(ctx context.Context, obj *model.Incident) (*graphql1.IncidentStatus, error)
+	Status(ctx context.Context, obj *model.Incident) (*types.IncidentStatus, error)
 	Lead(ctx context.Context, obj *model.Incident) (*string, error)
 	LeadUser(ctx context.Context, obj *model.Incident) (*model.User, error)
 	OriginChannelID(ctx context.Context, obj *model.Incident) (string, error)
@@ -168,7 +169,7 @@ type IncidentResolver interface {
 }
 type MutationResolver interface {
 	UpdateIncident(ctx context.Context, id string, input graphql1.UpdateIncidentInput) (*model.Incident, error)
-	UpdateIncidentStatus(ctx context.Context, incidentID string, status graphql1.IncidentStatus, note *string) (*model.Incident, error)
+	UpdateIncidentStatus(ctx context.Context, incidentID string, status types.IncidentStatus, note *string) (*model.Incident, error)
 	CreateTask(ctx context.Context, input graphql1.CreateTaskInput) (*model.Task, error)
 	UpdateTask(ctx context.Context, id string, input graphql1.UpdateTaskInput) (*model.Task, error)
 	DeleteTask(ctx context.Context, id string) (bool, error)
@@ -184,7 +185,7 @@ type QueryResolver interface {
 type StatusHistoryResolver interface {
 	ID(ctx context.Context, obj *model.StatusHistory) (string, error)
 	IncidentID(ctx context.Context, obj *model.StatusHistory) (string, error)
-	Status(ctx context.Context, obj *model.StatusHistory) (graphql1.IncidentStatus, error)
+
 	ChangedBy(ctx context.Context, obj *model.StatusHistory) (*model.User, error)
 }
 type TaskResolver interface {
@@ -441,7 +442,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateIncidentStatus(childComplexity, args["incidentId"].(string), args["status"].(graphql1.IncidentStatus), args["note"].(*string)), true
+		return e.complexity.Mutation.UpdateIncidentStatus(childComplexity, args["incidentId"].(string), args["status"].(types.IncidentStatus), args["note"].(*string)), true
 
 	case "Mutation.updateTask":
 		if e.complexity.Mutation.UpdateTask == nil {
@@ -1029,7 +1030,7 @@ func (ec *executionContext) field_Mutation_updateIncidentStatus_args(ctx context
 		return nil, err
 	}
 	args["incidentId"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "status", ec.unmarshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus)
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "status", ec.unmarshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -1539,9 +1540,9 @@ func (ec *executionContext) _Incident_status(ctx context.Context, field graphql.
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*graphql1.IncidentStatus)
+	res := resTmp.(*types.IncidentStatus)
 	fc.Result = res
-	return ec.marshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx, field.Selections, res)
+	return ec.marshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Incident_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2536,7 +2537,7 @@ func (ec *executionContext) _Mutation_updateIncidentStatus(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateIncidentStatus(rctx, fc.Args["incidentId"].(string), fc.Args["status"].(graphql1.IncidentStatus), fc.Args["note"].(*string))
+		return ec.resolvers.Mutation().UpdateIncidentStatus(rctx, fc.Args["incidentId"].(string), fc.Args["status"].(types.IncidentStatus), fc.Args["note"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3703,7 +3704,7 @@ func (ec *executionContext) _StatusHistory_status(ctx context.Context, field gra
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.StatusHistory().Status(rctx, obj)
+		return obj.Status, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3715,17 +3716,17 @@ func (ec *executionContext) _StatusHistory_status(ctx context.Context, field gra
 		}
 		return graphql.Null
 	}
-	res := resTmp.(graphql1.IncidentStatus)
+	res := resTmp.(types.IncidentStatus)
 	fc.Result = res
-	return ec.marshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx, field.Selections, res)
+	return ec.marshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_StatusHistory_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "StatusHistory",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type IncidentStatus does not have child fields")
 		},
@@ -6801,7 +6802,7 @@ func (ec *executionContext) unmarshalInputUpdateIncidentInput(ctx context.Contex
 			it.Lead = data
 		case "status":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-			data, err := ec.unmarshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx, v)
+			data, err := ec.unmarshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7930,41 +7931,10 @@ func (ec *executionContext) _StatusHistory(ctx context.Context, sel ast.Selectio
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "status":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._StatusHistory_status(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
+			out.Values[i] = ec._StatusHistory_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
 			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "changedBy":
 			field := field
 
@@ -8892,14 +8862,21 @@ func (ec *executionContext) marshalNIncidentEdge2ᚖgithubᚗcomᚋsecmonᚑlab�
 	return ec._IncidentEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx context.Context, v any) (graphql1.IncidentStatus, error) {
-	var res graphql1.IncidentStatus
-	err := res.UnmarshalGQL(v)
+func (ec *executionContext) unmarshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx context.Context, v any) (types.IncidentStatus, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := types.IncidentStatus(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx context.Context, sel ast.SelectionSet, v graphql1.IncidentStatus) graphql.Marshaler {
-	return v
+func (ec *executionContext) marshalNIncidentStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx context.Context, sel ast.SelectionSet, v types.IncidentStatus) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
@@ -9469,20 +9446,23 @@ func (ec *executionContext) marshalOIncident2ᚖgithubᚗcomᚋsecmonᚑlabᚋly
 	return ec._Incident(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx context.Context, v any) (*graphql1.IncidentStatus, error) {
+func (ec *executionContext) unmarshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx context.Context, v any) (*types.IncidentStatus, error) {
 	if v == nil {
 		return nil, nil
 	}
-	var res = new(graphql1.IncidentStatus)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
+	tmp, err := graphql.UnmarshalString(v)
+	res := types.IncidentStatus(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐIncidentStatus(ctx context.Context, sel ast.SelectionSet, v *graphql1.IncidentStatus) graphql.Marshaler {
+func (ec *executionContext) marshalOIncidentStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋtypesᚐIncidentStatus(ctx context.Context, sel ast.SelectionSet, v *types.IncidentStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return v
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
