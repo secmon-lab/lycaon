@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { X, Check, User } from 'lucide-react';
-import { Task, TaskStatus, Incident } from '../../types/incident';
+import { Task, TaskStatus, Incident, UpdateTaskInput } from '../../types/incident';
 import { UPDATE_TASK } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
 import AssigneeSelector from '../common/AssigneeSelector';
@@ -42,7 +42,7 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
     if (!formData.title.trim()) return;
 
     try {
-      const updates: any = {
+      const updates: UpdateTaskInput = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         status: formData.status

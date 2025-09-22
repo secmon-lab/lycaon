@@ -49,10 +49,6 @@ const IncidentDetail: React.FC = () => {
 
   const incident = data.incident;
 
-  // Debug: Log user data to check avatar URLs
-  console.log('Incident leadUser:', incident.leadUser);
-  console.log('Incident createdByUser:', incident.createdByUser);
-
   // Validate and convert status safely
   const validStatus = toIncidentStatus(incident.status);
   if (!validStatus) {
@@ -220,7 +216,6 @@ const IncidentDetail: React.FC = () => {
           onClose={() => setShowEditModal(false)}
           onUpdate={() => {
             // Optionally, you can add a success toast here
-            console.log('Incident updated successfully');
           }}
         />
       )}

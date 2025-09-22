@@ -13,6 +13,10 @@ interface User {
   avatarUrl?: string;
 }
 
+interface GetChannelMembersData {
+  channelMembers: User[];
+}
+
 interface AssigneeSelectorProps {
   channelId: string;
   selectedUserId?: string;
@@ -36,7 +40,7 @@ const AssigneeSelector: React.FC<AssigneeSelectorProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // GraphQL query to get channel members
-  const { data, loading, error } = useQuery(GET_CHANNEL_MEMBERS, {
+  const { data, loading, error } = useQuery<GetChannelMembersData>(GET_CHANNEL_MEMBERS, {
     variables: { channelId },
     skip: !channelId,
   });

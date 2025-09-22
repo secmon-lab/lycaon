@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client/react';
-import { Task, TaskStatus, Incident } from '../../types/incident';
+import { Task, TaskStatus, Incident, CreateTaskInput, UpdateTaskInput } from '../../types/incident';
 import { CREATE_TASK, UPDATE_TASK, DELETE_TASK } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -50,7 +50,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     if (!data.title.trim()) return;
 
     try {
-      const input: any = {
+      const input: CreateTaskInput = {
         incidentId,
         title: data.title.trim(),
         description: data.description.trim()
@@ -70,7 +70,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     }
   };
 
-  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+  const handleUpdateTask = async (taskId: string, updates: UpdateTaskInput) => {
     try {
       await updateTask({
         variables: {
