@@ -152,3 +152,18 @@ export const getStatusIcon = (status: IncidentStatus | string | null | undefined
   const config = getStatusConfig(status);
   return config.icon;
 };
+
+// GraphQL Input Types
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  assigneeId?: string | null;
+}
+
+export interface CreateTaskInput {
+  incidentId: string;
+  title: string;
+  description?: string;
+  assigneeId?: string | null;
+}

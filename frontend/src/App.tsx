@@ -30,7 +30,6 @@ function App() {
       const userData = await getCurrentUser()
       setUser(userData)
     } catch (error) {
-      console.log('Not authenticated')
     } finally {
       setLoading(false)
     }

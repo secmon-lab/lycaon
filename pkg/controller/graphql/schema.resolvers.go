@@ -261,6 +261,7 @@ func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID 
 
 // CreateTask is the resolver for the createTask field.
 func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.CreateTaskInput) (*model.Task, error) {
+
 	// Parse incident ID
 	incidentIDInt, err := strconv.Atoi(input.IncidentID)
 	if err != nil {
@@ -300,8 +301,17 @@ func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.Create
 	// Set description if provided
 	if input.Description != nil {
 		task.UpdateDescription(*input.Description)
+	}
+
+	// Set assignee if provided
+	if input.AssigneeID != nil {
+		task.Assign(types.SlackUserID(*input.AssigneeID))
+	}
+
+	// Save task with all updates
+	if input.Description != nil || input.AssigneeID != nil {
 		if err := r.repo.UpdateTask(ctx, task); err != nil {
-			return nil, goerr.Wrap(err, "failed to update task description")
+			return nil, goerr.Wrap(err, "failed to update task")
 		}
 	}
 
@@ -340,6 +350,13 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 					return goerr.Wrap(err, "failed to update task status")
 				}
 			}
+			if input.AssigneeID != nil {
+				if *input.AssigneeID == "" {
+					task.Assign(types.SlackUserID(""))
+				} else {
+					task.Assign(types.SlackUserID(*input.AssigneeID))
+				}
+			}
 			updatedTask = task
 			return nil
 		})
@@ -363,6 +380,13 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 		status := model.TaskStatus(*input.Status)
 		if err := task.UpdateStatus(status); err != nil {
 			return nil, goerr.Wrap(err, "failed to update task status")
+		}
+	}
+	if input.AssigneeID != nil {
+		if *input.AssigneeID == "" {
+			task.Assign(types.SlackUserID(""))
+		} else {
+			task.Assign(types.SlackUserID(*input.AssigneeID))
 		}
 	}
 
@@ -503,6 +527,11 @@ func (r *queryResolver) Task(ctx context.Context, id string) (*model.Task, error
 	return r.repo.GetTask(ctx, types.TaskID(id))
 }
 
+// ChannelMembers is the resolver for the channelMembers field.
+func (r *queryResolver) ChannelMembers(ctx context.Context, channelID string) ([]*model.User, error) {
+	return r.authUC.GetChannelMembers(ctx, channelID)
+}
+
 // ID is the resolver for the id field.
 func (r *statusHistoryResolver) ID(ctx context.Context, obj *model.StatusHistory) (string, error) {
 	return string(obj.ID), nil
@@ -621,3 +650,15 @@ type queryResolver struct{ *Resolver }
 type statusHistoryResolver struct{ *Resolver }
 type taskResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *statusHistoryResolver) Status(ctx context.Context, obj *model.StatusHistory) (graphql1.IncidentStatus, error) {
+	panic(fmt.Errorf("not implemented: Status - status"))
+}
+*/

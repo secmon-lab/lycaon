@@ -99,7 +99,7 @@ func TestServerHealthCheck(t *testing.T) {
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
 
 	// Create configuration
 	config := controller.NewConfig(":8080", slackConfig, categories, "")
@@ -153,7 +153,7 @@ func TestServerFallbackHome(t *testing.T) {
 	incidentUC := usecase.NewIncident(repo, nil, categories, nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, mockSlack)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
 
 	// Create configuration
 	config := controller.NewConfig(":8080", slackConfig, categories, "")

@@ -103,6 +103,9 @@ type Query {
   
   # Get a specific task
   task(id: ID!): Task
+
+  # Get channel members for incident channel
+  channelMembers(channelId: String!): [User!]!
 }
 
 type Mutation {

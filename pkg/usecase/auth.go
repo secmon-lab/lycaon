@@ -446,3 +446,30 @@ func (a *Auth) decodeIDToken(ctx context.Context, idToken string) (*SlackIDToken
 		Name:  nameStr,
 	}, nil
 }
+
+// GetChannelMembers gets all members of a Slack channel
+func (a *Auth) GetChannelMembers(ctx context.Context, channelID string) ([]*model.User, error) {
+	logger := ctxlog.From(ctx)
+
+	if channelID == "" {
+		return nil, goerr.New("channel ID is required")
+	}
+
+	// Check if we have a UserUseCase with Slack client
+	if a.userUC == nil {
+		return nil, goerr.New("Slack client not configured for channel member retrieval")
+	}
+
+	// Get channel members using UserUseCase's Slack client
+	members, err := a.userUC.GetChannelMembers(ctx, channelID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get channel members")
+	}
+
+	logger.Info("Retrieved channel members",
+		"channelID", channelID,
+		"memberCount", len(members),
+	)
+
+	return members, nil
+}

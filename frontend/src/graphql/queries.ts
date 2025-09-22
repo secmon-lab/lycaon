@@ -147,3 +147,13 @@ export const GET_INCIDENT_STATUS_HISTORY = gql`
     }
   }
 `;
+
+// Query to get channel members for assignee selection
+export const GET_CHANNEL_MEMBERS = gql`
+  ${USER_FIELDS}
+  query GetChannelMembers($channelId: String!) {
+    channelMembers(channelId: $channelId) {
+      ...UserFields
+    }
+  }
+`;

@@ -49,10 +49,6 @@ const IncidentDetail: React.FC = () => {
 
   const incident = data.incident;
 
-  // Debug: Log user data to check avatar URLs
-  console.log('Incident leadUser:', incident.leadUser);
-  console.log('Incident createdByUser:', incident.createdByUser);
-
   // Validate and convert status safely
   const validStatus = toIncidentStatus(incident.status);
   if (!validStatus) {
@@ -105,9 +101,10 @@ const IncidentDetail: React.FC = () => {
 
           {/* Tasks */}
           <div className="mt-6 bg-white rounded-lg border p-6">
-            <TaskList 
-              incidentId={incident.id} 
-              tasks={incident.tasks || []} 
+            <TaskList
+              incidentId={incident.id}
+              incident={incident}
+              tasks={incident.tasks || []}
             />
           </div>
         </div>
@@ -219,7 +216,6 @@ const IncidentDetail: React.FC = () => {
           onClose={() => setShowEditModal(false)}
           onUpdate={() => {
             // Optionally, you can add a success toast here
-            console.log('Incident updated successfully');
           }}
         />
       )}

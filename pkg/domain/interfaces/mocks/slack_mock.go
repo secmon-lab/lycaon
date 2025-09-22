@@ -50,6 +50,9 @@ var _ interfaces.SlackClient = &SlackClientMock{}
 //			GetUsersContextFunc: func(ctx context.Context) ([]slack.User, error) {
 //				panic("mock out the GetUsersContext method")
 //			},
+//			GetUsersInConversationContextFunc: func(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error) {
+//				panic("mock out the GetUsersInConversationContext method")
+//			},
 //			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
 //				panic("mock out the InviteUsersToConversation method")
 //			},
@@ -104,6 +107,9 @@ type SlackClientMock struct {
 
 	// GetUsersContextFunc mocks the GetUsersContext method.
 	GetUsersContextFunc func(ctx context.Context) ([]slack.User, error)
+
+	// GetUsersInConversationContextFunc mocks the GetUsersInConversationContext method.
+	GetUsersInConversationContextFunc func(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error)
 
 	// InviteUsersToConversationFunc mocks the InviteUsersToConversation method.
 	InviteUsersToConversationFunc func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error)
@@ -195,6 +201,13 @@ type SlackClientMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
+		// GetUsersInConversationContext holds details about calls to the GetUsersInConversationContext method.
+		GetUsersInConversationContext []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Params is the params argument value.
+			Params *slack.GetUsersInConversationParameters
+		}
 		// InviteUsersToConversation holds details about calls to the InviteUsersToConversation method.
 		InviteUsersToConversation []struct {
 			// Ctx is the ctx argument value.
@@ -264,6 +277,7 @@ type SlackClientMock struct {
 	lockGetUserGroupsContext            sync.RWMutex
 	lockGetUserInfoContext              sync.RWMutex
 	lockGetUsersContext                 sync.RWMutex
+	lockGetUsersInConversationContext   sync.RWMutex
 	lockInviteUsersToConversation       sync.RWMutex
 	lockOpenView                        sync.RWMutex
 	lockPostMessage                     sync.RWMutex
@@ -629,6 +643,42 @@ func (mock *SlackClientMock) GetUsersContextCalls() []struct {
 	mock.lockGetUsersContext.RLock()
 	calls = mock.calls.GetUsersContext
 	mock.lockGetUsersContext.RUnlock()
+	return calls
+}
+
+// GetUsersInConversationContext calls GetUsersInConversationContextFunc.
+func (mock *SlackClientMock) GetUsersInConversationContext(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error) {
+	if mock.GetUsersInConversationContextFunc == nil {
+		panic("SlackClientMock.GetUsersInConversationContextFunc: method is nil but SlackClient.GetUsersInConversationContext was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Params *slack.GetUsersInConversationParameters
+	}{
+		Ctx:    ctx,
+		Params: params,
+	}
+	mock.lockGetUsersInConversationContext.Lock()
+	mock.calls.GetUsersInConversationContext = append(mock.calls.GetUsersInConversationContext, callInfo)
+	mock.lockGetUsersInConversationContext.Unlock()
+	return mock.GetUsersInConversationContextFunc(ctx, params)
+}
+
+// GetUsersInConversationContextCalls gets all the calls that were made to GetUsersInConversationContext.
+// Check the length with:
+//
+//	len(mockedSlackClient.GetUsersInConversationContextCalls())
+func (mock *SlackClientMock) GetUsersInConversationContextCalls() []struct {
+	Ctx    context.Context
+	Params *slack.GetUsersInConversationParameters
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Params *slack.GetUsersInConversationParameters
+	}
+	mock.lockGetUsersInConversationContext.RLock()
+	calls = mock.calls.GetUsersInConversationContext
+	mock.lockGetUsersInConversationContext.RUnlock()
 	return calls
 }
 
