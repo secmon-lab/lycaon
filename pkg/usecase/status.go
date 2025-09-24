@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
@@ -154,20 +155,19 @@ func (uc *StatusUseCase) buildStatusMessageBlocks(incident *model.Incident, lead
 	statusEmoji := uc.getStatusEmoji(incident.Status)
 
 	blocks := []slackgo.Block{
-		&slackgo.SectionBlock{
-			Type: slackgo.MBTSection,
+		&slackgo.HeaderBlock{
+			Type: slackgo.MBTHeader,
 			Text: &slackgo.TextBlockObject{
-				Type: slackgo.MarkdownType,
-				Text: "*Incident Status*",
+				Type: slackgo.PlainTextType,
+				Text: incident.Title,
 			},
+		},
+		&slackgo.DividerBlock{
+			Type: slackgo.MBTDivider,
 		},
 		&slackgo.SectionBlock{
 			Type: slackgo.MBTSection,
 			Fields: []*slackgo.TextBlockObject{
-				{
-					Type: slackgo.MarkdownType,
-					Text: "*Title:*\n" + incident.Title,
-				},
 				{
 					Type: slackgo.MarkdownType,
 					Text: "*Status:*\n" + statusEmoji + " " + string(incident.Status),
@@ -176,10 +176,13 @@ func (uc *StatusUseCase) buildStatusMessageBlocks(incident *model.Incident, lead
 					Type: slackgo.MarkdownType,
 					Text: "*Lead:*\n" + leadName,
 				},
-				{
-					Type: slackgo.MarkdownType,
-					Text: "*Description:*\n" + incident.Description,
-				},
+			},
+		},
+		&slackgo.SectionBlock{
+			Type: slackgo.MBTSection,
+			Text: &slackgo.TextBlockObject{
+				Type: slackgo.MarkdownType,
+				Text: "*Description:*\n" + strings.ReplaceAll(incident.Description, "\n", " "),
 			},
 		},
 		&slackgo.ActionBlock{
