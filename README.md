@@ -80,6 +80,7 @@ LYCAON_LOG_FORMAT=auto
    - Add redirect URL: `http://your-domain/api/auth/callback`
    - Required Bot Token Scopes:
      - `app_mentions:read` - Receive app mention events
+     - `bookmarks:write` - Create bookmarks in channels (for automatic Web UI links)
      - `channels:history` - Read message history from channels
      - `channels:manage` - Create and manage public channels
      - `channels:read` - Read channel information

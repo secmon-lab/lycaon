@@ -2,6 +2,8 @@ package usecase_test
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -300,4 +302,186 @@ func TestStatusUseCase_InvalidInputs(t *testing.T) {
 	// Test non-existent incident
 	err = statusUC.UpdateStatus(ctx, types.IncidentID(999), types.IncidentStatusHandling, "U123456", "test")
 	gt.Error(t, err)
+}
+
+func TestStatusUseCase_HandleStatusChangeModalSubmission(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewMemory()
+	mockSlack := &mocks.SlackClientMock{}
+
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+
+	// Create a test incident
+	incidentID := types.IncidentID(time.Now().UnixNano())
+	incident, err := model.NewIncident(
+		"inc", // prefix
+		incidentID,
+		"Test Incident",
+		"Test Description",
+		"test_category",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
+		false,
+	)
+	gt.NoError(t, err)
+
+	err = repo.PutIncident(ctx, incident)
+	gt.NoError(t, err)
+
+	// Create initial status history
+	initialHistory, err := model.NewStatusHistory(incident.ID, incident.Status, incident.CreatedBy, "Incident created")
+	gt.NoError(t, err)
+	err = repo.AddStatusHistory(ctx, initialHistory)
+	gt.NoError(t, err)
+
+	// Create private metadata with context
+	contextData := map[string]string{
+		"incident_id":       incident.ID.String(),
+		"channel_id":        "C123456",
+		"message_timestamp": "1234567890.123456",
+	}
+	jsonData, err := json.Marshal(contextData)
+	gt.NoError(t, err)
+	privateMetadata := base64.StdEncoding.EncodeToString(jsonData)
+
+	// Mock UpdateMessage to succeed
+	mockSlack.UpdateMessageFunc = func(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
+		return channelID, timestamp, "new_ts", nil
+	}
+
+	// Test successful modal submission
+	err = statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		privateMetadata,
+		string(types.IncidentStatusMonitoring),
+		"Moving to monitoring phase",
+		"U789012",
+	)
+	gt.NoError(t, err)
+
+	// Verify status was updated
+	updatedIncident, err := repo.GetIncident(ctx, incidentID)
+	gt.NoError(t, err)
+	gt.Equal(t, updatedIncident.Status, types.IncidentStatusMonitoring)
+
+	// Verify UpdateMessage was called
+	gt.Equal(t, len(mockSlack.UpdateMessageCalls()), 1)
+	call := mockSlack.UpdateMessageCalls()[0]
+	gt.Equal(t, call.ChannelID, "C123456")
+	gt.Equal(t, call.Timestamp, "1234567890.123456")
+
+	// Verify status history was recorded
+	histories, err := repo.GetStatusHistories(ctx, incidentID)
+	gt.NoError(t, err)
+	if len(histories) < 2 {
+		t.Errorf("Expected at least 2 history entries, got %d", len(histories))
+		return
+	}
+
+	latestHistory := histories[len(histories)-1]
+	gt.Equal(t, latestHistory.Status, types.IncidentStatusMonitoring)
+	gt.Equal(t, latestHistory.ChangedBy, types.SlackUserID("U789012"))
+	gt.Equal(t, latestHistory.Note, "Moving to monitoring phase")
+}
+
+func TestStatusUseCase_HandleStatusChangeModalSubmission_InvalidMetadata(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewMemory()
+	mockSlack := &mocks.SlackClientMock{}
+
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+
+	// Test with invalid base64
+	err := statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		"invalid-base64",
+		string(types.IncidentStatusMonitoring),
+		"test note",
+		"U123456",
+	)
+	gt.Error(t, err)
+
+	// Test with empty metadata
+	err = statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		"",
+		string(types.IncidentStatusMonitoring),
+		"test note",
+		"U123456",
+	)
+	gt.Error(t, err)
+
+	// Test with empty status
+	validMetadata := base64.StdEncoding.EncodeToString([]byte(`{"incident_id":"123","channel_id":"C123","message_timestamp":"123"}`))
+	err = statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		validMetadata,
+		"",
+		"test note",
+		"U123456",
+	)
+	gt.Error(t, err)
+}
+
+func TestStatusUseCase_HandleStatusChangeModalSubmission_WithoutMessage(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewMemory()
+	mockSlack := &mocks.SlackClientMock{}
+
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+
+	// Create a test incident
+	incidentID := types.IncidentID(time.Now().UnixNano())
+	incident, err := model.NewIncident(
+		"inc", // prefix
+		incidentID,
+		"Test Incident",
+		"Test Description",
+		"test_category",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
+		false,
+	)
+	gt.NoError(t, err)
+
+	err = repo.PutIncident(ctx, incident)
+	gt.NoError(t, err)
+
+	// Create initial status history
+	initialHistory, err := model.NewStatusHistory(incident.ID, incident.Status, incident.CreatedBy, "Incident created")
+	gt.NoError(t, err)
+	err = repo.AddStatusHistory(ctx, initialHistory)
+	gt.NoError(t, err)
+
+	// Create private metadata without message information
+	contextData := map[string]string{
+		"incident_id":       incident.ID.String(),
+		"channel_id":        "",
+		"message_timestamp": "",
+	}
+	jsonData, err := json.Marshal(contextData)
+	gt.NoError(t, err)
+	privateMetadata := base64.StdEncoding.EncodeToString(jsonData)
+
+	// Test modal submission without message update
+	err = statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		privateMetadata,
+		string(types.IncidentStatusMonitoring),
+		"Status update without message",
+		"U789012",
+	)
+	gt.NoError(t, err)
+
+	// Verify status was updated
+	updatedIncident, err := repo.GetIncident(ctx, incidentID)
+	gt.NoError(t, err)
+	gt.Equal(t, updatedIncident.Status, types.IncidentStatusMonitoring)
+
+	// Verify UpdateMessage was NOT called (no message to update)
+	gt.Equal(t, len(mockSlack.UpdateMessageCalls()), 0)
 }

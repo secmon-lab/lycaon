@@ -1699,8 +1699,11 @@ var _ interfaces.StatusUseCase = &StatusUseCaseMock{}
 //			GetStatusHistoryFunc: func(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistoryWithUser, error) {
 //				panic("mock out the GetStatusHistory method")
 //			},
-//			HandleEditStatusActionFunc: func(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error {
+//			HandleEditStatusActionFunc: func(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string, channelID string, messageTS string) error {
 //				panic("mock out the HandleEditStatusAction method")
+//			},
+//			HandleStatusChangeModalSubmissionFunc: func(ctx context.Context, privateMetadata string, statusValue string, noteValue string, userID string) error {
+//				panic("mock out the HandleStatusChangeModalSubmission method")
 //			},
 //			PostStatusMessageFunc: func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error {
 //				panic("mock out the PostStatusMessage method")
@@ -1722,7 +1725,10 @@ type StatusUseCaseMock struct {
 	GetStatusHistoryFunc func(ctx context.Context, incidentID types.IncidentID) ([]*model.StatusHistoryWithUser, error)
 
 	// HandleEditStatusActionFunc mocks the HandleEditStatusAction method.
-	HandleEditStatusActionFunc func(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error
+	HandleEditStatusActionFunc func(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string, channelID string, messageTS string) error
+
+	// HandleStatusChangeModalSubmissionFunc mocks the HandleStatusChangeModalSubmission method.
+	HandleStatusChangeModalSubmissionFunc func(ctx context.Context, privateMetadata string, statusValue string, noteValue string, userID string) error
 
 	// PostStatusMessageFunc mocks the PostStatusMessage method.
 	PostStatusMessageFunc func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error
@@ -1752,6 +1758,23 @@ type StatusUseCaseMock struct {
 			UserID types.SlackUserID
 			// TriggerID is the triggerID argument value.
 			TriggerID string
+			// ChannelID is the channelID argument value.
+			ChannelID string
+			// MessageTS is the messageTS argument value.
+			MessageTS string
+		}
+		// HandleStatusChangeModalSubmission holds details about calls to the HandleStatusChangeModalSubmission method.
+		HandleStatusChangeModalSubmission []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// PrivateMetadata is the privateMetadata argument value.
+			PrivateMetadata string
+			// StatusValue is the statusValue argument value.
+			StatusValue string
+			// NoteValue is the noteValue argument value.
+			NoteValue string
+			// UserID is the userID argument value.
+			UserID string
 		}
 		// PostStatusMessage holds details about calls to the PostStatusMessage method.
 		PostStatusMessage []struct {
@@ -1787,11 +1810,12 @@ type StatusUseCaseMock struct {
 			Note string
 		}
 	}
-	lockGetStatusHistory            sync.RWMutex
-	lockHandleEditStatusAction      sync.RWMutex
-	lockPostStatusMessage           sync.RWMutex
-	lockUpdateOriginalStatusMessage sync.RWMutex
-	lockUpdateStatus                sync.RWMutex
+	lockGetStatusHistory                  sync.RWMutex
+	lockHandleEditStatusAction            sync.RWMutex
+	lockHandleStatusChangeModalSubmission sync.RWMutex
+	lockPostStatusMessage                 sync.RWMutex
+	lockUpdateOriginalStatusMessage       sync.RWMutex
+	lockUpdateStatus                      sync.RWMutex
 }
 
 // GetStatusHistory calls GetStatusHistoryFunc.
@@ -1831,7 +1855,7 @@ func (mock *StatusUseCaseMock) GetStatusHistoryCalls() []struct {
 }
 
 // HandleEditStatusAction calls HandleEditStatusActionFunc.
-func (mock *StatusUseCaseMock) HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error {
+func (mock *StatusUseCaseMock) HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string, channelID string, messageTS string) error {
 	if mock.HandleEditStatusActionFunc == nil {
 		panic("StatusUseCaseMock.HandleEditStatusActionFunc: method is nil but StatusUseCase.HandleEditStatusAction was just called")
 	}
@@ -1840,16 +1864,20 @@ func (mock *StatusUseCaseMock) HandleEditStatusAction(ctx context.Context, incid
 		IncidentIDStr string
 		UserID        types.SlackUserID
 		TriggerID     string
+		ChannelID     string
+		MessageTS     string
 	}{
 		Ctx:           ctx,
 		IncidentIDStr: incidentIDStr,
 		UserID:        userID,
 		TriggerID:     triggerID,
+		ChannelID:     channelID,
+		MessageTS:     messageTS,
 	}
 	mock.lockHandleEditStatusAction.Lock()
 	mock.calls.HandleEditStatusAction = append(mock.calls.HandleEditStatusAction, callInfo)
 	mock.lockHandleEditStatusAction.Unlock()
-	return mock.HandleEditStatusActionFunc(ctx, incidentIDStr, userID, triggerID)
+	return mock.HandleEditStatusActionFunc(ctx, incidentIDStr, userID, triggerID, channelID, messageTS)
 }
 
 // HandleEditStatusActionCalls gets all the calls that were made to HandleEditStatusAction.
@@ -1861,16 +1889,68 @@ func (mock *StatusUseCaseMock) HandleEditStatusActionCalls() []struct {
 	IncidentIDStr string
 	UserID        types.SlackUserID
 	TriggerID     string
+	ChannelID     string
+	MessageTS     string
 } {
 	var calls []struct {
 		Ctx           context.Context
 		IncidentIDStr string
 		UserID        types.SlackUserID
 		TriggerID     string
+		ChannelID     string
+		MessageTS     string
 	}
 	mock.lockHandleEditStatusAction.RLock()
 	calls = mock.calls.HandleEditStatusAction
 	mock.lockHandleEditStatusAction.RUnlock()
+	return calls
+}
+
+// HandleStatusChangeModalSubmission calls HandleStatusChangeModalSubmissionFunc.
+func (mock *StatusUseCaseMock) HandleStatusChangeModalSubmission(ctx context.Context, privateMetadata string, statusValue string, noteValue string, userID string) error {
+	if mock.HandleStatusChangeModalSubmissionFunc == nil {
+		panic("StatusUseCaseMock.HandleStatusChangeModalSubmissionFunc: method is nil but StatusUseCase.HandleStatusChangeModalSubmission was just called")
+	}
+	callInfo := struct {
+		Ctx             context.Context
+		PrivateMetadata string
+		StatusValue     string
+		NoteValue       string
+		UserID          string
+	}{
+		Ctx:             ctx,
+		PrivateMetadata: privateMetadata,
+		StatusValue:     statusValue,
+		NoteValue:       noteValue,
+		UserID:          userID,
+	}
+	mock.lockHandleStatusChangeModalSubmission.Lock()
+	mock.calls.HandleStatusChangeModalSubmission = append(mock.calls.HandleStatusChangeModalSubmission, callInfo)
+	mock.lockHandleStatusChangeModalSubmission.Unlock()
+	return mock.HandleStatusChangeModalSubmissionFunc(ctx, privateMetadata, statusValue, noteValue, userID)
+}
+
+// HandleStatusChangeModalSubmissionCalls gets all the calls that were made to HandleStatusChangeModalSubmission.
+// Check the length with:
+//
+//	len(mockedStatusUseCase.HandleStatusChangeModalSubmissionCalls())
+func (mock *StatusUseCaseMock) HandleStatusChangeModalSubmissionCalls() []struct {
+	Ctx             context.Context
+	PrivateMetadata string
+	StatusValue     string
+	NoteValue       string
+	UserID          string
+} {
+	var calls []struct {
+		Ctx             context.Context
+		PrivateMetadata string
+		StatusValue     string
+		NoteValue       string
+		UserID          string
+	}
+	mock.lockHandleStatusChangeModalSubmission.RLock()
+	calls = mock.calls.HandleStatusChangeModalSubmission
+	mock.lockHandleStatusChangeModalSubmission.RUnlock()
 	return calls
 }
 

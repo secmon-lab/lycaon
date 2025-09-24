@@ -602,7 +602,7 @@ func (s *SlackInteraction) handleEditIncidentStatusAction(ctx context.Context, i
 	}
 
 	// Call the status usecase to handle the status edit flow
-	err := s.statusUC.HandleEditStatusAction(ctx, incidentIDStr, types.SlackUserID(interaction.User.ID), interaction.TriggerID)
+	err := s.statusUC.HandleEditStatusAction(ctx, incidentIDStr, types.SlackUserID(interaction.User.ID), interaction.TriggerID, interaction.Channel.ID, interaction.Message.Timestamp)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to handle edit status action",
 			"error", err,
@@ -684,18 +684,6 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 		"team", interaction.Team.ID,
 	)
 
-	// Extract incident ID from private metadata
-	incidentIDStr := interaction.View.PrivateMetadata
-	if incidentIDStr == "" {
-		return goerr.New("missing incident ID in private metadata")
-	}
-
-	incidentIDInt, err := strconv.Atoi(incidentIDStr)
-	if err != nil {
-		return goerr.Wrap(err, "invalid incident ID in private metadata")
-	}
-	incidentID := types.IncidentID(incidentIDInt)
-
 	// Extract status from form values
 	statusBlock, ok := interaction.View.State.Values["status_block"]
 	if !ok {
@@ -707,73 +695,34 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 		return goerr.New("status_select not found in status_block")
 	}
 
-	if statusSelect.SelectedOption.Value == "" {
-		return goerr.New("no status selected")
-	}
-
-	newStatus := types.IncidentStatus(statusSelect.SelectedOption.Value)
+	statusValue := statusSelect.SelectedOption.Value
 
 	// Extract note (optional)
-	var note string
+	var noteValue string
 	if noteBlock, ok := interaction.View.State.Values["note_block"]; ok {
-		if noteInput, ok := noteBlock["note_input"]; ok && noteInput.Value != "" {
-			note = noteInput.Value
+		if noteInput, ok := noteBlock["note_input"]; ok {
+			noteValue = noteInput.Value
 		}
 	}
 
-	// Get user ID
-	userID := types.SlackUserID(interaction.User.ID)
-
-	// Call status update usecase
-	err = s.statusUC.UpdateStatus(ctx, incidentID, newStatus, userID, note)
-	if err != nil {
-		ctxlog.From(ctx).Error("Failed to update status",
-			"error", err,
-			"incidentID", incidentID,
-			"newStatus", newStatus,
-			"user", userID,
-		)
-		return goerr.Wrap(err, "failed to update incident status")
-	}
-
-	ctxlog.From(ctx).Info("Status updated successfully",
-		"incidentID", incidentID,
-		"newStatus", newStatus,
-		"user", userID,
-		"note", note,
+	// Use the status usecase to handle the complete submission
+	err := s.statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		interaction.View.PrivateMetadata,
+		statusValue,
+		noteValue,
+		interaction.User.ID,
 	)
-
-	// Update original status message if this was triggered from a status message
-	if interaction.Message.Timestamp == "" || interaction.Channel.ID == "" {
-		return nil
-	}
-
-	// Get updated incident information
-	incident, err := s.incidentUC.GetIncident(ctx, int(incidentID))
 	if err != nil {
-		ctxlog.From(ctx).Warn("Failed to get incident for status message update",
+		ctxlog.From(ctx).Error("Failed to handle status change modal submission",
 			"error", err,
-			"incidentID", incidentID,
+			"user", interaction.User.ID,
 		)
-		return nil
+		return goerr.Wrap(err, "failed to handle status change modal submission")
 	}
 
-	// Update the original status message
-	if err := s.statusUC.UpdateOriginalStatusMessage(ctx, types.ChannelID(interaction.Channel.ID), interaction.Message.Timestamp, incident); err != nil {
-		ctxlog.From(ctx).Warn("Failed to update original status message",
-			"error", err,
-			"incidentID", incidentID,
-			"channelID", interaction.Channel.ID,
-			"messageTS", interaction.Message.Timestamp,
-		)
-		// Don't return error as the main status update was successful
-		return nil
-	}
-
-	ctxlog.From(ctx).Info("Original status message updated successfully",
-		"incidentID", incidentID,
-		"channelID", interaction.Channel.ID,
-		"messageTS", interaction.Message.Timestamp,
+	ctxlog.From(ctx).Info("Status change modal submission handled successfully",
+		"user", interaction.User.ID,
 	)
 
 	return nil
