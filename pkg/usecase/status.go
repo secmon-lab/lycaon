@@ -346,7 +346,7 @@ func (uc *StatusUseCase) getStatusEmoji(status types.IncidentStatus) string {
 }
 
 // UpdateOriginalStatusMessage updates the original status message with new incident status
-func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channelID, messageTS string, incident *model.Incident) error {
+func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error {
 	if channelID == "" || messageTS == "" {
 		return goerr.New("channelID and messageTS are required",
 			goerr.V("channelID", channelID),
@@ -370,7 +370,7 @@ func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channe
 	blocks := uc.buildStatusMessageBlocks(incident, leadName)
 
 	// Update the original message
-	_, _, _, err := uc.slackClient.UpdateMessage(ctx, channelID, messageTS, slackgo.MsgOptionBlocks(blocks...))
+	_, _, _, err := uc.slackClient.UpdateMessage(ctx, string(channelID), messageTS, slackgo.MsgOptionBlocks(blocks...))
 	if err != nil {
 		return goerr.Wrap(err, "failed to update original status message",
 			goerr.V("channelID", channelID),

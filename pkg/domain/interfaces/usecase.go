@@ -185,5 +185,5 @@ type StatusUseCase interface {
 	HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error
 
 	// UpdateOriginalStatusMessage updates the original status message with new incident status
-	UpdateOriginalStatusMessage(ctx context.Context, channelID, messageTS string, incident *model.Incident) error
+	UpdateOriginalStatusMessage(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error
 }

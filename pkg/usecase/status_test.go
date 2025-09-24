@@ -260,7 +260,7 @@ func TestStatusUseCase_UpdateOriginalStatusMessage(t *testing.T) {
 		return channelID, timestamp, "new_ts", nil
 	}
 
-	err = statusUC.UpdateOriginalStatusMessage(ctx, channelID, messageTS, incident)
+	err = statusUC.UpdateOriginalStatusMessage(ctx, types.ChannelID(channelID), messageTS, incident)
 	gt.NoError(t, err)
 
 	// Verify UpdateMessage was called
@@ -270,11 +270,11 @@ func TestStatusUseCase_UpdateOriginalStatusMessage(t *testing.T) {
 	gt.Equal(t, call.Timestamp, messageTS)
 
 	// Test with empty channelID
-	err = statusUC.UpdateOriginalStatusMessage(ctx, "", messageTS, incident)
+	err = statusUC.UpdateOriginalStatusMessage(ctx, types.ChannelID(""), messageTS, incident)
 	gt.Error(t, err)
 
 	// Test with empty messageTS
-	err = statusUC.UpdateOriginalStatusMessage(ctx, channelID, "", incident)
+	err = statusUC.UpdateOriginalStatusMessage(ctx, types.ChannelID(channelID), "", incident)
 	gt.Error(t, err)
 }
 

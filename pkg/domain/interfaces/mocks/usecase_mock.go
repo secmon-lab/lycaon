@@ -1705,7 +1705,7 @@ var _ interfaces.StatusUseCase = &StatusUseCaseMock{}
 //			PostStatusMessageFunc: func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error {
 //				panic("mock out the PostStatusMessage method")
 //			},
-//			UpdateOriginalStatusMessageFunc: func(ctx context.Context, channelID string, messageTS string, incident *model.Incident) error {
+//			UpdateOriginalStatusMessageFunc: func(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error {
 //				panic("mock out the UpdateOriginalStatusMessage method")
 //			},
 //			UpdateStatusFunc: func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error {
@@ -1728,7 +1728,7 @@ type StatusUseCaseMock struct {
 	PostStatusMessageFunc func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error
 
 	// UpdateOriginalStatusMessageFunc mocks the UpdateOriginalStatusMessage method.
-	UpdateOriginalStatusMessageFunc func(ctx context.Context, channelID string, messageTS string, incident *model.Incident) error
+	UpdateOriginalStatusMessageFunc func(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error
 
 	// UpdateStatusFunc mocks the UpdateStatus method.
 	UpdateStatusFunc func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error
@@ -1767,7 +1767,7 @@ type StatusUseCaseMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// ChannelID is the channelID argument value.
-			ChannelID string
+			ChannelID types.ChannelID
 			// MessageTS is the messageTS argument value.
 			MessageTS string
 			// Incident is the incident argument value.
@@ -1915,13 +1915,13 @@ func (mock *StatusUseCaseMock) PostStatusMessageCalls() []struct {
 }
 
 // UpdateOriginalStatusMessage calls UpdateOriginalStatusMessageFunc.
-func (mock *StatusUseCaseMock) UpdateOriginalStatusMessage(ctx context.Context, channelID string, messageTS string, incident *model.Incident) error {
+func (mock *StatusUseCaseMock) UpdateOriginalStatusMessage(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error {
 	if mock.UpdateOriginalStatusMessageFunc == nil {
 		panic("StatusUseCaseMock.UpdateOriginalStatusMessageFunc: method is nil but StatusUseCase.UpdateOriginalStatusMessage was just called")
 	}
 	callInfo := struct {
 		Ctx       context.Context
-		ChannelID string
+		ChannelID types.ChannelID
 		MessageTS string
 		Incident  *model.Incident
 	}{
@@ -1942,13 +1942,13 @@ func (mock *StatusUseCaseMock) UpdateOriginalStatusMessage(ctx context.Context, 
 //	len(mockedStatusUseCase.UpdateOriginalStatusMessageCalls())
 func (mock *StatusUseCaseMock) UpdateOriginalStatusMessageCalls() []struct {
 	Ctx       context.Context
-	ChannelID string
+	ChannelID types.ChannelID
 	MessageTS string
 	Incident  *model.Incident
 } {
 	var calls []struct {
 		Ctx       context.Context
-		ChannelID string
+		ChannelID types.ChannelID
 		MessageTS string
 		Incident  *model.Incident
 	}
