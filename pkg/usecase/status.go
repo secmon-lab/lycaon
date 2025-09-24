@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"strconv"
 
 	"github.com/m-mizutani/goerr/v2"
@@ -214,7 +216,7 @@ func (uc *StatusUseCase) buildStatusMessageBlocks(incident *model.Incident, lead
 }
 
 // HandleEditStatusAction handles Slack edit status action by opening a status selection modal
-func (uc *StatusUseCase) HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string) error {
+func (uc *StatusUseCase) HandleEditStatusAction(ctx context.Context, incidentIDStr string, userID types.SlackUserID, triggerID string, channelID string, messageTS string) error {
 	// Parse incident ID
 	incidentIDInt, err := strconv.Atoi(incidentIDStr)
 	if err != nil {
@@ -229,7 +231,7 @@ func (uc *StatusUseCase) HandleEditStatusAction(ctx context.Context, incidentIDS
 	}
 
 	// Build status selection modal
-	modalView := uc.buildStatusSelectionModal(incident)
+	modalView := uc.buildStatusSelectionModal(incident, channelID, messageTS)
 
 	// Open modal
 	_, err = uc.slackClient.OpenView(ctx, triggerID, modalView)
@@ -241,7 +243,7 @@ func (uc *StatusUseCase) HandleEditStatusAction(ctx context.Context, incidentIDS
 }
 
 // buildStatusSelectionModal creates a modal for status selection
-func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident) slack.ModalViewRequest {
+func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident, channelID string, messageTS string) slack.ModalViewRequest {
 	// Create status options
 	statusOptions := []*slack.OptionBlockObject{}
 	statuses := []types.IncidentStatus{
@@ -325,9 +327,34 @@ func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident) sla
 		Blocks: slack.Blocks{
 			BlockSet: blocks,
 		},
-		PrivateMetadata: incident.ID.String(), // Store incident ID for submission
+		PrivateMetadata: uc.buildPrivateMetadata(incident.ID.String(), channelID, messageTS), // Store context for submission
 	}
 }
+
+// StatusModalContext represents context data stored in private_metadata
+type StatusModalContext struct {
+	IncidentID       string `json:"incident_id"`
+	ChannelID        string `json:"channel_id"`
+	MessageTimestamp string `json:"message_timestamp"`
+}
+
+// buildPrivateMetadata creates base64-encoded JSON private metadata
+func (uc *StatusUseCase) buildPrivateMetadata(incidentID, channelID, messageTS string) string {
+	context := StatusModalContext{
+		IncidentID:       incidentID,
+		ChannelID:        channelID,
+		MessageTimestamp: messageTS,
+	}
+
+	jsonData, err := json.Marshal(context)
+	if err != nil {
+		// Fallback to incident ID only for backward compatibility
+		return incidentID
+	}
+
+	return base64.StdEncoding.EncodeToString(jsonData)
+}
+
 
 // getStatusEmoji returns emoji for status display
 func (uc *StatusUseCase) getStatusEmoji(status types.IncidentStatus) string {
