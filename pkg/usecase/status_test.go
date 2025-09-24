@@ -11,6 +11,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
+	"github.com/slack-go/slack"
 )
 
 func TestStatusUseCase_UpdateStatus(t *testing.T) {
@@ -222,6 +223,59 @@ func TestStatusUseCase_GetStatusHistory_UserNotFound(t *testing.T) {
 	historyWithUser := historiesWithUser[0]
 	gt.NotEqual(t, historyWithUser.User, nil)
 	gt.Equal(t, historyWithUser.User.Name, "U123456") // Fallback to slack ID
+}
+
+func TestStatusUseCase_UpdateOriginalStatusMessage(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewMemory()
+	mockSlack := &mocks.SlackClientMock{}
+
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+
+	// Create a test incident
+	incidentID := types.IncidentID(time.Now().UnixNano())
+	incident, err := model.NewIncident(
+		"inc", // prefix
+		incidentID,
+		"Test Incident",
+		"Test Description",
+		"test_category",
+		types.ChannelID("C123456"),
+		types.ChannelName("test-channel"),
+		types.TeamID("T123456"),
+		types.SlackUserID("U123456"),
+		false,
+	)
+	gt.NoError(t, err)
+
+	err = repo.PutIncident(ctx, incident)
+	gt.NoError(t, err)
+
+	// Test successful message update
+	channelID := "C123456"
+	messageTS := "1234567890.123456"
+
+	// Mock UpdateMessage to succeed
+	mockSlack.UpdateMessageFunc = func(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
+		return channelID, timestamp, "new_ts", nil
+	}
+
+	err = statusUC.UpdateOriginalStatusMessage(ctx, channelID, messageTS, incident)
+	gt.NoError(t, err)
+
+	// Verify UpdateMessage was called
+	gt.Equal(t, len(mockSlack.UpdateMessageCalls()), 1)
+	call := mockSlack.UpdateMessageCalls()[0]
+	gt.Equal(t, call.ChannelID, channelID)
+	gt.Equal(t, call.Timestamp, messageTS)
+
+	// Test with empty channelID
+	err = statusUC.UpdateOriginalStatusMessage(ctx, "", messageTS, incident)
+	gt.Error(t, err)
+
+	// Test with empty messageTS
+	err = statusUC.UpdateOriginalStatusMessage(ctx, channelID, "", incident)
+	gt.Error(t, err)
 }
 
 func TestStatusUseCase_InvalidInputs(t *testing.T) {

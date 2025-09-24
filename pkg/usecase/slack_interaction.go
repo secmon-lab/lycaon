@@ -743,6 +743,35 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 		"note", note,
 	)
 
+	// Update original status message if this was triggered from a status message
+	if interaction.Message.Timestamp != "" && interaction.Channel.ID != "" {
+		// Get updated incident information
+		incident, err := s.incidentUC.GetIncident(ctx, int(incidentID))
+		if err != nil {
+			ctxlog.From(ctx).Warn("Failed to get incident for status message update",
+				"error", err,
+				"incidentID", incidentID,
+			)
+		} else {
+			// Update the original status message
+			if err := s.statusUC.UpdateOriginalStatusMessage(ctx, interaction.Channel.ID, interaction.Message.Timestamp, incident); err != nil {
+				ctxlog.From(ctx).Warn("Failed to update original status message",
+					"error", err,
+					"incidentID", incidentID,
+					"channelID", interaction.Channel.ID,
+					"messageTS", interaction.Message.Timestamp,
+				)
+				// Don't return error as the main status update was successful
+			} else {
+				ctxlog.From(ctx).Info("Original status message updated successfully",
+					"incidentID", incidentID,
+					"channelID", interaction.Channel.ID,
+					"messageTS", interaction.Message.Timestamp,
+				)
+			}
+		}
+	}
+
 	return nil
 }
 
