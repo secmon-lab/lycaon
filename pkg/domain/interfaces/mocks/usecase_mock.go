@@ -1705,6 +1705,9 @@ var _ interfaces.StatusUseCase = &StatusUseCaseMock{}
 //			PostStatusMessageFunc: func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error {
 //				panic("mock out the PostStatusMessage method")
 //			},
+//			UpdateOriginalStatusMessageFunc: func(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error {
+//				panic("mock out the UpdateOriginalStatusMessage method")
+//			},
 //			UpdateStatusFunc: func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error {
 //				panic("mock out the UpdateStatus method")
 //			},
@@ -1723,6 +1726,9 @@ type StatusUseCaseMock struct {
 
 	// PostStatusMessageFunc mocks the PostStatusMessage method.
 	PostStatusMessageFunc func(ctx context.Context, channelID types.ChannelID, incidentID types.IncidentID) error
+
+	// UpdateOriginalStatusMessageFunc mocks the UpdateOriginalStatusMessage method.
+	UpdateOriginalStatusMessageFunc func(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error
 
 	// UpdateStatusFunc mocks the UpdateStatus method.
 	UpdateStatusFunc func(ctx context.Context, incidentID types.IncidentID, status types.IncidentStatus, userID types.SlackUserID, note string) error
@@ -1756,6 +1762,17 @@ type StatusUseCaseMock struct {
 			// IncidentID is the incidentID argument value.
 			IncidentID types.IncidentID
 		}
+		// UpdateOriginalStatusMessage holds details about calls to the UpdateOriginalStatusMessage method.
+		UpdateOriginalStatusMessage []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
+			// MessageTS is the messageTS argument value.
+			MessageTS string
+			// Incident is the incident argument value.
+			Incident *model.Incident
+		}
 		// UpdateStatus holds details about calls to the UpdateStatus method.
 		UpdateStatus []struct {
 			// Ctx is the ctx argument value.
@@ -1770,10 +1787,11 @@ type StatusUseCaseMock struct {
 			Note string
 		}
 	}
-	lockGetStatusHistory       sync.RWMutex
-	lockHandleEditStatusAction sync.RWMutex
-	lockPostStatusMessage      sync.RWMutex
-	lockUpdateStatus           sync.RWMutex
+	lockGetStatusHistory            sync.RWMutex
+	lockHandleEditStatusAction      sync.RWMutex
+	lockPostStatusMessage           sync.RWMutex
+	lockUpdateOriginalStatusMessage sync.RWMutex
+	lockUpdateStatus                sync.RWMutex
 }
 
 // GetStatusHistory calls GetStatusHistoryFunc.
@@ -1893,6 +1911,50 @@ func (mock *StatusUseCaseMock) PostStatusMessageCalls() []struct {
 	mock.lockPostStatusMessage.RLock()
 	calls = mock.calls.PostStatusMessage
 	mock.lockPostStatusMessage.RUnlock()
+	return calls
+}
+
+// UpdateOriginalStatusMessage calls UpdateOriginalStatusMessageFunc.
+func (mock *StatusUseCaseMock) UpdateOriginalStatusMessage(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error {
+	if mock.UpdateOriginalStatusMessageFunc == nil {
+		panic("StatusUseCaseMock.UpdateOriginalStatusMessageFunc: method is nil but StatusUseCase.UpdateOriginalStatusMessage was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		ChannelID types.ChannelID
+		MessageTS string
+		Incident  *model.Incident
+	}{
+		Ctx:       ctx,
+		ChannelID: channelID,
+		MessageTS: messageTS,
+		Incident:  incident,
+	}
+	mock.lockUpdateOriginalStatusMessage.Lock()
+	mock.calls.UpdateOriginalStatusMessage = append(mock.calls.UpdateOriginalStatusMessage, callInfo)
+	mock.lockUpdateOriginalStatusMessage.Unlock()
+	return mock.UpdateOriginalStatusMessageFunc(ctx, channelID, messageTS, incident)
+}
+
+// UpdateOriginalStatusMessageCalls gets all the calls that were made to UpdateOriginalStatusMessage.
+// Check the length with:
+//
+//	len(mockedStatusUseCase.UpdateOriginalStatusMessageCalls())
+func (mock *StatusUseCaseMock) UpdateOriginalStatusMessageCalls() []struct {
+	Ctx       context.Context
+	ChannelID types.ChannelID
+	MessageTS string
+	Incident  *model.Incident
+} {
+	var calls []struct {
+		Ctx       context.Context
+		ChannelID types.ChannelID
+		MessageTS string
+		Incident  *model.Incident
+	}
+	mock.lockUpdateOriginalStatusMessage.RLock()
+	calls = mock.calls.UpdateOriginalStatusMessage
+	mock.lockUpdateOriginalStatusMessage.RUnlock()
 	return calls
 }
 

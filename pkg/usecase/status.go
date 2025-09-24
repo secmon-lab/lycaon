@@ -344,3 +344,39 @@ func (uc *StatusUseCase) getStatusEmoji(status types.IncidentStatus) string {
 		return "⚪"
 	}
 }
+
+// UpdateOriginalStatusMessage updates the original status message with new incident status
+func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error {
+	if channelID == "" || messageTS == "" {
+		return goerr.New("channelID and messageTS are required",
+			goerr.V("channelID", channelID),
+			goerr.V("messageTS", messageTS))
+	}
+
+	// Get lead user information
+	var leadName string
+	if incident.Lead != "" {
+		leadUser, err := uc.repo.GetUserBySlackID(ctx, incident.Lead)
+		if err == nil && leadUser != nil {
+			leadName = leadUser.Name
+		} else {
+			leadName = string(incident.Lead)
+		}
+	} else {
+		leadName = "Not assigned"
+	}
+
+	// Build updated status message blocks
+	blocks := uc.buildStatusMessageBlocks(incident, leadName)
+
+	// Update the original message
+	_, _, _, err := uc.slackClient.UpdateMessage(ctx, string(channelID), messageTS, slackgo.MsgOptionBlocks(blocks...))
+	if err != nil {
+		return goerr.Wrap(err, "failed to update original status message",
+			goerr.V("channelID", channelID),
+			goerr.V("messageTS", messageTS),
+			goerr.V("incidentID", incident.ID))
+	}
+
+	return nil
+}
