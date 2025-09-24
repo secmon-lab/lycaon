@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"math"
 	"strconv"
@@ -685,18 +684,6 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 		"team", interaction.Team.ID,
 	)
 
-	// Parse private metadata to extract context information
-	context, err := s.parseStatusPrivateMetadata(interaction.View.PrivateMetadata)
-	if err != nil {
-		return goerr.Wrap(err, "failed to parse private metadata")
-	}
-
-	incidentIDInt, err := strconv.Atoi(context.IncidentID)
-	if err != nil {
-		return goerr.Wrap(err, "invalid incident ID in private metadata")
-	}
-	incidentID := types.IncidentID(incidentIDInt)
-
 	// Extract status from form values
 	statusBlock, ok := interaction.View.State.Values["status_block"]
 	if !ok {
@@ -708,104 +695,37 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 		return goerr.New("status_select not found in status_block")
 	}
 
-	if statusSelect.SelectedOption.Value == "" {
-		return goerr.New("no status selected")
-	}
-
-	newStatus := types.IncidentStatus(statusSelect.SelectedOption.Value)
+	statusValue := statusSelect.SelectedOption.Value
 
 	// Extract note (optional)
-	var note string
+	var noteValue string
 	if noteBlock, ok := interaction.View.State.Values["note_block"]; ok {
-		if noteInput, ok := noteBlock["note_input"]; ok && noteInput.Value != "" {
-			note = noteInput.Value
+		if noteInput, ok := noteBlock["note_input"]; ok {
+			noteValue = noteInput.Value
 		}
 	}
 
-	// Get user ID
-	userID := types.SlackUserID(interaction.User.ID)
-
-	// Call status update usecase
-	err = s.statusUC.UpdateStatus(ctx, incidentID, newStatus, userID, note)
+	// Use the status usecase to handle the complete submission
+	err := s.statusUC.HandleStatusChangeModalSubmission(
+		ctx,
+		interaction.View.PrivateMetadata,
+		statusValue,
+		noteValue,
+		interaction.User.ID,
+	)
 	if err != nil {
-		ctxlog.From(ctx).Error("Failed to update status",
+		ctxlog.From(ctx).Error("Failed to handle status change modal submission",
 			"error", err,
-			"incidentID", incidentID,
-			"newStatus", newStatus,
-			"user", userID,
+			"user", interaction.User.ID,
 		)
-		return goerr.Wrap(err, "failed to update incident status")
+		return goerr.Wrap(err, "failed to handle status change modal submission")
 	}
 
-	ctxlog.From(ctx).Info("Status updated successfully",
-		"incidentID", incidentID,
-		"newStatus", newStatus,
-		"user", userID,
-		"note", note,
+	ctxlog.From(ctx).Info("Status change modal submission handled successfully",
+		"user", interaction.User.ID,
 	)
 
-	// Update original status message if context contains message information
-	if context.ChannelID != "" && context.MessageTimestamp != "" {
-		// Get updated incident information
-		incident, err := s.incidentUC.GetIncident(ctx, int(incidentID))
-		if err != nil {
-			ctxlog.From(ctx).Warn("Failed to get incident for status message update",
-				"error", err,
-				"incidentID", incidentID,
-			)
-			return nil
-		}
-
-		// Update the original status message
-		if err := s.statusUC.UpdateOriginalStatusMessage(ctx, types.ChannelID(context.ChannelID), context.MessageTimestamp, incident); err != nil {
-			ctxlog.From(ctx).Warn("Failed to update original status message",
-				"error", err,
-				"incidentID", incidentID,
-				"channelID", context.ChannelID,
-				"messageTS", context.MessageTimestamp,
-			)
-			// Don't return error as the main status update was successful
-			return nil
-		}
-
-		ctxlog.From(ctx).Info("Original status message updated successfully",
-			"incidentID", incidentID,
-			"channelID", context.ChannelID,
-			"messageTS", context.MessageTimestamp,
-		)
-	}
-
 	return nil
-}
-
-// parseStatusPrivateMetadata parses base64-encoded JSON private metadata with fallback
-func (s *SlackInteraction) parseStatusPrivateMetadata(privateMetadata string) (*StatusModalContext, error) {
-	if privateMetadata == "" {
-		return nil, goerr.New("private metadata is empty")
-	}
-
-	// Try to decode as base64 first
-	jsonData, err := base64.StdEncoding.DecodeString(privateMetadata)
-	if err != nil {
-		// Fallback: treat as plain incident ID (backward compatibility)
-		return &StatusModalContext{
-			IncidentID:       privateMetadata,
-			ChannelID:        "",
-			MessageTimestamp: "",
-		}, nil
-	}
-
-	var context StatusModalContext
-	if err := json.Unmarshal(jsonData, &context); err != nil {
-		// Fallback: treat as plain incident ID
-		return &StatusModalContext{
-			IncidentID:       privateMetadata,
-			ChannelID:        "",
-			MessageTimestamp: "",
-		}, nil
-	}
-
-	return &context, nil
 }
 
 // buildEditIncidentDetailsModal creates a modal for editing incident details

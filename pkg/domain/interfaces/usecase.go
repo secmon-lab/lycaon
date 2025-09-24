@@ -186,4 +186,7 @@ type StatusUseCase interface {
 
 	// UpdateOriginalStatusMessage updates the original status message with new incident status
 	UpdateOriginalStatusMessage(ctx context.Context, channelID types.ChannelID, messageTS string, incident *model.Incident) error
+
+	// HandleStatusChangeModalSubmission handles status change modal submission processing
+	HandleStatusChangeModalSubmission(ctx context.Context, privateMetadata string, statusValue, noteValue, userID string) error
 }

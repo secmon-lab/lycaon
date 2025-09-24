@@ -331,8 +331,8 @@ func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident, cha
 	}
 }
 
-// StatusModalContext represents context data stored in private_metadata
-type StatusModalContext struct {
+// StatusChangePrivateMetadata represents context data stored in status change modal private_metadata
+type StatusChangePrivateMetadata struct {
 	IncidentID       string `json:"incident_id"`
 	ChannelID        string `json:"channel_id"`
 	MessageTimestamp string `json:"message_timestamp"`
@@ -340,7 +340,7 @@ type StatusModalContext struct {
 
 // buildPrivateMetadata creates base64-encoded JSON private metadata
 func (uc *StatusUseCase) buildPrivateMetadata(incidentID, channelID, messageTS string) string {
-	context := StatusModalContext{
+	context := StatusChangePrivateMetadata{
 		IncidentID:       incidentID,
 		ChannelID:        channelID,
 		MessageTimestamp: messageTS,
@@ -348,13 +348,32 @@ func (uc *StatusUseCase) buildPrivateMetadata(incidentID, channelID, messageTS s
 
 	jsonData, err := json.Marshal(context)
 	if err != nil {
-		// Fallback to incident ID only for backward compatibility
+		// Should not happen with simple struct
 		return incidentID
 	}
 
 	return base64.StdEncoding.EncodeToString(jsonData)
 }
 
+// parseStatusChangePrivateMetadata parses base64-encoded JSON private metadata
+func parseStatusChangePrivateMetadata(privateMetadata string) (*StatusChangePrivateMetadata, error) {
+	if privateMetadata == "" {
+		return nil, goerr.New("private metadata is empty")
+	}
+
+	// Decode base64
+	jsonData, err := base64.StdEncoding.DecodeString(privateMetadata)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to decode base64 private metadata")
+	}
+
+	var context StatusChangePrivateMetadata
+	if err := json.Unmarshal(jsonData, &context); err != nil {
+		return nil, goerr.Wrap(err, "failed to unmarshal private metadata JSON")
+	}
+
+	return &context, nil
+}
 
 // getStatusEmoji returns emoji for status display
 func (uc *StatusUseCase) getStatusEmoji(status types.IncidentStatus) string {
@@ -403,6 +422,50 @@ func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channe
 			goerr.V("channelID", channelID),
 			goerr.V("messageTS", messageTS),
 			goerr.V("incidentID", incident.ID))
+	}
+
+	return nil
+}
+
+// HandleStatusChangeModalSubmission handles status change modal submission processing
+func (uc *StatusUseCase) HandleStatusChangeModalSubmission(ctx context.Context, privateMetadata string, statusValue, noteValue, userID string) error {
+	// Parse private metadata to extract context information
+	context, err := parseStatusChangePrivateMetadata(privateMetadata)
+	if err != nil {
+		return goerr.Wrap(err, "failed to parse private metadata")
+	}
+
+	incidentIDInt, err := strconv.Atoi(context.IncidentID)
+	if err != nil {
+		return goerr.Wrap(err, "invalid incident ID in private metadata")
+	}
+	incidentID := types.IncidentID(incidentIDInt)
+
+	if statusValue == "" {
+		return goerr.New("no status selected")
+	}
+
+	newStatus := types.IncidentStatus(statusValue)
+	slackUserID := types.SlackUserID(userID)
+
+	// Call status update usecase
+	err = uc.UpdateStatus(ctx, incidentID, newStatus, slackUserID, noteValue)
+	if err != nil {
+		return goerr.Wrap(err, "failed to update incident status")
+	}
+
+	// Update original status message if context contains message information
+	if context.ChannelID != "" && context.MessageTimestamp != "" {
+		// Get updated incident information
+		incident, err := uc.repo.GetIncident(ctx, incidentID)
+		if err != nil {
+			return goerr.Wrap(err, "failed to get incident for status message update")
+		}
+
+		// Update the original status message
+		if err := uc.UpdateOriginalStatusMessage(ctx, types.ChannelID(context.ChannelID), context.MessageTimestamp, incident); err != nil {
+			return goerr.Wrap(err, "failed to update original status message")
+		}
 	}
 
 	return nil
