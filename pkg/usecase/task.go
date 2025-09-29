@@ -300,3 +300,32 @@ func (u *TaskUseCase) GetTaskByIncident(ctx context.Context, incidentID types.In
 
 	return task, nil
 }
+
+// UpdateTaskStatusByIncident updates a task status efficiently using incident ID
+func (u *TaskUseCase) UpdateTaskStatusByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, status model.TaskStatus) (*model.Task, error) {
+	// Get existing task efficiently
+	task, err := u.repo.GetTaskByIncident(ctx, incidentID, taskID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get task by incident",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID))
+	}
+
+	// Update status
+	if err := task.UpdateStatus(status); err != nil {
+		return nil, goerr.Wrap(err, "failed to update task status",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID),
+			goerr.V("status", status))
+	}
+
+	// Save updated task
+	if err := u.repo.UpdateTask(ctx, task); err != nil {
+		return nil, goerr.Wrap(err, "failed to save task with updated status",
+			goerr.V("incidentID", incidentID),
+			goerr.V("taskID", taskID),
+			goerr.V("status", status))
+	}
+
+	return task, nil
+}

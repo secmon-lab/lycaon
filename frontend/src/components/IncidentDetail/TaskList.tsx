@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client/react';
-import { Task, TaskStatus, Incident, CreateTaskInput, UpdateTaskInput } from '../../types/incident';
-import { CREATE_TASK, UPDATE_TASK, DELETE_TASK } from '../../graphql/mutations';
+import { Task, TaskStatus, Incident, CreateTaskInput } from '../../types/incident';
+import { CREATE_TASK, DELETE_TASK } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
 import ConfirmationModal from '../common/ConfirmationModal';
 import AssigneeSelector from '../common/AssigneeSelector';
@@ -38,9 +38,6 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     refetchQueries: [{ query: GET_INCIDENT, variables: { id: incidentId } }]
   });
 
-  const [updateTask] = useMutation(UPDATE_TASK, {
-    refetchQueries: [{ query: GET_INCIDENT, variables: { id: incidentId } }]
-  });
 
   const [deleteTask] = useMutation(DELETE_TASK, {
     refetchQueries: [{ query: GET_INCIDENT, variables: { id: incidentId } }]
@@ -70,26 +67,8 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     }
   };
 
-  const handleUpdateTask = async (taskId: string, updates: UpdateTaskInput) => {
-    try {
-      await updateTask({
-        variables: {
-          id: taskId,
-          input: updates
-        }
-      });
-    } catch (error) {
-      console.error('Failed to update task:', error);
-    }
-  };
 
-  const handleToggleTaskStatus = async (task: Task) => {
-    const newStatus = task.status === TaskStatus.COMPLETED 
-      ? TaskStatus.INCOMPLETED 
-      : TaskStatus.COMPLETED;
-    
-    await handleUpdateTask(task.id, { status: newStatus });
-  };
+
 
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
@@ -172,25 +151,31 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     );
   };
 
+
+  const getStatusStyles = (status: TaskStatus) => {
+    const isCompleted = status === TaskStatus.COMPLETED;
+    const isFollowUp = status === TaskStatus.FOLLOW_UP;
+
+    let borderClass = 'border-slate-200';
+    let bgClass = 'bg-white';
+
+    if (isCompleted) {
+      borderClass = 'border-slate-100';
+      bgClass = 'bg-slate-50';
+    } else if (isFollowUp) {
+      borderClass = 'border-orange-200';
+      bgClass = 'bg-orange-50';
+    }
+
+    return { borderClass, bgClass, isCompleted };
+  };
+
   const TaskItem: React.FC<{ task: Task }> = ({ task }) => {
-    const isCompleted = task.status === TaskStatus.COMPLETED;
+    const { borderClass, bgClass, isCompleted } = getStatusStyles(task.status);
 
     return (
-      <div className={`group border border-slate-200 rounded-md bg-white hover:border-slate-300 transition-all ${
-        isCompleted ? 'bg-slate-50 border-slate-100' : ''
-      }`}>
+      <div className={`group border ${borderClass} rounded-md ${bgClass} hover:border-slate-300 transition-all`}>
         <div className="flex items-center gap-3 px-2.5 py-1.5">
-          <button
-            onClick={() => handleToggleTaskStatus(task)}
-            className="flex-shrink-0 text-slate-400 hover:text-blue-600 transition-colors"
-          >
-            {isCompleted ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            ) : (
-              <Circle className="h-4 w-4 hover:text-blue-500" />
-            )}
-          </button>
-
           <div className="flex-1 min-w-0 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -245,8 +230,32 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     );
   };
 
-  const completedTasks = (tasks || []).filter(task => task.status === TaskStatus.COMPLETED);
-  const incompleteTasks = (tasks || []).filter(task => task.status === TaskStatus.INCOMPLETED);
+  // Normalize GraphQL enum values to frontend enum values
+  const normalizeTaskStatus = (status: string): TaskStatus => {
+    switch (status.toUpperCase()) {
+      case 'TODO':
+        return TaskStatus.TODO;
+      case 'FOLLOW_UP':
+        return TaskStatus.FOLLOW_UP;
+      case 'COMPLETED':
+        return TaskStatus.COMPLETED;
+      default:
+        return TaskStatus.TODO; // fallback
+    }
+  };
+
+  // Normalize tasks with proper status values
+  const normalizedTasks = (tasks || []).map(task => ({
+    ...task,
+    status: normalizeTaskStatus(task.status)
+  }));
+
+  // Group tasks by status
+  const todoTasks = normalizedTasks.filter(task => task.status === TaskStatus.TODO);
+  const followUpTasks = normalizedTasks.filter(task => task.status === TaskStatus.FOLLOW_UP);
+  const completedTasks = normalizedTasks.filter(task => task.status === TaskStatus.COMPLETED);
+  // Count active tasks for potential future use
+  // const activeTasks = todoTasks.length + followUpTasks.length;
 
   return (
     <div className="space-y-2">
@@ -255,9 +264,16 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-slate-900">Tasks</h3>
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">
-              {incompleteTasks.length} active
-            </span>
+            {todoTasks.length > 0 && (
+              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">
+                {todoTasks.length} to do
+              </span>
+            )}
+            {followUpTasks.length > 0 && (
+              <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full font-medium">
+                {followUpTasks.length} follow up
+              </span>
+            )}
             {completedTasks.length > 0 && (
               <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-medium">
                 {completedTasks.length} completed
@@ -288,27 +304,51 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
         />
       )}
 
-      {/* Tasks list */}
-      <div className="space-y-2">
-        {/* Active tasks */}
-        {incompleteTasks.map(task => (
-          <TaskItem key={task.id} task={task} />
-        ))}
+      {/* Tasks list grouped by status */}
+      <div className="space-y-3">
+        {/* To Do tasks */}
+        {todoTasks.length > 0 && (
+          <div>
+            <h4 className="text-xs font-medium text-slate-600 mb-2 px-1 flex items-center gap-1">
+              <Circle className="h-3 w-3 text-slate-400" />
+              To Do ({todoTasks.length})
+            </h4>
+            <div className="space-y-2">
+              {todoTasks.map(task => (
+                <TaskItem key={task.id} task={task} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Follow Up tasks */}
+        {followUpTasks.length > 0 && (
+          <div>
+            <h4 className="text-xs font-medium text-orange-600 mb-2 px-1 flex items-center gap-1">
+              <Circle className="h-3 w-3 text-orange-500" />
+              Follow Up ({followUpTasks.length})
+            </h4>
+            <div className="space-y-2">
+              {followUpTasks.map(task => (
+                <TaskItem key={task.id} task={task} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Completed tasks */}
         {completedTasks.length > 0 && (
-          <>
-            {incompleteTasks.length > 0 && (
-              <div className="pt-2 mt-2">
-                <h4 className="text-xs font-medium text-slate-500 mb-2 px-1">Completed Tasks</h4>
-              </div>
-            )}
+          <div>
+            <h4 className="text-xs font-medium text-green-600 mb-2 px-1 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-500" />
+              Completed ({completedTasks.length})
+            </h4>
             <div className="space-y-2">
               {completedTasks.map(task => (
                 <TaskItem key={task.id} task={task} />
               ))}
             </div>
-          </>
+          </div>
         )}
 
         {/* Empty state */}

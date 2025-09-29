@@ -914,7 +914,8 @@ type Task {
 }
 
 enum TaskStatus {
-  INCOMPLETED
+  TODO
+  FOLLOW_UP
   COMPLETED
 }
 
@@ -9034,20 +9035,13 @@ func (ec *executionContext) marshalNTask2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaon
 }
 
 func (ec *executionContext) unmarshalNTaskStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐTaskStatus(ctx context.Context, v any) (model.TaskStatus, error) {
-	tmp, err := graphql.UnmarshalString(v)
-	res := model.TaskStatus(tmp)
+	var res model.TaskStatus
+	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNTaskStatus2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐTaskStatus(ctx context.Context, sel ast.SelectionSet, v model.TaskStatus) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalString(string(v))
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return res
+	return v
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
@@ -9524,19 +9518,16 @@ func (ec *executionContext) unmarshalOTaskStatus2ᚖgithubᚗcomᚋsecmonᚑlab�
 	if v == nil {
 		return nil, nil
 	}
-	tmp, err := graphql.UnmarshalString(v)
-	res := model.TaskStatus(tmp)
-	return &res, graphql.ErrorOnPath(ctx, err)
+	var res = new(model.TaskStatus)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalOTaskStatus2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐTaskStatus(ctx context.Context, sel ast.SelectionSet, v *model.TaskStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	_ = sel
-	_ = ctx
-	res := graphql.MarshalString(string(*v))
-	return res
+	return v
 }
 
 func (ec *executionContext) unmarshalOTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {

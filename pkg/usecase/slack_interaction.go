@@ -320,11 +320,54 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 	return nil
 }
 
-// handleTaskAction handles task-related button actions
+// TaskActionParts represents parsed task action components
+type TaskActionParts struct {
+	Action string
+	TaskID types.TaskID
+	Value  string // Optional value for status changes
+}
+
+// parseTaskActionID parses structured ActionID format: "task:{action}:{taskID}[:value]"
+func (s *SlackInteraction) parseTaskActionID(actionID string) (*TaskActionParts, error) {
+	if !strings.HasPrefix(actionID, "task:") {
+		return nil, goerr.New("not a task action", goerr.V("actionID", actionID))
+	}
+
+	// Remove "task:" prefix and split
+	actionStr := strings.TrimPrefix(actionID, "task:")
+	parts := strings.Split(actionStr, ":")
+
+	if len(parts) < 2 {
+		return nil, goerr.New("invalid task action format", goerr.V("actionID", actionID))
+	}
+
+	action := parts[0]
+	taskID := types.TaskID(parts[1])
+
+	// Optional value parameter
+	var value string
+	if len(parts) >= 3 {
+		value = parts[2]
+	}
+
+	return &TaskActionParts{
+		Action: action,
+		TaskID: taskID,
+		Value:  value,
+	}, nil
+}
+
+// handleTaskAction handles task-related button actions with structured ActionID
 func (s *SlackInteraction) handleTaskAction(ctx context.Context, interaction *slack.InteractionCallback, action *slack.BlockAction) error {
 	logger := ctxlog.From(ctx)
 
-	// Parse action ID to determine task action type and task ID
+	// First try structured ActionID format
+	actionParts, err := s.parseTaskActionID(action.ActionID)
+	if err == nil {
+		return s.handleStructuredTaskAction(ctx, interaction, actionParts)
+	}
+
+	// Fallback to legacy prefix-based parsing for backward compatibility
 	if strings.HasPrefix(action.ActionID, "task_complete_") {
 		taskID := types.TaskID(strings.TrimPrefix(action.ActionID, "task_complete_"))
 		return s.handleTaskComplete(ctx, interaction, taskID)
@@ -338,6 +381,26 @@ func (s *SlackInteraction) handleTaskAction(ctx context.Context, interaction *sl
 
 	logger.Debug("Unknown task action", "actionID", action.ActionID)
 	return nil
+}
+
+// handleStructuredTaskAction handles task actions using structured ActionID format
+func (s *SlackInteraction) handleStructuredTaskAction(ctx context.Context, interaction *slack.InteractionCallback, actionParts *TaskActionParts) error {
+	logger := ctxlog.From(ctx)
+
+	logger.Info("Structured task action triggered",
+		"action", actionParts.Action,
+		"taskID", actionParts.TaskID,
+		"value", actionParts.Value)
+
+	switch actionParts.Action {
+	case "status_change":
+		return s.handleTaskStatusChange(ctx, interaction, actionParts.TaskID, actionParts.Value)
+	case "edit":
+		return s.handleTaskEdit(ctx, interaction, actionParts.TaskID)
+	default:
+		logger.Debug("Unknown structured task action", "action", actionParts.Action)
+		return goerr.New("unknown task action", goerr.V("action", actionParts.Action))
+	}
 }
 
 // getIncidentIDByChannel gets incident ID from channel ID for efficient task operations
@@ -462,6 +525,56 @@ func (s *SlackInteraction) handleTaskEdit(ctx context.Context, interaction *slac
 	}
 
 	logger.Info("Task edit modal opened", "taskID", taskID)
+	return nil
+}
+
+// handleTaskStatusChange handles task status change with 3-state support
+func (s *SlackInteraction) handleTaskStatusChange(ctx context.Context, interaction *slack.InteractionCallback, taskID types.TaskID, newStatus string) error {
+	logger := ctxlog.From(ctx)
+
+	// Validate status value
+	var status model.TaskStatus
+	switch newStatus {
+	case "todo":
+		status = model.TaskStatusTodo
+	case "follow_up":
+		status = model.TaskStatusFollowUp
+	case "completed":
+		status = model.TaskStatusCompleted
+	default:
+		return goerr.New("invalid task status", goerr.V("status", newStatus))
+	}
+
+	// Get incident ID from channel for efficient task lookup
+	incidentID, err := s.getIncidentIDByChannel(ctx, interaction.Channel.ID)
+	if err != nil {
+		logger.Error("Failed to get incident for task status change", "error", err, "taskID", taskID, "channelID", interaction.Channel.ID)
+		return goerr.Wrap(err, "failed to get incident for task status change")
+	}
+
+	// Update task status efficiently using the new usecase method
+	task, err := s.taskUC.UpdateTaskStatusByIncident(ctx, incidentID, taskID, status)
+	if err != nil {
+		logger.Error("Failed to update task status", "error", err, "incidentID", incidentID, "taskID", taskID, "status", status)
+		return goerr.Wrap(err, "failed to update task status")
+	}
+
+	// Update the message with new task status
+	blocks := slackblocks.BuildTaskMessage(task, "")
+
+	// Update the original message
+	_, _, _, err = s.slackClient.UpdateMessage(
+		ctx,
+		interaction.Channel.ID,
+		interaction.Message.Timestamp,
+		slack.MsgOptionBlocks(blocks...),
+	)
+	if err != nil {
+		logger.Error("Failed to update task message", "error", err, "taskID", taskID)
+		return goerr.Wrap(err, "failed to update task message")
+	}
+
+	logger.Info("Task status updated successfully", "taskID", taskID, "status", status)
 	return nil
 }
 

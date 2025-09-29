@@ -43,7 +43,7 @@ func TestTaskUseCase_CreateTask(t *testing.T) {
 		gt.Equal(t, task.CreatedBy, types.SlackUserID("U123456"))
 		gt.Equal(t, task.ChannelID, types.ChannelID("C123456"))
 		gt.Equal(t, task.MessageTS, "1234567890.123456")
-		gt.Equal(t, task.Status, model.TaskStatusIncompleted)
+		gt.Equal(t, task.Status, model.TaskStatusTodo)
 
 		// Verify mock calls
 		gt.Equal(t, len(repo.GetIncidentCalls()), 1)
@@ -268,7 +268,7 @@ func TestTaskUseCase_GetTask(t *testing.T) {
 			CreatedBy:  "U123456",
 			CreatedAt:  time.Now(),
 			UpdatedAt:  time.Now(),
-			Status:     model.TaskStatusIncompleted,
+			Status:     model.TaskStatusTodo,
 		}
 
 		// Setup mocks

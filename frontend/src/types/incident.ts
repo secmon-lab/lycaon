@@ -52,7 +52,8 @@ export interface Incident {
 
 // Task types
 export enum TaskStatus {
-  INCOMPLETED = 'incompleted',
+  TODO = 'todo',
+  FOLLOW_UP = 'follow-up',
   COMPLETED = 'completed'
 }
 
