@@ -364,12 +364,12 @@ When changing domain models (especially enum values), always update all dependen
 5. **Frontend Components** (any `.tsx` files using the types)
 6. **Run Tests** (`zenv go test ./...`)
 
-**Example**: Changing `"follow-up"` to `"follow_up"` requires updating:
-- Go constants
-- GraphQL enum values
+**Example**: Changing any enum value requires updating:
+- Go constants and types
+- GraphQL schema definitions
 - Generated GraphQL code
-- Frontend enum values
-- Frontend component logic
+- Frontend type definitions
+- All components and logic using those types
 
 Never change models in isolation - always consider the full dependency chain.
 
