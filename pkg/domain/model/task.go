@@ -53,7 +53,7 @@ func (s TaskStatus) MarshalGQL(w io.Writer) {
 }
 
 // UnmarshalGQL implements the graphql.Unmarshaler interface for GraphQL enum deserialization
-func (s *TaskStatus) UnmarshalGQL(v interface{}) error {
+func (s *TaskStatus) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("TaskStatus must be a string, got %T", v)
