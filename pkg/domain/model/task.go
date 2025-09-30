@@ -42,13 +42,13 @@ func (s TaskStatus) IsValid() bool {
 func (s TaskStatus) MarshalGQL(w io.Writer) {
 	switch s {
 	case TaskStatusTodo:
-		io.WriteString(w, strconv.Quote("TODO"))
+		_, _ = io.WriteString(w, strconv.Quote("TODO"))
 	case TaskStatusFollowUp:
-		io.WriteString(w, strconv.Quote("FOLLOW_UP"))
+		_, _ = io.WriteString(w, strconv.Quote("FOLLOW_UP"))
 	case TaskStatusCompleted:
-		io.WriteString(w, strconv.Quote("COMPLETED"))
+		_, _ = io.WriteString(w, strconv.Quote("COMPLETED"))
 	default:
-		io.WriteString(w, strconv.Quote("TODO")) // Default fallback
+		_, _ = io.WriteString(w, strconv.Quote("TODO")) // Default fallback
 	}
 }
 
