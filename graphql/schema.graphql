@@ -66,9 +66,9 @@ type Task {
 }
 
 enum TaskStatus {
-  TODO
-  FOLLOW_UP
-  COMPLETED
+  todo
+  follow_up
+  completed
 }
 
 type IncidentConnection {

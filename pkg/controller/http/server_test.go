@@ -506,7 +506,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 		"input": map[string]interface{}{
 			"title":       "Updated Test Task",
 			"description": "This task has been updated",
-			"status":      "COMPLETED",
+			"status":      "completed",
 		},
 	}
 
@@ -521,7 +521,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 	updateTaskData := data["updateTask"].(map[string]interface{})
 	gt.Equal(t, updateTaskData["title"], "Updated Test Task")
 	gt.Equal(t, updateTaskData["description"], "This task has been updated")
-	gt.Equal(t, updateTaskData["status"], "COMPLETED")
+	gt.Equal(t, updateTaskData["status"], "completed")
 
 	// Step 4: Test UpdateIncident mutation
 	updateIncidentMutation := `
@@ -575,7 +575,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 	data = resp.Data.(map[string]interface{})
 	taskData := data["task"].(map[string]interface{})
 	gt.Equal(t, taskData["title"], "Updated Test Task")
-	gt.Equal(t, taskData["status"], "COMPLETED")
+	gt.Equal(t, taskData["status"], "completed")
 
 	// Step 6: Test DeleteTask mutation
 	deleteTaskMutation := `
