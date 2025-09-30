@@ -1,13 +1,9 @@
 package model
 
 import (
-	"fmt"
-	"io"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/99designs/gqlgen/graphql"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
@@ -15,9 +11,6 @@ import (
 // TaskStatus represents the status of a task
 type TaskStatus string
 
-// Ensure TaskStatus implements graphql.Marshaler and graphql.Unmarshaler
-var _ graphql.Marshaler = TaskStatus("")
-var _ graphql.Unmarshaler = (*TaskStatus)(nil)
 
 const (
 	// TaskStatusTodo represents a task that needs to be done
@@ -38,40 +31,7 @@ func (s TaskStatus) IsValid() bool {
 	}
 }
 
-// MarshalGQL implements the graphql.Marshaler interface for GraphQL scalar serialization
-func (s TaskStatus) MarshalGQL(w io.Writer) {
-	switch s {
-	case TaskStatusTodo:
-		_, _ = io.WriteString(w, strconv.Quote("todo"))
-	case TaskStatusFollowUp:
-		_, _ = io.WriteString(w, strconv.Quote("follow-up"))
-	case TaskStatusCompleted:
-		_, _ = io.WriteString(w, strconv.Quote("completed"))
-	default:
-		_, _ = io.WriteString(w, strconv.Quote("todo")) // Default fallback
-	}
-}
 
-// UnmarshalGQL implements the graphql.Unmarshaler interface for GraphQL enum deserialization
-func (s *TaskStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("TaskStatus must be a string, got %T", v)
-	}
-
-	switch str {
-	case "todo":
-		*s = TaskStatusTodo
-	case "follow-up":
-		*s = TaskStatusFollowUp
-	case "completed":
-		*s = TaskStatusCompleted
-	default:
-		return fmt.Errorf("invalid TaskStatus: %s", str)
-	}
-
-	return nil
-}
 
 // Task represents a task in an incident
 type Task struct {
