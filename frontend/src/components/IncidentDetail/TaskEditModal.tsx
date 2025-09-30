@@ -28,12 +28,12 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
 }) => {
   // Normalize task status for form initialization
   const normalizeTaskStatusFromGraphQL = (status: string): TaskStatus => {
-    switch (status.toUpperCase()) {
-      case 'TODO':
+    switch (status.toLowerCase()) {
+      case 'todo':
         return TaskStatus.TODO;
-      case 'FOLLOW_UP':
+      case 'follow-up':
         return TaskStatus.FOLLOW_UP;
-      case 'COMPLETED':
+      case 'completed':
         return TaskStatus.COMPLETED;
       default:
         return TaskStatus.TODO; // fallback
@@ -56,13 +56,13 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
   const toGraphQLTaskStatus = (status: TaskStatus): string => {
     switch (status) {
       case TaskStatus.TODO:
-        return 'TODO';
+        return 'todo';
       case TaskStatus.FOLLOW_UP:
-        return 'FOLLOW_UP';
+        return 'follow-up';
       case TaskStatus.COMPLETED:
-        return 'COMPLETED';
+        return 'completed';
       default:
-        return 'TODO'; // fallback
+        return 'todo'; // fallback
     }
   };
 

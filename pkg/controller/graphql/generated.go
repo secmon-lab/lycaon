@@ -913,11 +913,7 @@ type Task {
   completedAt: Time
 }
 
-enum TaskStatus {
-  TODO
-  FOLLOW_UP
-  COMPLETED
-}
+scalar TaskStatus
 
 type IncidentConnection {
   edges: [IncidentEdge!]!

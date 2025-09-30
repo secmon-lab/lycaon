@@ -232,12 +232,12 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
 
   // Normalize GraphQL enum values to frontend enum values
   const normalizeTaskStatus = (status: string): TaskStatus => {
-    switch (status.toUpperCase()) {
-      case 'TODO':
+    switch (status.toLowerCase()) {
+      case 'todo':
         return TaskStatus.TODO;
-      case 'FOLLOW_UP':
+      case 'follow-up':
         return TaskStatus.FOLLOW_UP;
-      case 'COMPLETED':
+      case 'completed':
         return TaskStatus.COMPLETED;
       default:
         return TaskStatus.TODO; // fallback

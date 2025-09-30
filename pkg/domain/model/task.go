@@ -38,17 +38,17 @@ func (s TaskStatus) IsValid() bool {
 	}
 }
 
-// MarshalGQL implements the graphql.Marshaler interface for GraphQL enum serialization
+// MarshalGQL implements the graphql.Marshaler interface for GraphQL scalar serialization
 func (s TaskStatus) MarshalGQL(w io.Writer) {
 	switch s {
 	case TaskStatusTodo:
-		_, _ = io.WriteString(w, strconv.Quote("TODO"))
+		_, _ = io.WriteString(w, strconv.Quote("todo"))
 	case TaskStatusFollowUp:
-		_, _ = io.WriteString(w, strconv.Quote("FOLLOW_UP"))
+		_, _ = io.WriteString(w, strconv.Quote("follow-up"))
 	case TaskStatusCompleted:
-		_, _ = io.WriteString(w, strconv.Quote("COMPLETED"))
+		_, _ = io.WriteString(w, strconv.Quote("completed"))
 	default:
-		_, _ = io.WriteString(w, strconv.Quote("TODO")) // Default fallback
+		_, _ = io.WriteString(w, strconv.Quote("todo")) // Default fallback
 	}
 }
 
@@ -60,11 +60,11 @@ func (s *TaskStatus) UnmarshalGQL(v any) error {
 	}
 
 	switch str {
-	case "TODO":
+	case "todo":
 		*s = TaskStatusTodo
-	case "FOLLOW_UP":
+	case "follow-up":
 		*s = TaskStatusFollowUp
-	case "COMPLETED":
+	case "completed":
 		*s = TaskStatusCompleted
 	default:
 		return fmt.Errorf("invalid TaskStatus: %s", str)
