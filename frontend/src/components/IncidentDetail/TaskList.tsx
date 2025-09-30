@@ -235,7 +235,7 @@ const TaskList: React.FC<TaskListProps> = ({ incidentId, incident, tasks }) => {
     switch (status.toLowerCase()) {
       case 'todo':
         return TaskStatus.TODO;
-      case 'follow-up':
+      case 'follow_up':
         return TaskStatus.FOLLOW_UP;
       case 'completed':
         return TaskStatus.COMPLETED;

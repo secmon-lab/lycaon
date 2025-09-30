@@ -856,7 +856,11 @@ type Task {
   completedAt: Time
 }
 
-scalar TaskStatus
+enum TaskStatus {
+  todo
+  follow_up
+  completed
+}
 
 type IncidentConnection {
   edges: [IncidentEdge!]!

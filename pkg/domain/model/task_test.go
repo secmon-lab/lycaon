@@ -222,7 +222,7 @@ func TestTaskStatusIsValid(t *testing.T) {
 }
 
 func TestTaskStatusTransitions(t *testing.T) {
-	t.Run("todo to follow-up transition", func(t *testing.T) {
+	t.Run("todo to follow_up transition", func(t *testing.T) {
 		task, err := model.NewTask(1, "Test task", "U123456")
 		gt.NoError(t, err)
 		gt.Equal(t, task.Status, model.TaskStatusTodo)
@@ -234,7 +234,7 @@ func TestTaskStatusTransitions(t *testing.T) {
 		gt.V(t, task.CompletedAt).Nil()
 	})
 
-	t.Run("follow-up to completed transition", func(t *testing.T) {
+	t.Run("follow_up to completed transition", func(t *testing.T) {
 		task, err := model.NewTask(1, "Test task", "U123456")
 		gt.NoError(t, err)
 
@@ -249,7 +249,7 @@ func TestTaskStatusTransitions(t *testing.T) {
 		gt.V(t, task.UpdatedAt).NotEqual(beforeUpdate)
 	})
 
-	t.Run("completed to follow-up transition", func(t *testing.T) {
+	t.Run("completed to follow_up transition", func(t *testing.T) {
 		task, err := model.NewTask(1, "Test task", "U123456")
 		gt.NoError(t, err)
 

@@ -11,12 +11,11 @@ import (
 // TaskStatus represents the status of a task
 type TaskStatus string
 
-
 const (
 	// TaskStatusTodo represents a task that needs to be done
 	TaskStatusTodo TaskStatus = "todo"
 	// TaskStatusFollowUp represents a task that needs follow-up
-	TaskStatusFollowUp TaskStatus = "follow-up"
+	TaskStatusFollowUp TaskStatus = "follow_up"
 	// TaskStatusCompleted represents a completed task
 	TaskStatusCompleted TaskStatus = "completed"
 )
@@ -30,8 +29,6 @@ func (s TaskStatus) IsValid() bool {
 		return false
 	}
 }
-
-
 
 // Task represents a task in an incident
 type Task struct {

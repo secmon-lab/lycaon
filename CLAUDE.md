@@ -329,6 +329,50 @@ When making changes, before finishing the task, always:
 
 All comment and character literal in source code must be in English
 
+### String Constants Naming Convention
+
+All string constants MUST use lowercase with underscores (snake_case) format.
+
+- ✅ **Correct**: `"todo"`, `"follow_up"`, `"completed"`, `"in_progress"`
+- ❌ **Violation**: `"follow-up"`, `"followUp"`, `"FOLLOW_UP"`, `"Follow-Up"`
+
+**Examples:**
+```go
+const (
+    TaskStatusTodo TaskStatus = "todo"
+    TaskStatusFollowUp TaskStatus = "follow_up"  // NOT "follow-up"
+    TaskStatusCompleted TaskStatus = "completed"
+)
+```
+
+This rule applies to ALL string constants including:
+- Enum values in Go code
+- GraphQL enum values
+- Status constants
+- Any other string literals used as constants
+
+Never use uppercase constants, CamelCase, or kebab-case for string constants.
+
+### Model Changes and Dependencies
+
+When changing domain models (especially enum values), always update all dependent files in the correct order:
+
+1. **Go Model** (e.g., `pkg/domain/model/task.go`)
+2. **GraphQL Schema** (`graphql/schema.graphql`)
+3. **Regenerate GraphQL Code** (`task graphql`)
+4. **Frontend Type Definitions** (`frontend/src/types/*.ts`)
+5. **Frontend Components** (any `.tsx` files using the types)
+6. **Run Tests** (`zenv go test ./...`)
+
+**Example**: Changing `"follow-up"` to `"follow_up"` requires updating:
+- Go constants
+- GraphQL enum values
+- Generated GraphQL code
+- Frontend enum values
+- Frontend component logic
+
+Never change models in isolation - always consider the full dependency chain.
+
 ### Testing
 
 - Test files should have `package {name}_test`. Do not use same package name

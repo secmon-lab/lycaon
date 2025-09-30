@@ -31,7 +31,7 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
     switch (status.toLowerCase()) {
       case 'todo':
         return TaskStatus.TODO;
-      case 'follow-up':
+      case 'follow_up':
         return TaskStatus.FOLLOW_UP;
       case 'completed':
         return TaskStatus.COMPLETED;
@@ -58,7 +58,7 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
       case TaskStatus.TODO:
         return 'todo';
       case TaskStatus.FOLLOW_UP:
-        return 'follow-up';
+        return 'follow_up';
       case TaskStatus.COMPLETED:
         return 'completed';
       default:

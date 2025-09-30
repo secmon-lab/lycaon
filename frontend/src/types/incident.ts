@@ -53,7 +53,7 @@ export interface Incident {
 // Task types
 export enum TaskStatus {
   TODO = 'todo',
-  FOLLOW_UP = 'follow-up',
+  FOLLOW_UP = 'follow_up',
   COMPLETED = 'completed'
 }
 
