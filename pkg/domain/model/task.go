@@ -1,9 +1,13 @@
 package model
 
 import (
+	"fmt"
+	"io"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
@@ -11,9 +15,15 @@ import (
 // TaskStatus represents the status of a task
 type TaskStatus string
 
+// Ensure TaskStatus implements graphql.Marshaler and graphql.Unmarshaler
+var _ graphql.Marshaler = TaskStatus("")
+var _ graphql.Unmarshaler = (*TaskStatus)(nil)
+
 const (
-	// TaskStatusIncompleted represents an incomplete task
-	TaskStatusIncompleted TaskStatus = "incompleted"
+	// TaskStatusTodo represents a task that needs to be done
+	TaskStatusTodo TaskStatus = "todo"
+	// TaskStatusFollowUp represents a task that needs follow-up
+	TaskStatusFollowUp TaskStatus = "follow-up"
 	// TaskStatusCompleted represents a completed task
 	TaskStatusCompleted TaskStatus = "completed"
 )
@@ -21,11 +31,46 @@ const (
 // IsValid checks if the task status is valid
 func (s TaskStatus) IsValid() bool {
 	switch s {
-	case TaskStatusIncompleted, TaskStatusCompleted:
+	case TaskStatusTodo, TaskStatusFollowUp, TaskStatusCompleted:
 		return true
 	default:
 		return false
 	}
+}
+
+// MarshalGQL implements the graphql.Marshaler interface for GraphQL enum serialization
+func (s TaskStatus) MarshalGQL(w io.Writer) {
+	switch s {
+	case TaskStatusTodo:
+		_, _ = io.WriteString(w, strconv.Quote("TODO"))
+	case TaskStatusFollowUp:
+		_, _ = io.WriteString(w, strconv.Quote("FOLLOW_UP"))
+	case TaskStatusCompleted:
+		_, _ = io.WriteString(w, strconv.Quote("COMPLETED"))
+	default:
+		_, _ = io.WriteString(w, strconv.Quote("TODO")) // Default fallback
+	}
+}
+
+// UnmarshalGQL implements the graphql.Unmarshaler interface for GraphQL enum deserialization
+func (s *TaskStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("TaskStatus must be a string, got %T", v)
+	}
+
+	switch str {
+	case "TODO":
+		*s = TaskStatusTodo
+	case "FOLLOW_UP":
+		*s = TaskStatusFollowUp
+	case "COMPLETED":
+		*s = TaskStatusCompleted
+	default:
+		return fmt.Errorf("invalid TaskStatus: %s", str)
+	}
+
+	return nil
 }
 
 // Task represents a task in an incident
@@ -62,7 +107,7 @@ func NewTask(incidentID types.IncidentID, title string, createdBy types.SlackUse
 		IncidentID:  incidentID,
 		Title:       title,
 		Description: "",
-		Status:      TaskStatusIncompleted,
+		Status:      TaskStatusTodo,
 		AssigneeID:  "",
 		CreatedBy:   createdBy,
 		MessageTS:   "",
@@ -85,13 +130,13 @@ func (t *Task) Complete() error {
 	return nil
 }
 
-// Uncomplete marks the task as incomplete
+// Uncomplete marks the task as todo (incomplete)
 func (t *Task) Uncomplete() error {
-	if t.Status == TaskStatusIncompleted {
-		return goerr.New("task is already incomplete", goerr.V("taskID", t.ID))
+	if t.Status == TaskStatusTodo {
+		return goerr.New("task is already todo", goerr.V("taskID", t.ID))
 	}
 
-	t.Status = TaskStatusIncompleted
+	t.Status = TaskStatusTodo
 	t.CompletedAt = nil
 	t.UpdatedAt = time.Now()
 	return nil

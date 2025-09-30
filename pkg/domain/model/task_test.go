@@ -21,7 +21,7 @@ func TestNewTask(t *testing.T) {
 		gt.Equal(t, task.IncidentID, incidentID)
 		gt.Equal(t, task.Title, title)
 		gt.Equal(t, task.CreatedBy, createdBy)
-		gt.Equal(t, task.Status, model.TaskStatusIncompleted)
+		gt.Equal(t, task.Status, model.TaskStatusTodo)
 		gt.V(t, task.ID).NotEqual(types.TaskID(""))
 		gt.V(t, task.CompletedAt).Nil()
 	})
@@ -139,9 +139,9 @@ func TestTaskUpdateStatus(t *testing.T) {
 		gt.NoError(t, err)
 		gt.V(t, task.CompletedAt).NotNil()
 
-		err = task.UpdateStatus(model.TaskStatusIncompleted)
+		err = task.UpdateStatus(model.TaskStatusTodo)
 		gt.NoError(t, err)
-		gt.Equal(t, task.Status, model.TaskStatusIncompleted)
+		gt.Equal(t, task.Status, model.TaskStatusTodo)
 		gt.V(t, task.CompletedAt).Nil()
 	})
 
@@ -210,12 +210,66 @@ func TestTaskGetSlackMessageURL(t *testing.T) {
 
 func TestTaskStatusIsValid(t *testing.T) {
 	t.Run("valid statuses", func(t *testing.T) {
-		gt.B(t, model.TaskStatusIncompleted.IsValid()).True()
+		gt.B(t, model.TaskStatusTodo.IsValid()).True()
+		gt.B(t, model.TaskStatusFollowUp.IsValid()).True()
 		gt.B(t, model.TaskStatusCompleted.IsValid()).True()
 	})
 
 	t.Run("invalid status", func(t *testing.T) {
 		invalidStatus := model.TaskStatus("invalid")
 		gt.B(t, invalidStatus.IsValid()).False()
+	})
+}
+
+func TestTaskStatusTransitions(t *testing.T) {
+	t.Run("todo to follow-up transition", func(t *testing.T) {
+		task, err := model.NewTask(1, "Test task", "U123456")
+		gt.NoError(t, err)
+		gt.Equal(t, task.Status, model.TaskStatusTodo)
+		gt.V(t, task.CompletedAt).Nil()
+
+		err = task.UpdateStatus(model.TaskStatusFollowUp)
+		gt.NoError(t, err)
+		gt.Equal(t, task.Status, model.TaskStatusFollowUp)
+		gt.V(t, task.CompletedAt).Nil()
+	})
+
+	t.Run("follow-up to completed transition", func(t *testing.T) {
+		task, err := model.NewTask(1, "Test task", "U123456")
+		gt.NoError(t, err)
+
+		err = task.UpdateStatus(model.TaskStatusFollowUp)
+		gt.NoError(t, err)
+
+		beforeUpdate := task.UpdatedAt
+		err = task.UpdateStatus(model.TaskStatusCompleted)
+		gt.NoError(t, err)
+		gt.Equal(t, task.Status, model.TaskStatusCompleted)
+		gt.V(t, task.CompletedAt).NotNil()
+		gt.V(t, task.UpdatedAt).NotEqual(beforeUpdate)
+	})
+
+	t.Run("completed to follow-up transition", func(t *testing.T) {
+		task, err := model.NewTask(1, "Test task", "U123456")
+		gt.NoError(t, err)
+
+		err = task.UpdateStatus(model.TaskStatusCompleted)
+		gt.NoError(t, err)
+		gt.V(t, task.CompletedAt).NotNil()
+
+		err = task.UpdateStatus(model.TaskStatusFollowUp)
+		gt.NoError(t, err)
+		gt.Equal(t, task.Status, model.TaskStatusFollowUp)
+		gt.V(t, task.CompletedAt).Nil()
+	})
+
+	t.Run("todo to completed transition", func(t *testing.T) {
+		task, err := model.NewTask(1, "Test task", "U123456")
+		gt.NoError(t, err)
+
+		err = task.UpdateStatus(model.TaskStatusCompleted)
+		gt.NoError(t, err)
+		gt.Equal(t, task.Status, model.TaskStatusCompleted)
+		gt.V(t, task.CompletedAt).NotNil()
 	})
 }

@@ -1060,6 +1060,9 @@ var _ interfaces.Task = &TaskMock{}
 //			UpdateTaskByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error) {
 //				panic("mock out the UpdateTaskByIncident method")
 //			},
+//			UpdateTaskStatusByIncidentFunc: func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, status model.TaskStatus) (*model.Task, error) {
+//				panic("mock out the UpdateTaskStatusByIncident method")
+//			},
 //		}
 //
 //		// use mockedTask in code that requires interfaces.Task
@@ -1096,6 +1099,9 @@ type TaskMock struct {
 
 	// UpdateTaskByIncidentFunc mocks the UpdateTaskByIncident method.
 	UpdateTaskByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, updates interfaces.TaskUpdateRequest) (*model.Task, error)
+
+	// UpdateTaskStatusByIncidentFunc mocks the UpdateTaskStatusByIncident method.
+	UpdateTaskStatusByIncidentFunc func(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, status model.TaskStatus) (*model.Task, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1189,17 +1195,29 @@ type TaskMock struct {
 			// Updates is the updates argument value.
 			Updates interfaces.TaskUpdateRequest
 		}
+		// UpdateTaskStatusByIncident holds details about calls to the UpdateTaskStatusByIncident method.
+		UpdateTaskStatusByIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// TaskID is the taskID argument value.
+			TaskID types.TaskID
+			// Status is the status argument value.
+			Status model.TaskStatus
+		}
 	}
-	lockCompleteTask             sync.RWMutex
-	lockCompleteTaskByIncident   sync.RWMutex
-	lockCreateTask               sync.RWMutex
-	lockGetTask                  sync.RWMutex
-	lockGetTaskByIncident        sync.RWMutex
-	lockListTasks                sync.RWMutex
-	lockUncompleteTask           sync.RWMutex
-	lockUncompleteTaskByIncident sync.RWMutex
-	lockUpdateTask               sync.RWMutex
-	lockUpdateTaskByIncident     sync.RWMutex
+	lockCompleteTask               sync.RWMutex
+	lockCompleteTaskByIncident     sync.RWMutex
+	lockCreateTask                 sync.RWMutex
+	lockGetTask                    sync.RWMutex
+	lockGetTaskByIncident          sync.RWMutex
+	lockListTasks                  sync.RWMutex
+	lockUncompleteTask             sync.RWMutex
+	lockUncompleteTaskByIncident   sync.RWMutex
+	lockUpdateTask                 sync.RWMutex
+	lockUpdateTaskByIncident       sync.RWMutex
+	lockUpdateTaskStatusByIncident sync.RWMutex
 }
 
 // CompleteTask calls CompleteTaskFunc.
@@ -1599,6 +1617,50 @@ func (mock *TaskMock) UpdateTaskByIncidentCalls() []struct {
 	mock.lockUpdateTaskByIncident.RLock()
 	calls = mock.calls.UpdateTaskByIncident
 	mock.lockUpdateTaskByIncident.RUnlock()
+	return calls
+}
+
+// UpdateTaskStatusByIncident calls UpdateTaskStatusByIncidentFunc.
+func (mock *TaskMock) UpdateTaskStatusByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, status model.TaskStatus) (*model.Task, error) {
+	if mock.UpdateTaskStatusByIncidentFunc == nil {
+		panic("TaskMock.UpdateTaskStatusByIncidentFunc: method is nil but Task.UpdateTaskStatusByIncident was just called")
+	}
+	callInfo := struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+		Status     model.TaskStatus
+	}{
+		Ctx:        ctx,
+		IncidentID: incidentID,
+		TaskID:     taskID,
+		Status:     status,
+	}
+	mock.lockUpdateTaskStatusByIncident.Lock()
+	mock.calls.UpdateTaskStatusByIncident = append(mock.calls.UpdateTaskStatusByIncident, callInfo)
+	mock.lockUpdateTaskStatusByIncident.Unlock()
+	return mock.UpdateTaskStatusByIncidentFunc(ctx, incidentID, taskID, status)
+}
+
+// UpdateTaskStatusByIncidentCalls gets all the calls that were made to UpdateTaskStatusByIncident.
+// Check the length with:
+//
+//	len(mockedTask.UpdateTaskStatusByIncidentCalls())
+func (mock *TaskMock) UpdateTaskStatusByIncidentCalls() []struct {
+	Ctx        context.Context
+	IncidentID types.IncidentID
+	TaskID     types.TaskID
+	Status     model.TaskStatus
+} {
+	var calls []struct {
+		Ctx        context.Context
+		IncidentID types.IncidentID
+		TaskID     types.TaskID
+		Status     model.TaskStatus
+	}
+	mock.lockUpdateTaskStatusByIncident.RLock()
+	calls = mock.calls.UpdateTaskStatusByIncident
+	mock.lockUpdateTaskStatusByIncident.RUnlock()
 	return calls
 }
 

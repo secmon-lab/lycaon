@@ -36,7 +36,7 @@ func TestTaskRepository(t *testing.T) {
 		gt.Equal(t, retrieved.IncidentID, task.IncidentID)
 		gt.Equal(t, retrieved.CreatedBy, task.CreatedBy)
 		gt.Equal(t, retrieved.MessageTS, task.MessageTS)
-		gt.Equal(t, retrieved.Status, model.TaskStatusIncompleted)
+		gt.Equal(t, retrieved.Status, model.TaskStatusTodo)
 	})
 
 	t.Run("GetTask", func(t *testing.T) {

@@ -261,7 +261,6 @@ func (r *mutationResolver) UpdateIncidentStatus(ctx context.Context, incidentID 
 
 // CreateTask is the resolver for the createTask field.
 func (r *mutationResolver) CreateTask(ctx context.Context, input graphql1.CreateTaskInput) (*model.Task, error) {
-
 	// Parse incident ID
 	incidentIDInt, err := strconv.Atoi(input.IncidentID)
 	if err != nil {
@@ -345,8 +344,8 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 				task.UpdateDescription(*input.Description)
 			}
 			if input.Status != nil {
-				status := model.TaskStatus(*input.Status)
-				if err := task.UpdateStatus(status); err != nil {
+				// Status is already properly unmarshaled by GraphQL
+				if err := task.UpdateStatus(*input.Status); err != nil {
 					return goerr.Wrap(err, "failed to update task status")
 				}
 			}
@@ -377,8 +376,8 @@ func (r *mutationResolver) UpdateTask(ctx context.Context, id string, input grap
 		task.UpdateDescription(*input.Description)
 	}
 	if input.Status != nil {
-		status := model.TaskStatus(*input.Status)
-		if err := task.UpdateStatus(status); err != nil {
+		// Status is already properly unmarshaled by GraphQL
+		if err := task.UpdateStatus(*input.Status); err != nil {
 			return nil, goerr.Wrap(err, "failed to update task status")
 		}
 	}
@@ -650,15 +649,3 @@ type queryResolver struct{ *Resolver }
 type statusHistoryResolver struct{ *Resolver }
 type taskResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *statusHistoryResolver) Status(ctx context.Context, obj *model.StatusHistory) (graphql1.IncidentStatus, error) {
-	panic(fmt.Errorf("not implemented: Status - status"))
-}
-*/

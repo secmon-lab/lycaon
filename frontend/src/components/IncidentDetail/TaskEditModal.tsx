@@ -26,32 +26,64 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
   task,
   incident
 }) => {
+  // Normalize task status for form initialization
+  const normalizeTaskStatusFromGraphQL = (status: string): TaskStatus => {
+    switch (status.toUpperCase()) {
+      case 'TODO':
+        return TaskStatus.TODO;
+      case 'FOLLOW_UP':
+        return TaskStatus.FOLLOW_UP;
+      case 'COMPLETED':
+        return TaskStatus.COMPLETED;
+      default:
+        return TaskStatus.TODO; // fallback
+    }
+  };
+
   const [formData, setFormData] = useState<TaskFormData>({
     title: task.title,
     description: task.description,
-    status: task.status,
+    status: normalizeTaskStatusFromGraphQL(task.status),
     assigneeId: task.assigneeId
   });
+
 
   const [updateTask, { loading }] = useMutation(UPDATE_TASK, {
     refetchQueries: [{ query: GET_INCIDENT, variables: { id: incident.id } }]
   });
+
+  // Convert frontend enum values to GraphQL enum values
+  const toGraphQLTaskStatus = (status: TaskStatus): string => {
+    switch (status) {
+      case TaskStatus.TODO:
+        return 'TODO';
+      case TaskStatus.FOLLOW_UP:
+        return 'FOLLOW_UP';
+      case TaskStatus.COMPLETED:
+        return 'COMPLETED';
+      default:
+        return 'TODO'; // fallback
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) return;
 
     try {
+      const graphQLStatus = toGraphQLTaskStatus(formData.status);
+
       const updates: UpdateTaskInput = {
         title: formData.title.trim(),
         description: formData.description.trim(),
-        status: formData.status
+        status: graphQLStatus as TaskStatus
       };
 
       // Handle assignee update, including clearing it.
       if (formData.assigneeId !== task.assigneeId) {
         updates.assigneeId = formData.assigneeId || null;
       }
+
 
       await updateTask({
         variables: {
@@ -124,12 +156,12 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
-                  onClick={() => handleStatusChange(TaskStatus.INCOMPLETED)}
-                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md border transition-colors ${
-                    formData.status === TaskStatus.INCOMPLETED
+                  onClick={() => handleStatusChange(TaskStatus.TODO)}
+                  className={`py-2 px-3 text-sm font-medium rounded-md border transition-colors ${
+                    formData.status === TaskStatus.TODO
                       ? 'bg-blue-50 border-blue-300 text-blue-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
@@ -138,8 +170,19 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleStatusChange(TaskStatus.FOLLOW_UP)}
+                  className={`py-2 px-3 text-sm font-medium rounded-md border transition-colors ${
+                    formData.status === TaskStatus.FOLLOW_UP
+                      ? 'bg-orange-50 border-orange-300 text-orange-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Follow Up
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleStatusChange(TaskStatus.COMPLETED)}
-                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md border transition-colors ${
+                  className={`py-2 px-3 text-sm font-medium rounded-md border transition-colors ${
                     formData.status === TaskStatus.COMPLETED
                       ? 'bg-green-50 border-green-300 text-green-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'

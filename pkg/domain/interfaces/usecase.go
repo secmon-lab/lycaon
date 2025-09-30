@@ -159,6 +159,8 @@ type Task interface {
 	GetTask(ctx context.Context, taskID types.TaskID) (*model.Task, error)
 	// GetTaskByIncident retrieves a task by incident ID and task ID efficiently
 	GetTaskByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID) (*model.Task, error)
+	// UpdateTaskStatusByIncident updates a task status efficiently using incident ID
+	UpdateTaskStatusByIncident(ctx context.Context, incidentID types.IncidentID, taskID types.TaskID, status model.TaskStatus) (*model.Task, error)
 }
 
 // Invite defines the interface for generic invitation functionality

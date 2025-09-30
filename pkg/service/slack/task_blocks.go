@@ -17,10 +17,15 @@ func BuildTaskMessage(task *model.Task, assigneeUsername string) []slack.Block {
 
 	// Build status and assignee line
 	var statusLine string
-	if task.Status == model.TaskStatusCompleted {
+	switch task.Status {
+	case model.TaskStatusTodo:
+		statusLine = "📝 To Do"
+	case model.TaskStatusFollowUp:
+		statusLine = "🔄 Follow Up"
+	case model.TaskStatusCompleted:
 		statusLine = "✅ Completed"
-	} else {
-		statusLine = "🔄 In Progress"
+	default:
+		statusLine = "❓ Unknown"
 	}
 
 	// Add assignee
@@ -37,42 +42,79 @@ func BuildTaskMessage(task *model.Task, assigneeUsername string) []slack.Block {
 		nil,
 	))
 
-	// Action buttons
-	editButton := slack.NewButtonBlockElement(
-		fmt.Sprintf("task_edit_%s", task.ID),
-		"edit",
-		slack.NewTextBlockObject(slack.PlainTextType, "Edit", false, false),
-	)
-
-	if task.Status != model.TaskStatusCompleted {
-		completeButton := slack.NewButtonBlockElement(
-			fmt.Sprintf("task_complete_%s", task.ID),
-			"complete",
-			slack.NewTextBlockObject(slack.PlainTextType, "Complete", false, false),
-		)
-		completeButton.Style = slack.StylePrimary
-
-		blocks = append(blocks, slack.NewActionBlock(
-			"",
-			editButton,
-			completeButton,
-		))
-	} else {
-		uncompleteButton := slack.NewButtonBlockElement(
-			fmt.Sprintf("task_uncomplete_%s", task.ID),
-			"uncomplete",
-			slack.NewTextBlockObject(slack.PlainTextType, "Uncomplete", false, false),
-		)
-		uncompleteButton.Style = slack.StyleDanger
-
-		blocks = append(blocks, slack.NewActionBlock(
-			"",
-			editButton,
-			uncompleteButton,
-		))
+	// Action buttons with structured ActionID
+	actionElements := buildTaskActionButtons(task)
+	if len(actionElements) > 0 {
+		blocks = append(blocks, slack.NewActionBlock("", actionElements...))
 	}
 
 	return blocks
+}
+
+// buildTaskActionButtons creates action buttons with structured ActionIDs
+func buildTaskActionButtons(task *model.Task) []slack.BlockElement {
+	var buttons []slack.BlockElement
+
+	// Status change buttons based on current status
+	switch task.Status {
+	case model.TaskStatusTodo:
+		buttons = append(buttons,
+			slack.NewButtonBlockElement(
+				fmt.Sprintf("task:status_change:%s:follow_up", task.ID),
+				"mark_follow_up",
+				slack.NewTextBlockObject(slack.PlainTextType, "🔄 Mark as Follow Up", false, false),
+			),
+			slack.NewButtonBlockElement(
+				fmt.Sprintf("task:status_change:%s:completed", task.ID),
+				"mark_completed",
+				slack.NewTextBlockObject(slack.PlainTextType, "✅ Mark as Completed", false, false),
+			),
+		)
+		// Set style for primary action
+		buttons[1].(*slack.ButtonBlockElement).Style = slack.StylePrimary
+
+	case model.TaskStatusFollowUp:
+		buttons = append(buttons,
+			slack.NewButtonBlockElement(
+				fmt.Sprintf("task:status_change:%s:todo", task.ID),
+				"mark_todo",
+				slack.NewTextBlockObject(slack.PlainTextType, "📝 Mark as To Do", false, false),
+			),
+			slack.NewButtonBlockElement(
+				fmt.Sprintf("task:status_change:%s:completed", task.ID),
+				"mark_completed",
+				slack.NewTextBlockObject(slack.PlainTextType, "✅ Mark as Completed", false, false),
+			),
+		)
+		// Set style for primary action
+		buttons[1].(*slack.ButtonBlockElement).Style = slack.StylePrimary
+
+	case model.TaskStatusCompleted:
+		buttons = append(buttons,
+			slack.NewButtonBlockElement(
+				fmt.Sprintf("task:status_change:%s:todo", task.ID),
+				"mark_todo",
+				slack.NewTextBlockObject(slack.PlainTextType, "📝 Mark as To Do", false, false),
+			),
+			slack.NewButtonBlockElement(
+				fmt.Sprintf("task:status_change:%s:follow_up", task.ID),
+				"mark_follow_up",
+				slack.NewTextBlockObject(slack.PlainTextType, "🔄 Mark as Follow Up", false, false),
+			),
+		)
+		// Set style for todo action
+		buttons[0].(*slack.ButtonBlockElement).Style = slack.StyleDanger
+	}
+
+	// Common edit button
+	editButton := slack.NewButtonBlockElement(
+		fmt.Sprintf("task:edit:%s", task.ID),
+		"edit",
+		slack.NewTextBlockObject(slack.PlainTextType, "Edit", false, false),
+	)
+	buttons = append(buttons, editButton)
+
+	return buttons
 }
 
 // BuildTaskListMessage creates Slack blocks for a task list
@@ -186,8 +228,13 @@ func BuildTaskEditModal(task *model.Task, channelMembers []types.SlackUserID) sl
 	// Status selector
 	statusOptions := []*slack.OptionBlockObject{
 		slack.NewOptionBlockObject(
-			string(model.TaskStatusIncompleted),
-			slack.NewTextBlockObject(slack.PlainTextType, "Incomplete", false, false),
+			string(model.TaskStatusTodo),
+			slack.NewTextBlockObject(slack.PlainTextType, "To Do", false, false),
+			nil,
+		),
+		slack.NewOptionBlockObject(
+			string(model.TaskStatusFollowUp),
+			slack.NewTextBlockObject(slack.PlainTextType, "Follow Up", false, false),
 			nil,
 		),
 		slack.NewOptionBlockObject(
