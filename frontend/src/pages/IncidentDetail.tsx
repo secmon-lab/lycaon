@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client/react';
 import { format } from 'date-fns';
 import { GET_INCIDENT, GET_SEVERITIES } from '../graphql/queries';
-import { IncidentStatus, toIncidentStatus, getSeverityStyle } from '../types/incident';
+import { IncidentStatus, toIncidentStatus } from '../types/incident';
 import StatusSection from '../components/IncidentDetail/StatusSection';
 import TaskList from '../components/IncidentDetail/TaskList';
 import { EditIncidentModal } from '../components/IncidentDetail/EditIncidentModal';
 import { Button } from '../components/ui/Button';
 import SlackChannelLink from '../components/common/SlackChannelLink';
+import SeverityBadge from '../components/common/SeverityBadge';
 import {
   User,
   Calendar,
@@ -141,21 +142,10 @@ const IncidentDetail: React.FC = () => {
                   <AlertTriangle className="h-3 w-3" />
                   Severity
                 </div>
-                {(() => {
-                  const severityStyle = getSeverityStyle(incident.severityLevel);
-                  return (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium"
-                      style={{
-                        color: severityStyle.color,
-                        backgroundColor: severityStyle.backgroundColor,
-                      }}
-                    >
-                      <span>{severityStyle.icon}</span>
-                      <span>{incident.severityName}</span>
-                    </span>
-                  );
-                })()}
+                <SeverityBadge
+                  severityLevel={incident.severityLevel}
+                  severityName={incident.severityName}
+                />
               </div>
 
               <div>

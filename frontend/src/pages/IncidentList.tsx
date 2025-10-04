@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { GET_INCIDENTS } from '../graphql/queries';
 import { Button } from '../components/ui/Button';
-import { IncidentStatus, getSeverityStyle } from '../types/incident';
+import { IncidentStatus } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SlackChannelLink from '../components/common/SlackChannelLink';
+import SeverityBadge from '../components/common/SeverityBadge';
 import {
   AlertCircle,
   RefreshCw,
@@ -226,21 +227,11 @@ const IncidentList: React.FC = () => {
                         #{incident.id}
                       </span>
                       <StatusBadge status={incident.status} size="sm" />
-                      {(() => {
-                        const severityStyle = getSeverityStyle(incident.severityLevel);
-                        return (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                            style={{
-                              color: severityStyle.color,
-                              backgroundColor: severityStyle.backgroundColor,
-                            }}
-                          >
-                            <span>{severityStyle.icon}</span>
-                            <span>{incident.severityName}</span>
-                          </span>
-                        );
-                      })()}
+                      <SeverityBadge
+                        severityLevel={incident.severityLevel}
+                        severityName={incident.severityName}
+                        size="sm"
+                      />
                     </div>
                   </div>
                   <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
