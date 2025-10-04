@@ -16,19 +16,50 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
+// testMocks holds all mock objects used in interaction tests
+type testMocks struct {
+	incidentUC  *mocks.IncidentMock
+	taskUC      *mocks.TaskMock
+	statusUC    *mocks.StatusUseCaseMock
+	authUC      *mocks.AuthMock
+	slackClient *mocks.SlackClientMock
+}
+
+// setupInteractionHandler creates a new interaction handler with default mocks
+func setupInteractionHandler(ctx context.Context, incidentMock *mocks.IncidentMock) (*slack.InteractionHandler, *testMocks) {
+	testMocks := &testMocks{
+		incidentUC:  incidentMock,
+		taskUC:      &mocks.TaskMock{},
+		statusUC:    &mocks.StatusUseCaseMock{},
+		authUC:      &mocks.AuthMock{},
+		slackClient: &mocks.SlackClientMock{},
+	}
+
+	if testMocks.incidentUC == nil {
+		testMocks.incidentUC = &mocks.IncidentMock{}
+	}
+
+	mockSlackSvc := &mocks.SlackClientMock{}
+	slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
+	slackInteractionUC := usecase.NewSlackInteraction(
+		testMocks.incidentUC,
+		testMocks.taskUC,
+		testMocks.statusUC,
+		testMocks.authUC,
+		testMocks.slackClient,
+		slackSvc,
+		nil,
+	)
+	handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+
+	return handler, testMocks
+}
+
 func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Handle invalid JSON payload", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, nil)
 
 		invalidPayload := []byte("invalid json")
 		err := handler.HandleInteraction(ctx, invalidPayload)
@@ -39,7 +70,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	t.Run("Handle create_incident action", func(t *testing.T) {
 		var createdIncident *model.Incident
 		created := make(chan bool, 1)
-		mockUC := &mocks.IncidentMock{
+		incidentMock := &mocks.IncidentMock{
 			HandleCreateIncidentActionAsyncFunc: func(ctx context.Context, requestID, userID, channelID string) {
 				createdIncident = &model.Incident{
 					ID:                1,
@@ -54,14 +85,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 			},
 		}
 
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, incidentMock)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -109,15 +133,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle empty request ID", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, nil)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -159,21 +175,14 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle incident creation failure", func(t *testing.T) {
 		failed := make(chan bool, 1)
-		mockUC := &mocks.IncidentMock{
+		incidentMock := &mocks.IncidentMock{
 			HandleCreateIncidentActionAsyncFunc: func(ctx context.Context, requestID, userID, channelID string) {
 				failed <- true
 				// In real implementation, this would handle the error internally
 			},
 		}
 
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, incidentMock)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -219,15 +228,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle unknown action", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, nil)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeBlockActions,
@@ -259,15 +260,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle shortcut interaction", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, nil)
 
 		interaction := slackgo.InteractionCallback{
 			Type:       slackgo.InteractionTypeShortcut,
@@ -291,7 +284,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle view submission", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{
+		incidentMock := &mocks.IncidentMock{
 			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID, title, description, categoryID, severityID, userID string) (*model.Incident, error) {
 				return &model.Incident{
 					ID:    types.IncidentID(1),
@@ -299,14 +292,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 				}, nil
 			},
 		}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, incidentMock)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewSubmission,
@@ -357,15 +343,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle view submission with missing fields", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, nil)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewSubmission,
@@ -400,15 +378,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 	})
 
 	t.Run("Handle view closed", func(t *testing.T) {
-		mockUC := &mocks.IncidentMock{}
-		mockTaskUC := &mocks.TaskMock{}
-		mockStatusUC := &mocks.StatusUseCaseMock{}
-		mockSlack := &mocks.SlackClientMock{}
-		mockAuthUC := &mocks.AuthMock{}
-		mockSlackSvc := &mocks.SlackClientMock{}
-		slackSvc := slackservice.NewUIService(mockSlackSvc, &model.Config{})
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, slackSvc, nil)
-		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
+		handler, _ := setupInteractionHandler(ctx, nil)
 
 		interaction := slackgo.InteractionCallback{
 			Type: slackgo.InteractionTypeViewClosed,
