@@ -17,6 +17,8 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	slackservice "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/secmon-lab/lycaon/pkg/utils/async"
 	"github.com/slack-go/slack/slackevents"
@@ -33,8 +35,9 @@ type Handler struct {
 }
 
 // NewHandler creates a new Slack handler
-func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, repo interfaces.Repository, messageUC interfaces.SlackMessage, incidentUC interfaces.Incident, taskUC interfaces.Task, slackInteractionUC interfaces.SlackInteraction, slackClient interfaces.SlackClient) *Handler {
-	statusUC := usecase.NewStatusUseCase(repo, slackClient)
+func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, repo interfaces.Repository, messageUC interfaces.SlackMessage, incidentUC interfaces.Incident, taskUC interfaces.Task, slackInteractionUC interfaces.SlackInteraction, slackClient interfaces.SlackClient, modelConfig *model.Config) *Handler {
+	blockBuilder := slackservice.NewBlockBuilder()
+	statusUC := usecase.NewStatusUseCase(repo, slackClient, modelConfig, blockBuilder)
 	return &Handler{
 		slackConfig:        slackConfig,
 		messageUC:          messageUC,

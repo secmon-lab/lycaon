@@ -27,7 +27,7 @@ var fallbackHTML []byte
 // Config holds configuration for the HTTP server
 type Config struct {
 	slackConfig *config.SlackConfig
-	categories  *model.CategoriesConfig
+	modelConfig *model.Config
 	addr        string
 	frontendURL string
 }
@@ -36,12 +36,12 @@ type Config struct {
 func NewConfig(
 	addr string,
 	slackConfig *config.SlackConfig,
-	categories *model.CategoriesConfig,
+	modelConfig *model.Config,
 	frontendURL string,
 ) *Config {
 	return &Config{
 		slackConfig: slackConfig,
-		categories:  categories,
+		modelConfig: modelConfig,
 		addr:        addr,
 		frontendURL: frontendURL,
 	}
@@ -212,14 +212,14 @@ func handleFallbackHome(w http.ResponseWriter, r *http.Request) {
 
 // CreateGraphQLHandler creates a GraphQL handler with dependencies
 // This is a helper function that can be used externally to create the GraphQL handler
-func CreateGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, useCases *UseCases, categories *model.CategoriesConfig) http.Handler {
+func CreateGraphQLHandler(repo interfaces.Repository, slackClient interfaces.SlackClient, useCases *UseCases, modelConfig *model.Config) http.Handler {
 	gqlUseCases := &graphql.UseCases{
 		IncidentUC: useCases.incident,
 		TaskUC:     useCases.task,
 		AuthUC:     useCases.auth,
 	}
 
-	resolver := graphql.NewResolver(repo, slackClient, gqlUseCases, categories)
+	resolver := graphql.NewResolver(repo, slackClient, gqlUseCases, modelConfig)
 	srv := handler.NewDefaultServer(
 		graphql.NewExecutableSchema(graphql.Config{Resolvers: resolver}),
 	)

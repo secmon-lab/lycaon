@@ -3,13 +3,22 @@ import { useMutation } from '@apollo/client/react';
 import { UPDATE_INCIDENT } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
 import { Button } from '../ui/Button';
+import { getSeverityStyle } from '../../types/incident';
 import { X } from 'lucide-react';
+
+interface Severity {
+  id: string;
+  name: string;
+  level: number;
+}
 
 interface EditIncidentModalProps {
   incidentId: string;
   currentTitle: string;
   currentDescription: string;
   currentLead: string | null;
+  currentSeverityId: string;
+  severities: Severity[];
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -19,12 +28,15 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
   currentTitle,
   currentDescription,
   currentLead,
+  currentSeverityId,
+  severities,
   onClose,
   onUpdate
 }) => {
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
   const [lead, setLead] = useState(currentLead || '');
+  const [severityId, setSeverityId] = useState(currentSeverityId);
 
   const [updateIncident, { loading }] = useMutation(UPDATE_INCIDENT, {
     refetchQueries: [
@@ -42,7 +54,7 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
 
   const handleSave = async () => {
     // Only include fields that have changed
-    const input: { title?: string; description?: string; lead?: string | null } = {};
+    const input: { title?: string; description?: string; lead?: string | null; severityId?: string } = {};
     if (title !== currentTitle) {
       input.title = title;
     }
@@ -51,6 +63,9 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
     }
     if (lead !== currentLead) {
       input.lead = lead || null;
+    }
+    if (severityId !== currentSeverityId) {
+      input.severityId = severityId;
     }
 
     // Only update if there are changes
@@ -128,6 +143,31 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
             />
             <p className="mt-1 text-sm text-gray-500">
               Enter the Slack user ID of the incident lead
+            </p>
+          </div>
+
+          {/* Severity field */}
+          <div>
+            <label htmlFor="severity" className="block text-sm font-medium text-gray-700 mb-1">
+              Severity (optional)
+            </label>
+            <select
+              id="severity"
+              value={severityId}
+              onChange={(e) => setSeverityId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {severities.map((severity) => {
+                const style = getSeverityStyle(severity.level);
+                return (
+                  <option key={severity.id} value={severity.id}>
+                    {style.icon} {severity.name}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="mt-1 text-sm text-gray-500">
+              Select the severity level for this incident
             </p>
           </div>
         </div>

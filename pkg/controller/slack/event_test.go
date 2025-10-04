@@ -140,7 +140,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 					CategoryID:        "test-category",
 				}
 			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description, categoryID string) error {
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description, categoryID, severityID string) error {
 				return nil
 			},
 		}
@@ -273,7 +273,7 @@ func TestEventHandlerHandleEvent(t *testing.T) {
 					IsIncidentTrigger: false,
 				}
 			},
-			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description, categoryID string) error {
+			SendIncidentMessageFunc: func(ctx context.Context, channelID, messageTS, title, description, categoryID, severityID string) error {
 				sendIncidentCalled = true
 				return nil
 			},

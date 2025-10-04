@@ -14,6 +14,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/cli/config"
 	controller "github.com/secmon-lab/lycaon/pkg/controller/http"
 	slackCtrl "github.com/secmon-lab/lycaon/pkg/controller/slack"
+	slackservice "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/urfave/cli/v3"
 )
@@ -51,13 +52,13 @@ func cmdServe() *cli.Command {
 			// Get logger from root command metadata
 			logger := ctxlog.From(ctx)
 
-			// Load categories configuration
+			// Load unified configuration (categories + severities)
 			configPath := c.String("config")
 			if configPath == "" {
 				return goerr.New("configuration file path is required (use --config flag or LYCAON_CONFIG environment variable)")
 			}
 
-			categories, err := config.LoadCategoriesFromFile(configPath)
+			appConfig, err := config.LoadConfigFromFile(configPath)
 			if err != nil {
 				return goerr.Wrap(err, "failed to load configuration file")
 			}
@@ -65,7 +66,8 @@ func cmdServe() *cli.Command {
 			logger.Info("Starting lycaon server",
 				slog.String("addr", serverCfg.Addr),
 				slog.String("config", configPath),
-				slog.Int("categories", len(categories.Categories)),
+				slog.Int("categories", len(appConfig.Categories)),
+				slog.Int("severities", len(appConfig.Severities)),
 				slog.String("channel_prefix", slackCfg.ChannelPrefix),
 				slog.Any("slack", slackCfg),
 				slog.Any("firestore", firestoreCfg),
@@ -103,7 +105,7 @@ func cmdServe() *cli.Command {
 
 			// Create use cases
 			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
-			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient, categories)
+			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient, appConfig)
 			if err != nil {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
@@ -119,16 +121,17 @@ func cmdServe() *cli.Command {
 			}
 			incidentConfig := usecase.NewIncidentConfig(incidentOpts...)
 
-			incidentUC := usecase.NewIncident(repo, slackClient, categories, inviteUC, incidentConfig)
+			incidentUC := usecase.NewIncident(repo, slackClient, appConfig, inviteUC, incidentConfig)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
-			statusUC := usecase.NewStatusUseCase(repo, slackClient)
-			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, slackClient)
+			blockBuilder := slackservice.NewBlockBuilder()
+			statusUC := usecase.NewStatusUseCase(repo, slackClient, appConfig, blockBuilder)
+			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, slackClient, appConfig.GetSeveritiesConfig())
 
 			// Create configuration
 			config := controller.NewConfig(
 				serverCfg.Addr,
 				&slackCfg,
-				categories,
+				appConfig,
 				serverCfg.FrontendURL,
 			)
 
@@ -142,13 +145,13 @@ func cmdServe() *cli.Command {
 			)
 
 			// Create handlers
-			slackHandler := slackCtrl.NewHandler(ctx, &slackCfg, repo, messageUC, incidentUC, taskUC, slackInteractionUC, slackClient)
+			slackHandler := slackCtrl.NewHandler(ctx, &slackCfg, repo, messageUC, incidentUC, taskUC, slackInteractionUC, slackClient, appConfig)
 			authHandler := controller.NewAuthHandler(ctx, &slackCfg, authUC, serverCfg.FrontendURL)
 
 			// Create GraphQL handler
 			var graphqlHandler http.Handler
 			if repo != nil && incidentUC != nil && taskUC != nil {
-				graphqlHandler = controller.CreateGraphQLHandler(repo, slackClient, useCases, categories)
+				graphqlHandler = controller.CreateGraphQLHandler(repo, slackClient, useCases, appConfig)
 			}
 
 			// Create controllers

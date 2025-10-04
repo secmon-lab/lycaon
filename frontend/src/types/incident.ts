@@ -36,6 +36,9 @@ export interface Incident {
   description: string;
   categoryId: string;
   categoryName: string;
+  severityId: string;
+  severityName: string;
+  severityLevel: number;
   status: IncidentStatus;
   lead: string;
   leadUser?: User;
@@ -152,6 +155,50 @@ export const getStatusColor = (status: IncidentStatus | string | null | undefine
 export const getStatusIcon = (status: IncidentStatus | string | null | undefined) => {
   const config = getStatusConfig(status);
   return config.icon;
+};
+
+// Severity helper functions
+export const getSeverityStyle = (level: number) => {
+  if (level >= 80) {
+    return {
+      color: '#d32f2f', // Red
+      backgroundColor: '#ffebee',
+      icon: '🔴',
+      label: 'Critical/High'
+    };
+  } else if (level >= 50) {
+    return {
+      color: '#f57c00', // Orange
+      backgroundColor: '#fff3e0',
+      icon: '🟡',
+      label: 'Medium'
+    };
+  } else if (level >= 10) {
+    return {
+      color: '#1976d2', // Blue
+      backgroundColor: '#e3f2fd',
+      icon: '🔵',
+      label: 'Low'
+    };
+  } else if (level > 0) {
+    return {
+      color: '#0288d1', // Light blue
+      backgroundColor: '#e1f5fe',
+      icon: 'ℹ️',
+      label: 'Info'
+    };
+  } else {
+    return {
+      color: '#9e9e9e', // Grey
+      backgroundColor: '#f5f5f5',
+      icon: '⚪',
+      label: 'Ignorable'
+    };
+  }
+};
+
+export const getSeverityEmoji = (level: number) => {
+  return getSeverityStyle(level).icon;
 };
 
 // GraphQL Input Types

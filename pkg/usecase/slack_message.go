@@ -35,7 +35,7 @@ type SlackMessage struct {
 	botUserID      string // Bot's user ID for mention detection
 	messageHistory *slackSvc.MessageHistoryService
 	llmService     *llmSvc.LLMService
-	categories     *model.CategoriesConfig
+	modelConfig    *model.Config
 }
 
 // NewSlackMessage creates a new SlackMessage use case
@@ -45,7 +45,7 @@ func NewSlackMessage(
 	repo interfaces.Repository,
 	gollemClient gollem.LLMClient,
 	slackClient interfaces.SlackClient,
-	categories *model.CategoriesConfig,
+	modelConfig *model.Config,
 ) (*SlackMessage, error) {
 	// Validate required parameters
 	if repo == nil {
@@ -57,8 +57,8 @@ func NewSlackMessage(
 	if slackClient == nil {
 		return nil, goerr.New("Slack client is required")
 	}
-	if categories == nil {
-		return nil, goerr.New("categories configuration is required")
+	if modelConfig == nil {
+		return nil, goerr.New("model configuration is required")
 	}
 
 	s := &SlackMessage{
@@ -68,7 +68,7 @@ func NewSlackMessage(
 		blockBuilder:   slackSvc.NewBlockBuilder(),
 		messageHistory: slackSvc.NewMessageHistoryService(slackClient),
 		llmService:     llmSvc.NewLLMService(gollemClient),
-		categories:     categories,
+		modelConfig:    modelConfig,
 	}
 
 	// Get bot user ID from Slack API
@@ -302,13 +302,16 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 		return baseCommand
 	}
 
+	// Enrich messages with usernames for better LLM context
+	enrichedMessages := s.enrichMessagesWithUsernames(ctx, messages)
+
 	ctxlog.From(ctx).Debug("Analyzing messages with LLM",
-		"messageCount", len(messages),
+		"messageCount", len(enrichedMessages),
 		"hasAdditionalPrompt", additionalPrompt != "",
 		"hasChannelInfo", channelInfo != nil)
 
 	// Perform comprehensive incident analysis with additional context
-	summary, err := s.llmService.AnalyzeIncidentWithContext(ctx, messages, s.categories, additionalPrompt, channelInfo)
+	summary, err := s.llmService.AnalyzeIncidentWithContext(ctx, enrichedMessages, s.modelConfig.GetCategoriesConfig(), s.modelConfig.GetSeveritiesConfig(), additionalPrompt, channelInfo)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to analyze incident with LLM",
 			"error", err,
@@ -321,7 +324,8 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 	ctxlog.From(ctx).Info("Incident analysis completed with LLM",
 		"title", summary.Title,
 		"descriptionLength", len(summary.Description),
-		"categoryID", summary.CategoryID)
+		"categoryID", summary.CategoryID,
+		"severityID", summary.SeverityID)
 
 	// Return enhanced command with all information
 	return interfaces.IncidentCommand{
@@ -329,6 +333,7 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 		Title:             summary.Title,
 		Description:       summary.Description,
 		CategoryID:        summary.CategoryID,
+		SeverityID:        summary.SeverityID,
 	}
 }
 
@@ -358,12 +363,13 @@ func (s *SlackMessage) SendProcessingMessage(ctx context.Context, channelID, mes
 }
 
 // SendIncidentMessage sends an incident creation prompt message
-func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description, categoryID string) error {
+func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description, categoryID, severityID string) error {
 	ctxlog.From(ctx).Info("SendIncidentMessage called",
 		"channelID", channelID,
 		"messageTS", messageTS,
 		"title", title,
 		"categoryID", categoryID,
+		"severityID", severityID,
 	)
 
 	if s.slackClient == nil {
@@ -377,13 +383,13 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 	}
 
 	// Create an incident request and save it
-	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, description, categoryID, types.SlackUserID(requestedBy))
+	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, description, categoryID, severityID, types.SlackUserID(requestedBy))
 	if err := s.repo.SaveIncidentRequest(ctx, request); err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}
 
-	// Build incident prompt blocks with the request ID
-	promptBlocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title)
+	// Build incident prompt blocks with the request ID and LLM-generated details
+	promptBlocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title, description, categoryID, severityID, s.modelConfig)
 
 	// Send incident prompt message
 	_, botMessageTS, err := s.slackClient.PostMessage(
@@ -416,6 +422,59 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 func (s *SlackMessage) sendContextMessage(ctx context.Context, channelID, messageTS, contextText string) string {
 	// Use the interface method directly
 	return s.slackClient.SendContextMessage(ctx, channelID, messageTS, contextText)
+}
+
+// enrichMessagesWithUsernames enriches Slack messages with usernames for better LLM context
+// This replaces User IDs with actual Slack usernames in the Username field
+func (s *SlackMessage) enrichMessagesWithUsernames(ctx context.Context, messages []slack.Message) []slack.Message {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	// Collect unique user IDs from messages
+	userIDs := make(map[string]bool)
+	for _, msg := range messages {
+		if msg.User != "" {
+			userIDs[msg.User] = true
+		}
+	}
+
+	// Fetch user information for all unique user IDs
+	userNames := make(map[string]string)
+	for userID := range userIDs {
+		user, err := s.slackClient.GetUserInfoContext(ctx, userID)
+		if err != nil {
+			ctxlog.From(ctx).Debug("Failed to get user info, using ID as fallback",
+				"userID", userID,
+				"error", err)
+			userNames[userID] = userID // Fallback to user ID
+			continue
+		}
+		// Use real name if available, otherwise display name, otherwise username
+		userName := user.RealName
+		if userName == "" {
+			userName = user.Profile.DisplayName
+		}
+		if userName == "" {
+			userName = user.Name
+		}
+		if userName == "" {
+			userName = userID // Ultimate fallback
+		}
+		userNames[userID] = userName
+	}
+
+	// Create enriched message copies with usernames
+	enrichedMessages := make([]slack.Message, len(messages))
+	for i, msg := range messages {
+		enrichedMsg := msg
+		if userName, ok := userNames[msg.User]; ok {
+			enrichedMsg.Username = userName
+		}
+		enrichedMessages[i] = enrichedMsg
+	}
+
+	return enrichedMessages
 }
 
 // eventToMessage converts a Slack event to our domain model

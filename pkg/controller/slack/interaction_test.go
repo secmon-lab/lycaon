@@ -24,7 +24,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		invalidPayload := []byte("invalid json")
@@ -55,7 +55,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -109,7 +109,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -163,7 +163,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -215,7 +215,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -253,7 +253,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -279,7 +279,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 
 	t.Run("Handle view submission", func(t *testing.T) {
 		mockUC := &mocks.IncidentMock{
-			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID, title, description, categoryID, userID string) (*model.Incident, error) {
+			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID, title, description, categoryID, severityID, userID string) (*model.Incident, error) {
 				return &model.Incident{
 					ID:    types.IncidentID(1),
 					Title: title,
@@ -290,7 +290,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -347,7 +347,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{
@@ -388,7 +388,7 @@ func TestInteractionHandlerHandleInteraction(t *testing.T) {
 		mockStatusUC := &mocks.StatusUseCaseMock{}
 		mockSlack := &mocks.SlackClientMock{}
 		mockAuthUC := &mocks.AuthMock{}
-		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack)
+		slackInteractionUC := usecase.NewSlackInteraction(mockUC, mockTaskUC, mockStatusUC, mockAuthUC, mockSlack, nil)
 		handler := slack.NewInteractionHandler(ctx, slackInteractionUC)
 
 		interaction := slackgo.InteractionCallback{

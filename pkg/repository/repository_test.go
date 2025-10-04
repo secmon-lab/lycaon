@@ -399,6 +399,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 			"Test Incident for Channel",
 			"Description",
 			"category-1",
+			types.SeverityID(""),
 			channelID,
 			types.ChannelName("test-channel"),
 			types.TeamID("T123456"),

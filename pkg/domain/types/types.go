@@ -160,6 +160,14 @@ func NewTaskID() TaskID {
 	return TaskID(uuid.New().String())
 }
 
+// SeverityID represents a severity identifier
+type SeverityID string
+
+// String returns the string representation
+func (id SeverityID) String() string {
+	return string(id)
+}
+
 // PaginationOptions represents pagination parameters for list operations
 type PaginationOptions struct {
 	// Limit is the maximum number of items to return

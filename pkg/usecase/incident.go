@@ -57,18 +57,18 @@ type Incident struct {
 	repo         interfaces.Repository
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackSvc.BlockBuilder
-	categories   *model.CategoriesConfig
+	modelConfig  *model.Config
 	invite       interfaces.Invite
 	config       *IncidentConfig
 }
 
 // NewIncident creates a new Incident instance with configuration
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, categories *model.CategoriesConfig, invite interfaces.Invite, config *IncidentConfig) *Incident {
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, modelConfig *model.Config, invite interfaces.Invite, config *IncidentConfig) *Incident {
 	return &Incident{
 		repo:         repo,
 		slackClient:  slackClient,
 		blockBuilder: slackSvc.NewBlockBuilder(),
-		categories:   categories,
+		modelConfig:  modelConfig,
 		invite:       invite,
 		config:       config,
 	}
@@ -76,6 +76,15 @@ func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient,
 
 // CreateIncident creates a new incident
 func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error) {
+	// Validate severity ID if severities config is available and severity ID is provided
+	if u.modelConfig != nil && req.SeverityID != "" {
+		severity := u.modelConfig.FindSeverityByID(req.SeverityID)
+		if severity == nil {
+			return nil, goerr.New("invalid severity ID",
+				goerr.V("severityID", req.SeverityID))
+		}
+	}
+
 	// Get next incident number
 	incidentNumber, err := u.repo.GetNextIncidentNumber(ctx)
 	if err != nil {
@@ -95,7 +104,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(u.config.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
+	incident, err := model.NewIncident(u.config.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.SeverityID(req.SeverityID), types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}
@@ -148,8 +157,17 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	}
 
 	// Post welcome message to the incident channel
-	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(int(incidentNumber), req.OriginChannelName, req.CreatedBy, incident.Description, req.CategoryID, u.categories)
-	_, _, err = u.slackClient.PostMessage(
+	leadName := string(incident.Lead)
+	if leadName == "" {
+		leadName = "Unassigned"
+	}
+	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(
+		incident,
+		req.OriginChannelName,
+		leadName,
+		u.modelConfig,
+	)
+	_, welcomeTS, err := u.slackClient.PostMessage(
 		ctx,
 		channel.ID,
 		slack.MsgOptionBlocks(welcomeBlocks...),
@@ -157,6 +175,9 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	if err != nil {
 		// Log error but don't fail - welcome message is nice to have but not critical
 		apperr.Handle(ctx, err)
+	} else {
+		// Save the welcome message timestamp for later updates
+		incident.WelcomeMessageTS = welcomeTS
 	}
 
 	// Save incident to repository
@@ -181,9 +202,9 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 
 	// Category-based invitation process (serial execution)
 	// Note: This function assumes it's already dispatched asynchronously in the Controller layer
-	if incident.CategoryID != "" && u.categories != nil && u.invite != nil {
+	if incident.CategoryID != "" && u.modelConfig != nil && u.invite != nil {
 		// Get invitation targets from category configuration
-		category := u.categories.FindCategoryByID(incident.CategoryID)
+		category := u.modelConfig.FindCategoryByID(incident.CategoryID)
 		if category == nil {
 			// No category is normal - log and continue
 			ctxlog.From(ctx).Info("Category not found",
@@ -228,64 +249,83 @@ func (u *Incident) GetIncidentByChannelID(ctx context.Context, channelID types.C
 	return incident, nil
 }
 
-// CreateIncidentFromInteraction handles the complete incident creation flow from a Slack interaction
-func (u *Incident) CreateIncidentFromInteraction(ctx context.Context, originChannelID, title, userID string) (*model.Incident, error) {
-	// Get channel info from Slack
-	channelInfo, err := u.slackClient.GetConversationInfo(ctx, originChannelID, false)
-	if err != nil {
-		// If we can't get channel info, use channel ID as name
-		apperr.Handle(ctx, err)
-		channelInfo = &slack.Channel{
-			GroupConversation: slack.GroupConversation{
-				Name: originChannelID,
-			},
-		}
-	}
-
-	// Create the incident (with empty description for backward compatibility)
-	incident, err := u.CreateIncident(ctx, &model.CreateIncidentRequest{
-		Title:             title,
-		Description:       "",
-		CategoryID:        "unknown",
-		OriginChannelID:   originChannelID,
-		OriginChannelName: channelInfo.Name,
-		CreatedBy:         userID,
-	})
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to create incident")
-	}
-
-	// Send success message to the original channel
-	successBlocks := u.blockBuilder.BuildIncidentCreatedBlocks(
-		incident.ChannelName.String(),
-		incident.ChannelID.String(),
-		incident.Title,
-		incident.CategoryID,
-		u.categories,
-	)
-	_, _, err = u.slackClient.PostMessage(
-		ctx,
-		originChannelID,
-		slack.MsgOptionBlocks(successBlocks...),
-	)
-	if err != nil {
-		// Log error but don't fail - message is nice to have but not critical
-		apperr.Handle(ctx, err)
-	}
-
-	return incident, nil
-}
-
 // HandleCreateIncidentAction handles the complete flow when a user clicks the create incident button
 func (u *Incident) HandleCreateIncidentAction(ctx context.Context, requestID, userID string) (*model.Incident, error) {
 	return u.handleCreateIncidentFromRequest(ctx, requestID, userID, nil)
 }
 
 // UpdateIncidentDetails updates incident title, description, and lead
-func (u *Incident) UpdateIncidentDetails(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID) (*model.Incident, error) {
+func (u *Incident) UpdateIncidentDetails(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID, severityID string, updatedBy types.SlackUserID) (*model.Incident, error) {
 	// Validate incident ID
 	if err := incidentID.Validate(); err != nil {
 		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+
+	// Validate severity ID if provided and severities config is available
+	if severityID != "" && u.modelConfig != nil {
+		severity := u.modelConfig.FindSeverityByID(severityID)
+		if severity == nil {
+			return nil, goerr.New("invalid severity ID", goerr.V("severityID", severityID))
+		}
+	}
+
+	// Get existing incident
+	incident, err := u.repo.GetIncident(ctx, incidentID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident")
+	}
+
+	// Track if any changes were made
+	hasChanges := false
+
+	// Update fields if they have changed
+	if title != incident.Title {
+		incident.Title = title
+		hasChanges = true
+	}
+	if description != incident.Description {
+		incident.Description = description
+		hasChanges = true
+	}
+	if lead != incident.Lead {
+		incident.Lead = lead
+		hasChanges = true
+	}
+	if severityID != "" && types.SeverityID(severityID) != incident.SeverityID {
+		incident.SeverityID = types.SeverityID(severityID)
+		hasChanges = true
+	}
+
+	// Only update if there are changes
+	if !hasChanges {
+		return incident, nil
+	}
+
+	// Save updated incident using PutIncident
+	if err := u.repo.PutIncident(ctx, incident); err != nil {
+		return nil, goerr.Wrap(err, "failed to update incident")
+	}
+
+	return incident, nil
+}
+
+// UpdateIncident updates incident with UpdateIncidentRequest
+func (u *Incident) UpdateIncident(ctx context.Context, incidentID types.IncidentID, req model.UpdateIncidentRequest) (*model.Incident, error) {
+	// Validate incident ID
+	if err := incidentID.Validate(); err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+
+	// Validate severity ID if provided
+	if req.SeverityID != nil && u.modelConfig != nil {
+		severityID := string(*req.SeverityID)
+		if severityID != "" {
+			severity := u.modelConfig.FindSeverityByID(severityID)
+			if severity == nil {
+				return nil, goerr.New("invalid severity ID",
+					goerr.V("severityID", severityID))
+			}
+		}
 	}
 
 	// Get existing incident
@@ -299,20 +339,30 @@ func (u *Incident) UpdateIncidentDetails(ctx context.Context, incidentID types.I
 	var changes []string
 
 	// Update fields if they have changed
-	if title != incident.Title {
-		incident.Title = title
+	if req.Title != nil && *req.Title != incident.Title {
+		incident.Title = *req.Title
 		hasChanges = true
 		changes = append(changes, "title")
 	}
-	if description != incident.Description {
-		incident.Description = description
+	if req.Description != nil && *req.Description != incident.Description {
+		incident.Description = *req.Description
 		hasChanges = true
 		changes = append(changes, "description")
 	}
-	if lead != incident.Lead {
-		incident.Lead = lead
+	if req.Lead != nil && *req.Lead != incident.Lead {
+		incident.Lead = *req.Lead
 		hasChanges = true
 		changes = append(changes, "lead")
+	}
+	if req.Status != nil && *req.Status != incident.Status {
+		incident.Status = *req.Status
+		hasChanges = true
+		changes = append(changes, "status")
+	}
+	if req.SeverityID != nil && *req.SeverityID != incident.SeverityID {
+		incident.SeverityID = *req.SeverityID
+		hasChanges = true
+		changes = append(changes, "severity")
 	}
 
 	// Only update if there are changes

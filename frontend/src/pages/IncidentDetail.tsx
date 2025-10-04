@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client/react';
 import { format } from 'date-fns';
-import { GET_INCIDENT } from '../graphql/queries';
+import { GET_INCIDENT, GET_SEVERITIES } from '../graphql/queries';
 import { IncidentStatus, toIncidentStatus } from '../types/incident';
 import StatusSection from '../components/IncidentDetail/StatusSection';
 import TaskList from '../components/IncidentDetail/TaskList';
 import { EditIncidentModal } from '../components/IncidentDetail/EditIncidentModal';
 import { Button } from '../components/ui/Button';
 import SlackChannelLink from '../components/common/SlackChannelLink';
+import SeverityBadge from '../components/common/SeverityBadge';
 import {
   User,
   Calendar,
   Edit,
   Tag,
+  AlertTriangle,
 } from 'lucide-react';
 
 const IncidentDetail: React.FC = () => {
@@ -25,6 +27,8 @@ const IncidentDetail: React.FC = () => {
     variables: { id },
     skip: !id,
   });
+
+  const { data: severitiesData } = useQuery<{ severities: Array<{ id: string; name: string; level: number }> }>(GET_SEVERITIES);
 
   if (loading) {
     return (
@@ -50,12 +54,7 @@ const IncidentDetail: React.FC = () => {
   const incident = data.incident;
 
   // Validate and convert status safely
-  const validStatus = toIncidentStatus(incident.status);
-  if (!validStatus) {
-    console.error('Invalid incident status:', incident.status);
-    // Default to triage if invalid
-    incident.status = IncidentStatus.TRIAGE;
-  }
+  const validStatus = toIncidentStatus(incident.status) || IncidentStatus.TRIAGE;
 
   return (
     <div className="max-w-7xl mx-auto p-4">
@@ -140,6 +139,17 @@ const IncidentDetail: React.FC = () => {
 
               <div>
                 <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Severity
+                </div>
+                <SeverityBadge
+                  severityLevel={incident.severityLevel}
+                  severityName={incident.severityName}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
                   <User className="h-3 w-3" />
                   Lead
                 </div>
@@ -199,7 +209,7 @@ const IncidentDetail: React.FC = () => {
           {/* Status Management Section */}
           <StatusSection
             incidentId={incident.id}
-            currentStatus={validStatus || IncidentStatus.TRIAGE}
+            currentStatus={validStatus}
             statusHistories={incident.statusHistories || []}
             className="mb-4"
           />
@@ -207,12 +217,14 @@ const IncidentDetail: React.FC = () => {
       </div>
 
       {/* Edit Incident Modal */}
-      {showEditModal && (
+      {showEditModal && severitiesData?.severities && (
         <EditIncidentModal
           incidentId={incident.id}
           currentTitle={incident.title}
           currentDescription={incident.description || ''}
           currentLead={incident.lead}
+          currentSeverityId={incident.severityId}
+          severities={severitiesData.severities}
           onClose={() => setShowEditModal(false)}
           onUpdate={() => {
             // Optionally, you can add a success toast here

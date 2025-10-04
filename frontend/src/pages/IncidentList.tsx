@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { IncidentStatus } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SlackChannelLink from '../components/common/SlackChannelLink';
+import SeverityBadge from '../components/common/SeverityBadge';
 import {
   AlertCircle,
   RefreshCw,
@@ -35,6 +36,9 @@ interface Incident {
   description: string;
   categoryId: string;
   categoryName?: string;
+  severityId: string;
+  severityName: string;
+  severityLevel: number;
   status: IncidentStatus;
   teamId?: string;
   createdBy: string;
@@ -223,6 +227,11 @@ const IncidentList: React.FC = () => {
                         #{incident.id}
                       </span>
                       <StatusBadge status={incident.status} size="sm" />
+                      <SeverityBadge
+                        severityLevel={incident.severityLevel}
+                        severityName={incident.severityName}
+                        size="sm"
+                      />
                     </div>
                   </div>
                   <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">

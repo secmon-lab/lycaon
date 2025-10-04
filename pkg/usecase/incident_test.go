@@ -15,32 +15,27 @@ import (
 )
 
 // getTestCategoriesForIncident returns categories for incident testing purposes
-func getTestCategoriesForIncident() *model.CategoriesConfig {
-	return &model.CategoriesConfig{
+
+// Helper function to create a test model.Config
+func testConfig() *model.Config {
+	return &model.Config{
 		Categories: []model.Category{
 			{
 				ID:           "security_incident",
 				Name:         "Security Incident",
-				Description:  "Security-related incidents including unauthorized access and malware infections",
+				Description:  "Security-related incidents",
 				InviteUsers:  []string{"@security-lead"},
 				InviteGroups: []string{"@security-team"},
 			},
 			{
-				ID:           "system_failure",
-				Name:         "System Failure",
-				Description:  "System or service failures and outages",
-				InviteUsers:  []string{"@sre-lead"},
-				InviteGroups: []string{"@sre-oncall"},
-			},
-			{
-				ID:          "performance_issue",
-				Name:        "Performance Issue",
-				Description: "System performance degradation or response time issues",
+				ID:          "system_failure",
+				Name:        "System Failure",
+				Description: "System or service failures and outages",
 			},
 			{
 				ID:          "unknown",
 				Name:        "Unknown",
-				Description: "Incidents that cannot be categorized",
+				Description: "Unknown incidents",
 			},
 		},
 	}
@@ -94,15 +89,15 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 		}
 
 		// Create use case with mock and default categories
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "database outage",
 			Description:       "",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "general",
 			CreatedBy:         "U-CREATOR",
@@ -167,15 +162,15 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create first incident
 		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "api error",
 			Description:       "",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C1",
 			OriginChannelName: "channel1",
 			CreatedBy:         "U1",
@@ -188,6 +183,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			Title:             "database down",
 			Description:       "",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C2",
 			OriginChannelName: "channel2",
 			CreatedBy:         "U2",
@@ -200,6 +196,7 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			Title:             "",
 			Description:       "",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C3",
 			OriginChannelName: "channel3",
 			CreatedBy:         "U3",
@@ -248,15 +245,15 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create an incident
 		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "test incident",
 			Description:       "",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C-TEST",
 			OriginChannelName: "test-channel",
 			CreatedBy:         "U-TEST",
@@ -312,9 +309,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 				return "channel", "timestamp", nil
 			},
 		}
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Try to get non-existent incident
 		incident, err := uc.GetIncident(ctx, 999)
@@ -336,15 +332,15 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 		}
 
 		mockSlack := &mocks.SlackClientMock{}
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(mockRepo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(mockRepo, mockSlack, testConfig(), nil, config)
 
 		// Try to create incident - should fail due to repository error
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "test",
 			Description:       "",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C1",
 			OriginChannelName: "channel1",
 			CreatedBy:         "U1",
@@ -422,33 +418,16 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 			},
 		}
 
-		// Create categories with invitations
-		categories := &model.CategoriesConfig{
-			Categories: []model.Category{
-				{
-					ID:           "security_incident",
-					Name:         "Security Incident",
-					Description:  "Security-related incidents",
-					InviteUsers:  []string{"@security-lead"},
-					InviteGroups: []string{"@security-team"},
-				},
-				{
-					ID:          "unknown",
-					Name:        "Unknown",
-					Description: "Unknown incidents",
-				},
-			},
-		}
-
 		// Create use case with mock invite
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), mockInvite, config)
 
 		// Create an incident with security_incident category
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "security breach",
 			Description:       "Potential security incident detected",
 			CategoryID:        "security_incident",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "general",
 			CreatedBy:         "U-CREATOR",
@@ -510,26 +489,16 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 			},
 		}
 
-		// Create categories without invitations for unknown
-		categories := &model.CategoriesConfig{
-			Categories: []model.Category{
-				{
-					ID:          "unknown",
-					Name:        "Unknown",
-					Description: "Unknown incidents",
-				},
-			},
-		}
-
 		// Create use case with mock invite
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, mockInvite, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), mockInvite, config)
 
 		// Create an incident with unknown category (no invitations)
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "unknown issue",
 			Description:       "Some unknown issue",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "general",
 			CreatedBy:         "U-CREATOR",
@@ -585,15 +554,15 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 		}
 
 		// Test with custom prefix "security"
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("security"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "data breach",
 			Description:       "Suspicious data access detected",
 			CategoryID:        "security_incident",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "security-alerts",
 			CreatedBy:         "U-SECURITY-ANALYST",
@@ -656,7 +625,6 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 					},
 				}
 
-				categories := getTestCategoriesForIncident()
 				var config *usecase.IncidentConfig
 				if tc.prefix == "" {
 					// Test default value by not specifying prefix
@@ -664,13 +632,14 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 				} else {
 					config = usecase.NewIncidentConfig(usecase.WithChannelPrefix(tc.prefix))
 				}
-				uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+				uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 				// Create an incident
 				incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 					Title:             tc.title,
 					Description:       "Test description",
 					CategoryID:        "unknown",
+					SeverityID:        "",
 					OriginChannelID:   "C-ORIGIN",
 					OriginChannelName: "general",
 					CreatedBy:         "U-CREATOR",
@@ -723,15 +692,15 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 			},
 		}
 
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "Test Incident",
 			Description:       "Test description",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "general",
 			CreatedBy:         "U-CREATOR",
@@ -783,15 +752,15 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 			},
 		}
 
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc")) // No frontend URL
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "Test Incident",
 			Description:       "Test description",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "general",
 			CreatedBy:         "U-CREATOR",
@@ -837,15 +806,15 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 			},
 		}
 
-		categories := getTestCategoriesForIncident()
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
-		uc := usecase.NewIncident(repo, mockSlack, categories, nil, config)
+		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
 
 		// Create an incident - should succeed even if bookmark fails
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
 			Title:             "Test Incident",
 			Description:       "Test description",
 			CategoryID:        "unknown",
+			SeverityID:        "",
 			OriginChannelID:   "C-ORIGIN",
 			OriginChannelName: "general",
 			CreatedBy:         "U-CREATOR",

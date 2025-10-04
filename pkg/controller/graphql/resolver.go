@@ -3,6 +3,7 @@ package graphql
 import (
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	slackservice "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 )
 
@@ -12,14 +13,14 @@ import (
 
 // Resolver serves as dependency injection point for the application
 type Resolver struct {
-	repo       interfaces.Repository
-	slackSvc   interfaces.SlackClient
-	incidentUC interfaces.Incident
-	taskUC     interfaces.Task
-	authUC     interfaces.Auth
-	statusUC   *usecase.StatusUseCase
-	categories *model.CategoriesConfig
-	userUC     *usecase.UserUseCase
+	repo        interfaces.Repository
+	slackSvc    interfaces.SlackClient
+	incidentUC  interfaces.Incident
+	taskUC      interfaces.Task
+	authUC      interfaces.Auth
+	statusUC    *usecase.StatusUseCase
+	modelConfig *model.Config
+	userUC      *usecase.UserUseCase
 }
 
 // UseCases contains all usecase interfaces
@@ -30,15 +31,15 @@ type UseCases struct {
 }
 
 // NewResolver creates a new resolver instance
-func NewResolver(repo interfaces.Repository, slackSvc interfaces.SlackClient, uc *UseCases, categories *model.CategoriesConfig) *Resolver {
+func NewResolver(repo interfaces.Repository, slackSvc interfaces.SlackClient, uc *UseCases, modelConfig *model.Config) *Resolver {
 	return &Resolver{
-		repo:       repo,
-		slackSvc:   slackSvc,
-		incidentUC: uc.IncidentUC,
-		taskUC:     uc.TaskUC,
-		authUC:     uc.AuthUC,
-		statusUC:   usecase.NewStatusUseCase(repo, slackSvc),
-		categories: categories,
-		userUC:     usecase.NewUserUseCase(repo, slackSvc),
+		repo:        repo,
+		slackSvc:    slackSvc,
+		incidentUC:  uc.IncidentUC,
+		taskUC:      uc.TaskUC,
+		authUC:      uc.AuthUC,
+		statusUC:    usecase.NewStatusUseCase(repo, slackSvc, modelConfig, slackservice.NewBlockBuilder()),
+		modelConfig: modelConfig,
+		userUC:      usecase.NewUserUseCase(repo, slackSvc),
 	}
 }

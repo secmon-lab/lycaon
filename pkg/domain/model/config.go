@@ -72,3 +72,63 @@ func (c *CategoriesConfig) FindCategoryByIDWithFallback(id string) *Category {
 		Description: "This category does not exist in current configuration",
 	}
 }
+
+// Config represents the unified configuration with categories and severities
+type Config struct {
+	Categories []Category `yaml:"categories"`
+	Severities []Severity `yaml:"severities,omitempty"`
+}
+
+// Validate validates the entire configuration
+func (c *Config) Validate() error {
+	// Validate categories
+	catConfig := &CategoriesConfig{Categories: c.Categories}
+	if err := catConfig.Validate(); err != nil {
+		return goerr.Wrap(err, "invalid categories")
+	}
+
+	// Validate severities if present (optional for backward compatibility)
+	if len(c.Severities) > 0 {
+		sevConfig := &SeveritiesConfig{Severities: c.Severities}
+		if err := sevConfig.Validate(); err != nil {
+			return goerr.Wrap(err, "invalid severities")
+		}
+	}
+
+	return nil
+}
+
+// GetCategoriesConfig returns CategoriesConfig
+func (c *Config) GetCategoriesConfig() *CategoriesConfig {
+	return &CategoriesConfig{Categories: c.Categories}
+}
+
+// GetSeveritiesConfig returns SeveritiesConfig
+func (c *Config) GetSeveritiesConfig() *SeveritiesConfig {
+	return &SeveritiesConfig{Severities: c.Severities}
+}
+
+// FindCategoryByID finds a category by its ID
+func (c *Config) FindCategoryByID(id string) *Category {
+	return c.GetCategoriesConfig().FindCategoryByID(id)
+}
+
+// FindCategoryByIDWithFallback finds a category or returns unknown category info
+func (c *Config) FindCategoryByIDWithFallback(id string) *Category {
+	return c.GetCategoriesConfig().FindCategoryByIDWithFallback(id)
+}
+
+// IsValidCategoryID checks if the given category ID exists
+func (c *Config) IsValidCategoryID(id string) bool {
+	return c.GetCategoriesConfig().IsValidCategoryID(id)
+}
+
+// FindSeverityByID finds a severity by its ID
+func (c *Config) FindSeverityByID(id string) *Severity {
+	return c.GetSeveritiesConfig().FindSeverityByID(id)
+}
+
+// FindSeverityByIDWithFallback finds a severity or returns unknown severity
+func (c *Config) FindSeverityByIDWithFallback(id string) *Severity {
+	return c.GetSeveritiesConfig().FindSeverityByIDWithFallback(id)
+}

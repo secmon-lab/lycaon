@@ -43,6 +43,7 @@ type UpdateIncidentInput struct {
 	Description *string               `json:"description,omitempty"`
 	Lead        *string               `json:"lead,omitempty"`
 	Status      *types.IncidentStatus `json:"status,omitempty"`
+	SeverityID  *string               `json:"severityId,omitempty"`
 }
 
 type UpdateTaskInput struct {

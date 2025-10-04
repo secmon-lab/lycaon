@@ -38,6 +38,9 @@ export const INCIDENT_FIELDS = gql`
     description
     categoryId
     categoryName
+    severityId
+    severityName
+    severityLevel
     status
     lead
     leadUser {
@@ -154,6 +157,18 @@ export const GET_CHANNEL_MEMBERS = gql`
   query GetChannelMembers($channelId: String!) {
     channelMembers(channelId: $channelId) {
       ...UserFields
+    }
+  }
+`;
+
+// Query to get all severities
+export const GET_SEVERITIES = gql`
+  query GetSeverities {
+    severities {
+      id
+      name
+      description
+      level
     }
   }
 `;
