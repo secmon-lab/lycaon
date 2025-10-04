@@ -10,24 +10,22 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
-	"github.com/slack-go/slack"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 )
 
 // StatusUseCase provides status management functionality
 type StatusUseCase struct {
-	repo         interfaces.Repository
-	slackClient  interfaces.SlackClient
-	config       *model.Config
-	blockBuilder interfaces.BlockBuilder
+	repo     interfaces.Repository
+	slackSvc *slackSvc.UIService
+	config   *model.Config
 }
 
 // NewStatusUseCase creates a new StatusUseCase instance
-func NewStatusUseCase(repo interfaces.Repository, slackClient interfaces.SlackClient, config *model.Config, blockBuilder interfaces.BlockBuilder) *StatusUseCase {
+func NewStatusUseCase(repo interfaces.Repository, slackSvc *slackSvc.UIService, config *model.Config) *StatusUseCase {
 	return &StatusUseCase{
-		repo:         repo,
-		slackClient:  slackClient,
-		config:       config,
-		blockBuilder: blockBuilder,
+		repo:     repo,
+		slackSvc: slackSvc,
+		config:   config,
 	}
 }
 
@@ -140,21 +138,8 @@ func (uc *StatusUseCase) PostStatusMessage(ctx context.Context, channelID types.
 		leadName = "Not assigned"
 	}
 
-	// Build status message blocks
-	blocks := uc.BuildStatusMessageBlocks(incident, leadName)
-
-	// Post message to Slack
-	_, _, err = uc.slackClient.PostMessage(ctx, string(channelID), slack.MsgOptionBlocks(blocks...))
-	if err != nil {
-		return goerr.Wrap(err, "failed to post status message to Slack")
-	}
-
-	return nil
-}
-
-// BuildStatusMessageBlocks creates Slack message blocks for status display
-func (uc *StatusUseCase) BuildStatusMessageBlocks(incident *model.Incident, leadName string) []slack.Block {
-	return uc.blockBuilder.BuildStatusMessageBlocks(incident, leadName, uc.config)
+	// Post status message using slack service
+	return uc.slackSvc.PostStatusMessage(ctx, channelID, incident, leadName)
 }
 
 // HandleEditStatusAction handles Slack edit status action by opening a status selection modal
@@ -172,105 +157,8 @@ func (uc *StatusUseCase) HandleEditStatusAction(ctx context.Context, incidentIDS
 		return goerr.Wrap(err, "failed to get incident")
 	}
 
-	// Build status selection modal
-	modalView := uc.buildStatusSelectionModal(incident, channelID, messageTS)
-
-	// Open modal
-	_, err = uc.slackClient.OpenView(ctx, triggerID, modalView)
-	if err != nil {
-		return goerr.Wrap(err, "failed to open status selection modal")
-	}
-
-	return nil
-}
-
-// buildStatusSelectionModal creates a modal for status selection
-func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident, channelID string, messageTS string) slack.ModalViewRequest {
-	// Create status options
-	statusOptions := []*slack.OptionBlockObject{}
-	statuses := []types.IncidentStatus{
-		types.IncidentStatusTriage,
-		types.IncidentStatusHandling,
-		types.IncidentStatusMonitoring,
-		types.IncidentStatusClosed,
-	}
-
-	for _, status := range statuses {
-		emoji := getStatusEmoji(status)
-		statusOptions = append(statusOptions, &slack.OptionBlockObject{
-			Text: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: emoji + " " + string(status),
-			},
-			Value: string(status),
-		})
-	}
-
-	blocks := []slack.Block{
-		&slack.SectionBlock{
-			Type: slack.MBTSection,
-			Text: &slack.TextBlockObject{
-				Type: slack.MarkdownType,
-				Text: "*Select new status for incident:*",
-			},
-		},
-		&slack.InputBlock{
-			Type:    slack.MBTInput,
-			BlockID: "status_block",
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Status",
-			},
-			Element: &slack.SelectBlockElement{
-				Type:     slack.OptTypeStatic,
-				ActionID: "status_select",
-				Placeholder: &slack.TextBlockObject{
-					Type: slack.PlainTextType,
-					Text: "Choose a status...",
-				},
-				Options: statusOptions,
-			},
-		},
-		&slack.InputBlock{
-			Type:     slack.MBTInput,
-			BlockID:  "note_block",
-			Optional: true,
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Note (optional)",
-			},
-			Element: &slack.PlainTextInputBlockElement{
-				Type:      slack.METPlainTextInput,
-				ActionID:  "note_input",
-				Multiline: true,
-				Placeholder: &slack.TextBlockObject{
-					Type: slack.PlainTextType,
-					Text: "Add a note about this status change...",
-				},
-			},
-		},
-	}
-
-	return slack.ModalViewRequest{
-		Type:       slack.VTModal,
-		CallbackID: "status_change_modal",
-		Title: &slack.TextBlockObject{
-			Type: slack.PlainTextType,
-			Text: "Change Status",
-		},
-		Submit: &slack.TextBlockObject{
-			Type: slack.PlainTextType,
-			Text: "Update",
-		},
-		Close: &slack.TextBlockObject{
-			Type: slack.PlainTextType,
-			Text: "Cancel",
-		},
-		Blocks: slack.Blocks{
-			BlockSet: blocks,
-		},
-		PrivateMetadata: uc.buildPrivateMetadata(incident.ID.String(), channelID, messageTS), // Store context for submission
-	}
+	// Open status change modal using slack service
+	return uc.slackSvc.OpenStatusChangeModal(ctx, triggerID, incident, channelID, messageTS)
 }
 
 // StatusChangePrivateMetadata represents context data stored in status change modal private_metadata
@@ -278,23 +166,6 @@ type StatusChangePrivateMetadata struct {
 	IncidentID       string `json:"incident_id"`
 	ChannelID        string `json:"channel_id"`
 	MessageTimestamp string `json:"message_timestamp"`
-}
-
-// buildPrivateMetadata creates base64-encoded JSON private metadata
-func (uc *StatusUseCase) buildPrivateMetadata(incidentID, channelID, messageTS string) string {
-	context := StatusChangePrivateMetadata{
-		IncidentID:       incidentID,
-		ChannelID:        channelID,
-		MessageTimestamp: messageTS,
-	}
-
-	jsonData, err := json.Marshal(context)
-	if err != nil {
-		// Should not happen with simple struct
-		return incidentID
-	}
-
-	return base64.StdEncoding.EncodeToString(jsonData)
 }
 
 // parseStatusChangePrivateMetadata parses base64-encoded JSON private metadata
@@ -315,22 +186,6 @@ func parseStatusChangePrivateMetadata(privateMetadata string) (*StatusChangePriv
 	}
 
 	return &context, nil
-}
-
-// getStatusEmoji returns emoji for status display in modal options
-func getStatusEmoji(status types.IncidentStatus) string {
-	switch status {
-	case types.IncidentStatusTriage:
-		return "🟡"
-	case types.IncidentStatusHandling:
-		return "🔴"
-	case types.IncidentStatusMonitoring:
-		return "🟠"
-	case types.IncidentStatusClosed:
-		return "🟢"
-	default:
-		return "⚪"
-	}
 }
 
 // UpdateOriginalStatusMessage updates the original status message with new incident status
@@ -354,19 +209,8 @@ func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channe
 		leadName = "Not assigned"
 	}
 
-	// Build updated status message blocks
-	blocks := uc.BuildStatusMessageBlocks(incident, leadName)
-
-	// Update the original message
-	_, _, _, err := uc.slackClient.UpdateMessage(ctx, string(channelID), messageTS, slack.MsgOptionBlocks(blocks...))
-	if err != nil {
-		return goerr.Wrap(err, "failed to update original status message",
-			goerr.V("channelID", channelID),
-			goerr.V("messageTS", messageTS),
-			goerr.V("incidentID", incident.ID))
-	}
-
-	return nil
+	// Update status message using slack service
+	return uc.slackSvc.UpdateStatusMessage(ctx, channelID, messageTS, incident, leadName)
 }
 
 // HandleStatusChangeModalSubmission handles status change modal submission processing

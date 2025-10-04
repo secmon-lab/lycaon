@@ -17,6 +17,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -191,7 +192,8 @@ func TestParseIncidentCommand_AlwaysUsesLLM(t *testing.T) {
 			}
 
 			// Create UseCase with mocks
-			slackMessage, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
+			slackService := slackSvc.NewUIService(mockSlack, testConfig())
+			slackMessage, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, slackService, testConfig())
 			gt.NoError(t, err)
 
 			// Create test message
@@ -237,7 +239,8 @@ func TestSlackMessageProcessMessage(t *testing.T) {
 	// Create mock clients
 	mockGollem, mockSlack := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 	gt.NoError(t, err).Required()
 
 	// Use random IDs as per CLAUDE.md
@@ -291,7 +294,8 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		// Create mock clients
 		_, mockSlack := createMockClients()
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -313,7 +317,8 @@ func TestSlackMessageGenerateResponse(t *testing.T) {
 		}
 		_, mockSlack := createMockClients()
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -349,7 +354,8 @@ func TestSlackMessageSaveAndRespond(t *testing.T) {
 	// Create mock slack client
 	_, mockSlack := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 	gt.NoError(t, err).Required()
 
 	t.Run("With ClientMsgID", func(t *testing.T) {
@@ -431,7 +437,8 @@ func TestSlackMessageParseIncidentCommand(t *testing.T) {
 	// Create mock LLM client
 	mockGollem, _ := createMockClients()
 
-	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 	gt.NoError(t, err).Required()
 
 	testCases := []struct {
@@ -816,7 +823,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		// Test parsing incident command without title (should trigger LLM enhancement)
@@ -898,7 +906,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		// Test with thread timestamp (should use thread messages)
@@ -972,7 +981,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -1045,7 +1055,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		message := &model.Message{
@@ -1121,7 +1132,8 @@ func TestSlackMessageLLMIntegration(t *testing.T) {
 			},
 		}
 
-		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, testConfig())
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc, err := usecase.NewSlackMessage(ctx, repo, mockGollem, mockSlack, slackService, testConfig())
 		gt.NoError(t, err).Required()
 
 		// With manual title - should trigger LLM with title as additional prompt

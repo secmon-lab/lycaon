@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -21,25 +20,25 @@ import (
 
 // SlackInteraction implements SlackInteraction interface
 type SlackInteraction struct {
-	incidentUC   interfaces.Incident
-	taskUC       interfaces.Task
-	statusUC     interfaces.StatusUseCase
-	authUC       interfaces.Auth
-	slackClient  interfaces.SlackClient
-	blockBuilder *slackblocks.BlockBuilder
-	severities   *model.SeveritiesConfig
+	incidentUC  interfaces.Incident
+	taskUC      interfaces.Task
+	statusUC    interfaces.StatusUseCase
+	authUC      interfaces.Auth
+	slackClient interfaces.SlackClient
+	slackSvc    *slackblocks.UIService
+	severities  *model.SeveritiesConfig
 }
 
 // NewSlackInteraction creates a new SlackInteraction instance
-func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, authUC interfaces.Auth, slackClient interfaces.SlackClient, severities *model.SeveritiesConfig) *SlackInteraction {
+func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, authUC interfaces.Auth, slackClient interfaces.SlackClient, slackService *slackblocks.UIService, severities *model.SeveritiesConfig) *SlackInteraction {
 	return &SlackInteraction{
-		incidentUC:   incidentUC,
-		taskUC:       taskUC,
-		statusUC:     statusUC,
-		authUC:       authUC,
-		slackClient:  slackClient,
-		blockBuilder: slackblocks.NewBlockBuilder(),
-		severities:   severities,
+		incidentUC:  incidentUC,
+		taskUC:      taskUC,
+		statusUC:    statusUC,
+		authUC:      authUC,
+		slackClient: slackClient,
+		slackSvc:    slackService,
+		severities:  severities,
 	}
 }
 
@@ -447,15 +446,13 @@ func (s *SlackInteraction) handleTaskComplete(ctx context.Context, interaction *
 		return goerr.Wrap(err, "failed to complete task")
 	}
 
-	// Update the message with completed task
-	blocks := slackblocks.BuildTaskMessage(task, "")
-
-	// Update the original message
-	_, _, _, err = s.slackClient.UpdateMessage(
+	// Update the message with completed task using slack service
+	err = s.slackSvc.UpdateTaskMessage(
 		ctx,
-		interaction.Channel.ID,
+		types.ChannelID(interaction.Channel.ID),
 		interaction.Message.Timestamp,
-		slack.MsgOptionBlocks(blocks...),
+		task,
+		"",
 	)
 	if err != nil {
 		logger.Error("Failed to update task message", "error", err, "taskID", taskID)
@@ -484,16 +481,8 @@ func (s *SlackInteraction) handleTaskUncomplete(ctx context.Context, interaction
 		return goerr.Wrap(err, "failed to uncomplete task")
 	}
 
-	// Update the message with uncompleted task
-	blocks := slackblocks.BuildTaskMessage(task, "")
-
-	// Update the original message
-	_, _, _, err = s.slackClient.UpdateMessage(
-		ctx,
-		interaction.Channel.ID,
-		interaction.Message.Timestamp,
-		slack.MsgOptionBlocks(blocks...),
-	)
+	// Update the message with uncompleted task using slack service
+	err = s.slackSvc.UpdateTaskMessage(ctx, types.ChannelID(interaction.Channel.ID), interaction.Message.Timestamp, task, "")
 	if err != nil {
 		logger.Error("Failed to update task message", "error", err, "taskID", taskID)
 		return goerr.Wrap(err, "failed to update task message")
@@ -575,16 +564,8 @@ func (s *SlackInteraction) handleTaskStatusChange(ctx context.Context, interacti
 		return goerr.Wrap(err, "failed to update task status")
 	}
 
-	// Update the message with new task status
-	blocks := slackblocks.BuildTaskMessage(task, "")
-
-	// Update the original message
-	_, _, _, err = s.slackClient.UpdateMessage(
-		ctx,
-		interaction.Channel.ID,
-		interaction.Message.Timestamp,
-		slack.MsgOptionBlocks(blocks...),
-	)
+	// Update the message with new task status using slack service
+	err = s.slackSvc.UpdateTaskMessage(ctx, types.ChannelID(interaction.Channel.ID), interaction.Message.Timestamp, task, "")
 	if err != nil {
 		logger.Error("Failed to update task message", "error", err, "taskID", taskID)
 		return goerr.Wrap(err, "failed to update task message")
@@ -687,14 +668,7 @@ func (s *SlackInteraction) handleTaskEditSubmission(ctx context.Context, interac
 			"channelID", channelID,
 			"messageTS", updatedTask.MessageTS)
 
-		blocks := slackblocks.BuildTaskMessage(updatedTask, "")
-
-		_, _, _, err = s.slackClient.UpdateMessage(
-			ctx,
-			string(channelID),
-			updatedTask.MessageTS,
-			slack.MsgOptionBlocks(blocks...),
-		)
+		err = s.slackSvc.UpdateTaskMessage(ctx, channelID, updatedTask.MessageTS, updatedTask, "")
 		if err != nil {
 			logger.Warn("Failed to update task message after edit",
 				"error", err,
@@ -786,11 +760,8 @@ func (s *SlackInteraction) handleEditIncidentDetailsAction(ctx context.Context, 
 		return goerr.Wrap(err, "failed to get incident for editing")
 	}
 
-	// Build edit incident details modal with message context
-	modal := s.buildEditIncidentDetailsModal(incident, interaction.Channel.ID, interaction.Message.Timestamp)
-
-	// Open the modal
-	_, err = s.slackClient.OpenView(ctx, interaction.TriggerID, modal)
+	// Open edit incident details modal using slack service
+	err = s.slackSvc.OpenIncidentDetailsEditModal(ctx, interaction.TriggerID, incident, interaction.Channel.ID, interaction.Message.Timestamp)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to open edit incident details modal",
 			"error", err,
@@ -863,153 +834,6 @@ type EditIncidentDetailsPrivateMetadata struct {
 	IncidentID       string `json:"incident_id"`
 	ChannelID        string `json:"channel_id"`
 	MessageTimestamp string `json:"message_timestamp"`
-}
-
-// buildEditIncidentDetailsModal creates a modal for editing incident details
-func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Incident, channelID, messageTS string) slack.ModalViewRequest {
-	blocks := []slack.Block{
-		&slack.InputBlock{
-			Type:    slack.MBTInput,
-			BlockID: "title_block",
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Title",
-			},
-			Element: &slack.PlainTextInputBlockElement{
-				Type:         slack.METPlainTextInput,
-				ActionID:     "title_input",
-				InitialValue: incident.Title,
-				Placeholder: &slack.TextBlockObject{
-					Type: slack.PlainTextType,
-					Text: "Enter incident title",
-				},
-			},
-		},
-		&slack.InputBlock{
-			Type:    slack.MBTInput,
-			BlockID: "description_block",
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Description",
-			},
-			Element: &slack.PlainTextInputBlockElement{
-				Type:         slack.METPlainTextInput,
-				ActionID:     "description_input",
-				Multiline:    true,
-				InitialValue: incident.Description,
-				Placeholder: &slack.TextBlockObject{
-					Type: slack.PlainTextType,
-					Text: "Enter incident description",
-				},
-			},
-			Optional: true,
-		},
-		&slack.InputBlock{
-			Type:    slack.MBTInput,
-			BlockID: "lead_block",
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Lead",
-			},
-			Element: &slack.SelectBlockElement{
-				Type:        slack.OptTypeUser,
-				ActionID:    "lead_select",
-				InitialUser: string(incident.Lead),
-				Placeholder: &slack.TextBlockObject{
-					Type: slack.PlainTextType,
-					Text: "Select incident lead",
-				},
-			},
-			Optional: true,
-		},
-	}
-
-	// Add severity selection block if severities are configured
-	if s.severities != nil && len(s.severities.Severities) > 0 {
-		var severityOptions []*slack.OptionBlockObject
-		var initialOption *slack.OptionBlockObject
-
-		for _, severity := range s.severities.Severities {
-			// Truncate description to avoid Slack limits (max 75 chars for option description)
-			description := severity.Description
-			if len(description) > 75 {
-				description = description[:72] + "..."
-			}
-
-			emoji := slackblocks.GetSeverityEmoji(severity.Level)
-			option := slack.NewOptionBlockObject(
-				severity.ID,
-				slack.NewTextBlockObject(slack.PlainTextType, fmt.Sprintf("%s %s", emoji, severity.Name), false, false),
-				slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
-			)
-			severityOptions = append(severityOptions, option)
-
-			// Set initial option if it matches incident severity
-			if severity.ID == incident.SeverityID.String() {
-				initialOption = option
-			}
-		}
-
-		severityBlock := &slack.InputBlock{
-			Type:    slack.MBTInput,
-			BlockID: slackblocks.BlockIDSeverityInput,
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Severity",
-			},
-			Element: slack.NewOptionsSelectBlockElement(
-				"static_select",
-				slack.NewTextBlockObject(
-					slack.PlainTextType,
-					"Select incident severity",
-					false,
-					false,
-				),
-				slackblocks.ActionIDSeveritySelect,
-				severityOptions...,
-			),
-			Optional: true,
-		}
-
-		// Set initial option if we have a matching severity
-		if initialOption != nil {
-			if selectElement, ok := severityBlock.Element.(*slack.SelectBlockElement); ok {
-				selectElement.InitialOption = initialOption
-			}
-		}
-
-		blocks = append(blocks, severityBlock)
-	}
-
-	// Build private metadata with incident ID, channel ID, and message timestamp
-	metadata := EditIncidentDetailsPrivateMetadata{
-		IncidentID:       incident.ID.String(),
-		ChannelID:        channelID,
-		MessageTimestamp: messageTS,
-	}
-	metadataJSON, _ := json.Marshal(metadata)
-	privateMetadata := base64.StdEncoding.EncodeToString(metadataJSON)
-
-	return slack.ModalViewRequest{
-		Type:       slack.VTModal,
-		CallbackID: "edit_incident_details_modal",
-		Title: &slack.TextBlockObject{
-			Type: slack.PlainTextType,
-			Text: "Edit Incident Details",
-		},
-		Submit: &slack.TextBlockObject{
-			Type: slack.PlainTextType,
-			Text: "Save",
-		},
-		Close: &slack.TextBlockObject{
-			Type: slack.PlainTextType,
-			Text: "Cancel",
-		},
-		Blocks: slack.Blocks{
-			BlockSet: blocks,
-		},
-		PrivateMetadata: privateMetadata,
-	}
 }
 
 // handleEditIncidentDetailsModalSubmission handles edit incident details modal submission
@@ -1110,20 +934,8 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 			"channelID", metadata.ChannelID,
 			"messageTS", metadata.MessageTimestamp)
 
-		// Get lead name for display
-		leadName := string(updatedIncident.Lead)
-		if leadName != "" {
-			leadName = string(updatedIncident.Lead)
-		}
-
-		// Build and update status message
-		blocks := s.statusUC.(*StatusUseCase).BuildStatusMessageBlocks(updatedIncident, leadName)
-		_, _, _, err = s.slackClient.UpdateMessage(
-			ctx,
-			metadata.ChannelID,
-			metadata.MessageTimestamp,
-			slack.MsgOptionBlocks(blocks...),
-		)
+		// Update status message using statusUC
+		err = s.statusUC.UpdateOriginalStatusMessage(ctx, types.ChannelID(metadata.ChannelID), metadata.MessageTimestamp, updatedIncident)
 		if err != nil {
 			ctxlog.From(ctx).Error("Failed to update original status message",
 				"error", err,

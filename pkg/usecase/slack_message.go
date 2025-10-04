@@ -31,7 +31,7 @@ type SlackMessage struct {
 	repo           interfaces.Repository
 	gollemClient   gollem.LLMClient
 	slackClient    interfaces.SlackClient
-	blockBuilder   *slackSvc.BlockBuilder
+	slackSvc       *slackSvc.UIService
 	botUserID      string // Bot's user ID for mention detection
 	messageHistory *slackSvc.MessageHistoryService
 	llmService     *llmSvc.LLMService
@@ -45,6 +45,7 @@ func NewSlackMessage(
 	repo interfaces.Repository,
 	gollemClient gollem.LLMClient,
 	slackClient interfaces.SlackClient,
+	slackService *slackSvc.UIService,
 	modelConfig *model.Config,
 ) (*SlackMessage, error) {
 	// Validate required parameters
@@ -57,6 +58,9 @@ func NewSlackMessage(
 	if slackClient == nil {
 		return nil, goerr.New("Slack client is required")
 	}
+	if slackService == nil {
+		return nil, goerr.New("Slack service is required")
+	}
 	if modelConfig == nil {
 		return nil, goerr.New("model configuration is required")
 	}
@@ -65,7 +69,7 @@ func NewSlackMessage(
 		repo:           repo,
 		gollemClient:   gollemClient,
 		slackClient:    slackClient,
-		blockBuilder:   slackSvc.NewBlockBuilder(),
+		slackSvc:       slackService,
 		messageHistory: slackSvc.NewMessageHistoryService(slackClient),
 		llmService:     llmSvc.NewLLMService(gollemClient),
 		modelConfig:    modelConfig,
@@ -388,15 +392,16 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 		return goerr.Wrap(err, "failed to save incident request")
 	}
 
-	// Build incident prompt blocks with the request ID and LLM-generated details
-	promptBlocks := s.blockBuilder.BuildIncidentPromptBlocks(request.ID.String(), title, description, categoryID, severityID, s.modelConfig)
-
-	// Send incident prompt message
-	_, botMessageTS, err := s.slackClient.PostMessage(
+	// Post incident prompt message using slack service
+	botMessageTS, err := s.slackSvc.PostIncidentPromptMessage(
 		ctx,
 		channelID,
-		slack.MsgOptionBlocks(promptBlocks...),
-		slack.MsgOptionTS(messageTS), // Reply in thread
+		messageTS,
+		request.ID.String(),
+		title,
+		description,
+		categoryID,
+		severityID,
 	)
 	if err != nil {
 		// Clean up the request if we failed to send the message
