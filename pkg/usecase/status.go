@@ -11,7 +11,6 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/slack-go/slack"
-	slackgo "github.com/slack-go/slack"
 )
 
 // StatusUseCase provides status management functionality
@@ -145,7 +144,7 @@ func (uc *StatusUseCase) PostStatusMessage(ctx context.Context, channelID types.
 	blocks := uc.BuildStatusMessageBlocks(incident, leadName)
 
 	// Post message to Slack
-	_, _, err = uc.slackClient.PostMessage(ctx, string(channelID), slackgo.MsgOptionBlocks(blocks...))
+	_, _, err = uc.slackClient.PostMessage(ctx, string(channelID), slack.MsgOptionBlocks(blocks...))
 	if err != nil {
 		return goerr.Wrap(err, "failed to post status message to Slack")
 	}
@@ -154,7 +153,7 @@ func (uc *StatusUseCase) PostStatusMessage(ctx context.Context, channelID types.
 }
 
 // BuildStatusMessageBlocks creates Slack message blocks for status display
-func (uc *StatusUseCase) BuildStatusMessageBlocks(incident *model.Incident, leadName string) []slackgo.Block {
+func (uc *StatusUseCase) BuildStatusMessageBlocks(incident *model.Incident, leadName string) []slack.Block {
 	return uc.blockBuilder.BuildStatusMessageBlocks(incident, leadName, uc.config)
 }
 
@@ -359,7 +358,7 @@ func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channe
 	blocks := uc.BuildStatusMessageBlocks(incident, leadName)
 
 	// Update the original message
-	_, _, _, err := uc.slackClient.UpdateMessage(ctx, string(channelID), messageTS, slackgo.MsgOptionBlocks(blocks...))
+	_, _, _, err := uc.slackClient.UpdateMessage(ctx, string(channelID), messageTS, slack.MsgOptionBlocks(blocks...))
 	if err != nil {
 		return goerr.Wrap(err, "failed to update original status message",
 			goerr.V("channelID", channelID),

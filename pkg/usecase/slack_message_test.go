@@ -23,49 +23,6 @@ import (
 )
 
 // getTestCategories returns categories for testing purposes
-func getTestCategories() *model.CategoriesConfig {
-	return &model.CategoriesConfig{
-		Categories: []model.Category{
-			{
-				ID:           "security_incident",
-				Name:         "Security Incident",
-				Description:  "Security-related incidents including unauthorized access and malware infections",
-				InviteUsers:  []string{"@security-lead"},
-				InviteGroups: []string{"@security-team"},
-			},
-			{
-				ID:           "system_failure",
-				Name:         "System Failure",
-				Description:  "System or service failures and outages",
-				InviteUsers:  []string{"@sre-lead"},
-				InviteGroups: []string{"@sre-oncall"},
-			},
-			{
-				ID:          "performance_issue",
-				Name:        "Performance Issue",
-				Description: "System performance degradation or response time issues",
-			},
-			{
-				ID:          "unknown",
-				Name:        "Unknown",
-				Description: "Incidents that cannot be categorized",
-			},
-		},
-	}
-}
-
-// getTestSeverities returns severities for testing purposes
-func getTestSeverities() *model.SeveritiesConfig {
-	return &model.SeveritiesConfig{
-		Severities: []model.Severity{
-			{ID: "critical", Name: "Critical", Description: "Critical incidents requiring immediate attention", Level: 90},
-			{ID: "high", Name: "High", Description: "High priority incidents", Level: 70},
-			{ID: "medium", Name: "Medium", Description: "Medium priority incidents", Level: 50},
-			{ID: "low", Name: "Low", Description: "Low priority incidents", Level: 30},
-			{ID: "info", Name: "Info", Description: "Informational incidents", Level: 10},
-		},
-	}
-}
 
 // Helper function to create default mock clients for testing
 func createMockClients() (gollem.LLMClient, *mocks.SlackClientMock) {
