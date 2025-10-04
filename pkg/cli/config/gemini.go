@@ -40,7 +40,7 @@ func (g *Gemini) Flags() []cli.Flag {
 			Name:        "gemini-model",
 			Usage:       "Gemini model name",
 			Category:    "Gemini",
-			Value:       "gemini-1.5-flash",
+			Value:       "gemini-2.5-flash",
 			Sources:     cli.EnvVars("LYCAON_GEMINI_MODEL"),
 			Destination: &g.Model,
 		},

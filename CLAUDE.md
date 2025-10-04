@@ -77,7 +77,7 @@ LYCAON_FIRESTORE_DATABASE=xxx
 
 # Gemini (uses Google Default Application Credential)
 LYCAON_GEMINI_PROJECT_ID=xxx       # GCP Project ID
-LYCAON_GEMINI_MODEL=gemini-1.5-flash
+LYCAON_GEMINI_MODEL=gemini-2.5-flash
 
 # Logging
 LYCAON_LOG_LEVEL=info
@@ -324,6 +324,41 @@ When making changes, before finishing the task, always:
 - Run `golangci-lint run ./...` to check lint error
 - Run `gosec -exclude-generated -quiet ./...` to check security issue
 - Run tests to ensure no impact on other code
+
+### Type Safety
+
+**CRITICAL**: Never use type-unsafe patterns like `map[string]interface{}` for function parameters or data structures.
+
+❌ **Prohibited**:
+```go
+func UpdateIncident(id ID, updates map[string]interface{}) error {
+    if val, ok := updates["severityID"]; ok {
+        severityID := val.(string)  // Type assertion is unsafe
+        // ...
+    }
+}
+```
+
+✅ **Required**: Use properly typed request structures:
+```go
+type UpdateIncidentRequest struct {
+    Title       *string
+    Description *string
+    SeverityID  *types.SeverityID
+}
+
+func UpdateIncident(id ID, req UpdateIncidentRequest) error {
+    if req.SeverityID != nil {
+        // Type-safe access
+    }
+}
+```
+
+**Rules**:
+- All function parameters must be strongly typed
+- Use pointer fields (`*string`, `*int`) for optional parameters in request structs
+- Define dedicated request/response structures instead of using generic maps
+- Type assertions must be avoided except in very specific cases with proper error handling
 
 ### Language
 

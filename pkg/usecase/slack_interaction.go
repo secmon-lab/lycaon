@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -25,10 +27,11 @@ type SlackInteraction struct {
 	authUC       interfaces.Auth
 	slackClient  interfaces.SlackClient
 	blockBuilder *slackblocks.BlockBuilder
+	severities   *model.SeveritiesConfig
 }
 
 // NewSlackInteraction creates a new SlackInteraction instance
-func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, authUC interfaces.Auth, slackClient interfaces.SlackClient) *SlackInteraction {
+func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task, statusUC interfaces.StatusUseCase, authUC interfaces.Auth, slackClient interfaces.SlackClient, severities *model.SeveritiesConfig) *SlackInteraction {
 	return &SlackInteraction{
 		incidentUC:   incidentUC,
 		taskUC:       taskUC,
@@ -36,6 +39,7 @@ func NewSlackInteraction(incidentUC interfaces.Incident, taskUC interfaces.Task,
 		authUC:       authUC,
 		slackClient:  slackClient,
 		blockBuilder: slackblocks.NewBlockBuilder(),
+		severities:   severities,
 	}
 }
 
@@ -271,6 +275,16 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		}
 	}
 
+	// Extract severity from the modal (optional)
+	var severityValue string
+	if severityBlock, ok := interaction.View.State.Values[slackblocks.BlockIDSeverityInput]; ok {
+		if severitySelect, ok := severityBlock[slackblocks.ActionIDSeveritySelect]; ok {
+			if severitySelect.SelectedOption.Value != "" {
+				severityValue = severitySelect.SelectedOption.Value
+			}
+		}
+	}
+
 	// Validate required fields
 	if titleValue == "" {
 		ctxlog.From(ctx).Error("Title is required for incident creation")
@@ -286,6 +300,7 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		"title", titleValue,
 		"hasDescription", descriptionValue != "",
 		"category", categoryValue,
+		"severity", severityValue,
 	)
 
 	// Process incident creation asynchronously
@@ -298,6 +313,7 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 			titleValue,
 			descriptionValue,
 			categoryValue,
+			severityValue,
 			interaction.User.ID,
 		)
 		if err != nil {
@@ -740,6 +756,7 @@ func (s *SlackInteraction) handleEditIncidentDetailsAction(ctx context.Context, 
 		"channel", interaction.Channel.ID,
 		"incidentID", action.Value,
 		"triggerID", interaction.TriggerID,
+		"messageTS", interaction.Message.Timestamp,
 	)
 
 	incidentIDStr := action.Value
@@ -769,8 +786,8 @@ func (s *SlackInteraction) handleEditIncidentDetailsAction(ctx context.Context, 
 		return goerr.Wrap(err, "failed to get incident for editing")
 	}
 
-	// Build edit incident details modal
-	modal := s.buildEditIncidentDetailsModal(incident)
+	// Build edit incident details modal with message context
+	modal := s.buildEditIncidentDetailsModal(incident, interaction.Channel.ID, interaction.Message.Timestamp)
 
 	// Open the modal
 	_, err = s.slackClient.OpenView(ctx, interaction.TriggerID, modal)
@@ -841,8 +858,15 @@ func (s *SlackInteraction) handleStatusChangeModalSubmission(ctx context.Context
 	return nil
 }
 
+// EditIncidentDetailsPrivateMetadata holds context for edit incident details modal
+type EditIncidentDetailsPrivateMetadata struct {
+	IncidentID       string `json:"incident_id"`
+	ChannelID        string `json:"channel_id"`
+	MessageTimestamp string `json:"message_timestamp"`
+}
+
 // buildEditIncidentDetailsModal creates a modal for editing incident details
-func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Incident) slack.ModalViewRequest {
+func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Incident, channelID, messageTS string) slack.ModalViewRequest {
 	blocks := []slack.Block{
 		&slack.InputBlock{
 			Type:    slack.MBTInput,
@@ -900,6 +924,72 @@ func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Inciden
 		},
 	}
 
+	// Add severity selection block if severities are configured
+	if s.severities != nil && len(s.severities.Severities) > 0 {
+		var severityOptions []*slack.OptionBlockObject
+		var initialOption *slack.OptionBlockObject
+
+		for _, severity := range s.severities.Severities {
+			// Truncate description to avoid Slack limits (max 75 chars for option description)
+			description := severity.Description
+			if len(description) > 75 {
+				description = description[:72] + "..."
+			}
+
+			emoji := slackblocks.GetSeverityEmoji(severity.Level)
+			option := slack.NewOptionBlockObject(
+				severity.ID,
+				slack.NewTextBlockObject(slack.PlainTextType, fmt.Sprintf("%s %s", emoji, severity.Name), false, false),
+				slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
+			)
+			severityOptions = append(severityOptions, option)
+
+			// Set initial option if it matches incident severity
+			if severity.ID == incident.SeverityID.String() {
+				initialOption = option
+			}
+		}
+
+		severityBlock := &slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: slackblocks.BlockIDSeverityInput,
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Severity",
+			},
+			Element: slack.NewOptionsSelectBlockElement(
+				"static_select",
+				slack.NewTextBlockObject(
+					slack.PlainTextType,
+					"Select incident severity",
+					false,
+					false,
+				),
+				slackblocks.ActionIDSeveritySelect,
+				severityOptions...,
+			),
+			Optional: true,
+		}
+
+		// Set initial option if we have a matching severity
+		if initialOption != nil {
+			if selectElement, ok := severityBlock.Element.(*slack.SelectBlockElement); ok {
+				selectElement.InitialOption = initialOption
+			}
+		}
+
+		blocks = append(blocks, severityBlock)
+	}
+
+	// Build private metadata with incident ID, channel ID, and message timestamp
+	metadata := EditIncidentDetailsPrivateMetadata{
+		IncidentID:       incident.ID.String(),
+		ChannelID:        channelID,
+		MessageTimestamp: messageTS,
+	}
+	metadataJSON, _ := json.Marshal(metadata)
+	privateMetadata := base64.StdEncoding.EncodeToString(metadataJSON)
+
 	return slack.ModalViewRequest{
 		Type:       slack.VTModal,
 		CallbackID: "edit_incident_details_modal",
@@ -918,7 +1008,7 @@ func (s *SlackInteraction) buildEditIncidentDetailsModal(incident *model.Inciden
 		Blocks: slack.Blocks{
 			BlockSet: blocks,
 		},
-		PrivateMetadata: incident.ID.String(), // Store incident ID for submission
+		PrivateMetadata: privateMetadata,
 	}
 }
 
@@ -930,19 +1020,34 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 		"privateMetadata", interaction.View.PrivateMetadata,
 	)
 
-	// Extract incident ID from private metadata
-	incidentIDStr := interaction.View.PrivateMetadata
-	if incidentIDStr == "" {
-		ctxlog.From(ctx).Error("Empty incident ID in private metadata")
-		return goerr.New("empty incident ID in private metadata")
+	// Parse private metadata
+	privateMetadataStr := interaction.View.PrivateMetadata
+	if privateMetadataStr == "" {
+		ctxlog.From(ctx).Error("Empty private metadata")
+		return goerr.New("empty private metadata")
+	}
+
+	// Decode base64
+	metadataJSON, err := base64.StdEncoding.DecodeString(privateMetadataStr)
+	if err != nil {
+		ctxlog.From(ctx).Error("Failed to decode private metadata",
+			"error", err)
+		return goerr.Wrap(err, "failed to decode private metadata")
+	}
+
+	var metadata EditIncidentDetailsPrivateMetadata
+	if err := json.Unmarshal(metadataJSON, &metadata); err != nil {
+		ctxlog.From(ctx).Error("Failed to unmarshal private metadata",
+			"error", err)
+		return goerr.Wrap(err, "failed to unmarshal private metadata")
 	}
 
 	// Parse incident ID
-	incidentIDInt, err := strconv.Atoi(incidentIDStr)
+	incidentIDInt, err := strconv.Atoi(metadata.IncidentID)
 	if err != nil {
 		ctxlog.From(ctx).Error("Invalid incident ID format",
 			"error", err,
-			"incidentID", incidentIDStr,
+			"incidentID", metadata.IncidentID,
 		)
 		return goerr.Wrap(err, "invalid incident ID format")
 	}
@@ -951,6 +1056,7 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 	// Extract values from modal
 	var title, description string
 	var lead types.SlackUserID
+	var severityID string
 
 	// Extract title
 	if titleBlock, ok := interaction.View.State.Values["title_block"]; ok {
@@ -973,8 +1079,18 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 		}
 	}
 
+	// Extract severity (optional)
+	if severityBlock, ok := interaction.View.State.Values[slackblocks.BlockIDSeverityInput]; ok {
+		if severitySelect, ok := severityBlock[slackblocks.ActionIDSeveritySelect]; ok {
+			if severitySelect.SelectedOption.Value != "" {
+				severityID = severitySelect.SelectedOption.Value
+			}
+		}
+	}
+
 	// Call the incident usecase to update details
-	updatedIncident, err := s.incidentUC.UpdateIncidentDetails(ctx, incidentID, title, description, lead)
+	// UpdateIncidentDetails will also update the welcome message in the incident channel
+	updatedIncident, err := s.incidentUC.UpdateIncidentDetails(ctx, incidentID, title, description, lead, severityID, types.SlackUserID(interaction.User.ID))
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to update incident details",
 			"error", err,
@@ -982,8 +1098,43 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 			"title", title,
 			"description", description,
 			"lead", lead,
+			"user", interaction.User.ID,
 		)
 		return goerr.Wrap(err, "failed to update incident details")
+	}
+
+	// Update the original status message if we have the timestamp
+	if metadata.ChannelID != "" && metadata.MessageTimestamp != "" {
+		ctxlog.From(ctx).Info("Updating original status message",
+			"incidentID", incidentID,
+			"channelID", metadata.ChannelID,
+			"messageTS", metadata.MessageTimestamp)
+
+		// Get lead name for display
+		leadName := string(updatedIncident.Lead)
+		if leadName != "" {
+			leadName = string(updatedIncident.Lead)
+		}
+
+		// Build and update status message
+		blocks := s.statusUC.(*StatusUseCase).BuildStatusMessageBlocks(updatedIncident, leadName)
+		_, _, _, err = s.slackClient.UpdateMessage(
+			ctx,
+			metadata.ChannelID,
+			metadata.MessageTimestamp,
+			slack.MsgOptionBlocks(blocks...),
+		)
+		if err != nil {
+			ctxlog.From(ctx).Error("Failed to update original status message",
+				"error", err,
+				"incidentID", incidentID,
+				"channelID", metadata.ChannelID,
+				"messageTS", metadata.MessageTimestamp)
+			// Don't fail - message update is nice to have but not critical
+		} else {
+			ctxlog.From(ctx).Info("Original status message updated successfully",
+				"incidentID", incidentID)
+		}
 	}
 
 	ctxlog.From(ctx).Info("Incident details updated successfully",
@@ -991,6 +1142,8 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 		"title", updatedIncident.Title,
 		"description", updatedIncident.Description,
 		"lead", updatedIncident.Lead,
+		"severity", updatedIncident.SeverityID,
+		"user", interaction.User.ID,
 	)
 
 	return nil

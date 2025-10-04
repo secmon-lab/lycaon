@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"strconv"
-	"strings"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
@@ -17,15 +16,19 @@ import (
 
 // StatusUseCase provides status management functionality
 type StatusUseCase struct {
-	repo        interfaces.Repository
-	slackClient interfaces.SlackClient
+	repo         interfaces.Repository
+	slackClient  interfaces.SlackClient
+	config       *model.Config
+	blockBuilder interfaces.BlockBuilder
 }
 
 // NewStatusUseCase creates a new StatusUseCase instance
-func NewStatusUseCase(repo interfaces.Repository, slackClient interfaces.SlackClient) *StatusUseCase {
+func NewStatusUseCase(repo interfaces.Repository, slackClient interfaces.SlackClient, config *model.Config, blockBuilder interfaces.BlockBuilder) *StatusUseCase {
 	return &StatusUseCase{
-		repo:        repo,
-		slackClient: slackClient,
+		repo:         repo,
+		slackClient:  slackClient,
+		config:       config,
+		blockBuilder: blockBuilder,
 	}
 }
 
@@ -139,7 +142,7 @@ func (uc *StatusUseCase) PostStatusMessage(ctx context.Context, channelID types.
 	}
 
 	// Build status message blocks
-	blocks := uc.buildStatusMessageBlocks(incident, leadName)
+	blocks := uc.BuildStatusMessageBlocks(incident, leadName)
 
 	// Post message to Slack
 	_, _, err = uc.slackClient.PostMessage(ctx, string(channelID), slackgo.MsgOptionBlocks(blocks...))
@@ -150,72 +153,9 @@ func (uc *StatusUseCase) PostStatusMessage(ctx context.Context, channelID types.
 	return nil
 }
 
-// buildStatusMessageBlocks creates Slack message blocks for status display
-func (uc *StatusUseCase) buildStatusMessageBlocks(incident *model.Incident, leadName string) []slackgo.Block {
-	statusEmoji := uc.getStatusEmoji(incident.Status)
-
-	blocks := []slackgo.Block{
-		&slackgo.HeaderBlock{
-			Type: slackgo.MBTHeader,
-			Text: &slackgo.TextBlockObject{
-				Type: slackgo.PlainTextType,
-				Text: incident.Title,
-			},
-		},
-		&slackgo.DividerBlock{
-			Type: slackgo.MBTDivider,
-		},
-		&slackgo.SectionBlock{
-			Type: slackgo.MBTSection,
-			Fields: []*slackgo.TextBlockObject{
-				{
-					Type: slackgo.MarkdownType,
-					Text: "*Status:*\n" + statusEmoji + " " + string(incident.Status),
-				},
-				{
-					Type: slackgo.MarkdownType,
-					Text: "*Lead:*\n" + leadName,
-				},
-			},
-		},
-		&slackgo.SectionBlock{
-			Type: slackgo.MBTSection,
-			Text: &slackgo.TextBlockObject{
-				Type: slackgo.MarkdownType,
-				Text: "*Description:*\n" + strings.ReplaceAll(incident.Description, "\n", " "),
-			},
-		},
-		&slackgo.ActionBlock{
-			Type:    slackgo.MBTAction,
-			BlockID: "status_actions",
-			Elements: &slackgo.BlockElements{
-				ElementSet: []slackgo.BlockElement{
-					&slackgo.ButtonBlockElement{
-						Type:     slackgo.METButton,
-						ActionID: "edit_incident_status",
-						Text: &slackgo.TextBlockObject{
-							Type: slackgo.PlainTextType,
-							Text: "Status update",
-						},
-						Style: slackgo.StylePrimary,
-						Value: incident.ID.String(),
-					},
-					&slackgo.ButtonBlockElement{
-						Type:     slackgo.METButton,
-						ActionID: "edit_incident_details",
-						Text: &slackgo.TextBlockObject{
-							Type: slackgo.PlainTextType,
-							Text: "Edit incident",
-						},
-						Style: slackgo.StyleDefault,
-						Value: incident.ID.String(),
-					},
-				},
-			},
-		},
-	}
-
-	return blocks
+// BuildStatusMessageBlocks creates Slack message blocks for status display
+func (uc *StatusUseCase) BuildStatusMessageBlocks(incident *model.Incident, leadName string) []slackgo.Block {
+	return uc.blockBuilder.BuildStatusMessageBlocks(incident, leadName, uc.config)
 }
 
 // HandleEditStatusAction handles Slack edit status action by opening a status selection modal
@@ -257,7 +197,7 @@ func (uc *StatusUseCase) buildStatusSelectionModal(incident *model.Incident, cha
 	}
 
 	for _, status := range statuses {
-		emoji := uc.getStatusEmoji(status)
+		emoji := getStatusEmoji(status)
 		statusOptions = append(statusOptions, &slack.OptionBlockObject{
 			Text: &slack.TextBlockObject{
 				Type: slack.PlainTextType,
@@ -378,8 +318,8 @@ func parseStatusChangePrivateMetadata(privateMetadata string) (*StatusChangePriv
 	return &context, nil
 }
 
-// getStatusEmoji returns emoji for status display
-func (uc *StatusUseCase) getStatusEmoji(status types.IncidentStatus) string {
+// getStatusEmoji returns emoji for status display in modal options
+func getStatusEmoji(status types.IncidentStatus) string {
 	switch status {
 	case types.IncidentStatusTriage:
 		return "🟡"
@@ -416,7 +356,7 @@ func (uc *StatusUseCase) UpdateOriginalStatusMessage(ctx context.Context, channe
 	}
 
 	// Build updated status message blocks
-	blocks := uc.buildStatusMessageBlocks(incident, leadName)
+	blocks := uc.BuildStatusMessageBlocks(incident, leadName)
 
 	// Update the original message
 	_, _, _, err := uc.slackClient.UpdateMessage(ctx, string(channelID), messageTS, slackgo.MsgOptionBlocks(blocks...))

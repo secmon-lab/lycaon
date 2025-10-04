@@ -62,7 +62,7 @@ func TestLLMService_AnalyzeIncident_Success(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
 
 	// Verify results
 	gt.NoError(t, err)
@@ -107,7 +107,7 @@ func TestLLMService_AnalyzeIncident_InvalidJSON(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
 
 	// Verify error occurs with correct tag
 	gt.Error(t, err)
@@ -153,7 +153,7 @@ func TestLLMService_AnalyzeIncident_MissingTitle(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
 
 	// Verify error occurs with correct tag and field info
 	gt.Error(t, err)
@@ -203,7 +203,7 @@ func TestLLMService_AnalyzeIncident_InvalidCategory(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
 
 	// Verify that invalid category falls back to "unknown"
 	gt.NoError(t, err)
@@ -246,7 +246,7 @@ func TestLLMService_AnalyzeIncident_EmptyResponse(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories)
+	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
 
 	// Verify error occurs with correct tag
 	gt.Error(t, err)

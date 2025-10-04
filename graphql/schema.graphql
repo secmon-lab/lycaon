@@ -24,6 +24,9 @@ type Incident {
   description: String!
   categoryId: String!
   categoryName: String!
+  severityId: String!
+  severityName: String!
+  severityLevel: Int!
   status: IncidentStatus
   lead: String
   leadUser: User
@@ -71,6 +74,13 @@ enum TaskStatus {
   completed
 }
 
+type Severity {
+  id: String!
+  name: String!
+  description: String!
+  level: Int!
+}
+
 type IncidentConnection {
   edges: [IncidentEdge!]!
   pageInfo: PageInfo!
@@ -92,21 +102,24 @@ type PageInfo {
 type Query {
   # Get paginated list of incidents
   incidents(first: Int, after: String): IncidentConnection!
-  
+
   # Get a specific incident by ID
   incident(id: ID!): Incident
-  
+
   # Get status history for a specific incident
   incidentStatusHistory(incidentId: ID!): [StatusHistory!]!
-  
+
   # Get tasks for a specific incident
   tasks(incidentId: ID!): [Task!]!
-  
+
   # Get a specific task
   task(id: ID!): Task
 
   # Get channel members for incident channel
   channelMembers(channelId: String!): [User!]!
+
+  # Get all severities
+  severities: [Severity!]!
 }
 
 type Mutation {
@@ -131,6 +144,7 @@ input UpdateIncidentInput {
   description: String
   lead: String
   status: IncidentStatus
+  severityId: String
 }
 
 input CreateTaskInput {

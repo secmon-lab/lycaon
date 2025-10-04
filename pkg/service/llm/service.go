@@ -36,6 +36,7 @@ type IncidentSummary struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	CategoryID  string `json:"category_id"`
+	SeverityID  string `json:"severity_id"`
 }
 
 // ChannelInfo represents Slack channel information for LLM context
@@ -57,6 +58,7 @@ type TemplateMessage struct {
 // IncidentAnalysisTemplateData contains data for comprehensive incident analysis template
 type IncidentAnalysisTemplateData struct {
 	Categories       []model.Category
+	Severities       []model.Severity
 	Messages         []TemplateMessage
 	AdditionalPrompt string
 	ChannelInfo      *ChannelInfo
@@ -70,8 +72,8 @@ func NewLLMService(llmClient gollem.LLMClient) *LLMService {
 }
 
 // AnalyzeIncident performs comprehensive incident analysis in a single LLM call
-// Returns title, description, and category_id all at once
-func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig) (*IncidentSummary, error) {
+// Returns title, description, category_id, and severity_id all at once
+func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, severities *model.SeveritiesConfig) (*IncidentSummary, error) {
 	if len(messages) == 0 {
 		return nil, goerr.New("no messages provided for incident analysis")
 	}
@@ -81,13 +83,16 @@ func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Messa
 		Categories: categories.Categories,
 		Messages:   s.buildTemplateMessages(messages),
 	}
+	if severities != nil {
+		templateData.Severities = severities.Severities
+	}
 
-	return s.analyze(ctx, templateData, categories)
+	return s.analyze(ctx, templateData, categories, severities)
 }
 
 // AnalyzeIncidentWithContext performs comprehensive incident analysis with additional context
 // This method extends AnalyzeIncident to include additional prompt and channel information
-func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, additionalPrompt string, channelInfo *slack.Channel) (*IncidentSummary, error) {
+func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, severities *model.SeveritiesConfig, additionalPrompt string, channelInfo *slack.Channel) (*IncidentSummary, error) {
 	if len(messages) == 0 {
 		return nil, goerr.New("no messages provided for incident analysis")
 	}
@@ -99,13 +104,16 @@ func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []
 		AdditionalPrompt: additionalPrompt,
 		ChannelInfo:      s.buildChannelInfo(channelInfo),
 	}
+	if severities != nil {
+		templateData.Severities = severities.Severities
+	}
 
-	return s.analyze(ctx, templateData, categories)
+	return s.analyze(ctx, templateData, categories, severities)
 }
 
 // analyze performs the common LLM analysis logic
 // This is the shared implementation used by both AnalyzeIncident and AnalyzeIncidentWithContext
-func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisTemplateData, categories *model.CategoriesConfig) (*IncidentSummary, error) {
+func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisTemplateData, categories *model.CategoriesConfig, severities *model.SeveritiesConfig) (*IncidentSummary, error) {
 	// Generate prompt using the unified template
 	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
 	if err != nil {
@@ -156,6 +164,13 @@ func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisT
 		summary.CategoryID = "unknown"
 	}
 
+	// Validate severity ID
+	if summary.SeverityID != "" && severities != nil {
+		if !severities.IsValidSeverityID(summary.SeverityID) {
+			summary.SeverityID = "" // Clear invalid severity ID
+		}
+	}
+
 	return &summary, nil
 }
 
@@ -179,9 +194,15 @@ func (s *LLMService) buildTemplateMessages(messages []slack.Message) []TemplateM
 			}
 		}
 
+		// Use Username if available, otherwise fall back to User ID
+		user := msg.Username
+		if user == "" {
+			user = msg.User
+		}
+
 		templateMessages = append(templateMessages, TemplateMessage{
 			Timestamp: timestamp,
-			User:      msg.User,
+			User:      user,
 			Text:      msg.Text,
 		})
 	}

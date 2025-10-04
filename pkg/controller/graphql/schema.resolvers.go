@@ -35,13 +35,38 @@ func (r *incidentResolver) ChannelName(ctx context.Context, obj *model.Incident)
 
 // CategoryName is the resolver for the categoryName field.
 func (r *incidentResolver) CategoryName(ctx context.Context, obj *model.Incident) (string, error) {
-	if r.categories != nil {
-		if category := r.categories.FindCategoryByID(obj.CategoryID); category != nil {
+	if r.modelConfig.GetCategoriesConfig() != nil {
+		if category := r.modelConfig.GetCategoriesConfig().FindCategoryByID(obj.CategoryID); category != nil {
 			return category.Name, nil
 		}
 	}
 	// Return the category ID if no name is found
 	return obj.CategoryID, nil
+}
+
+// SeverityID is the resolver for the severityId field.
+func (r *incidentResolver) SeverityID(ctx context.Context, obj *model.Incident) (string, error) {
+	return string(obj.SeverityID), nil
+}
+
+// SeverityName is the resolver for the severityName field.
+func (r *incidentResolver) SeverityName(ctx context.Context, obj *model.Incident) (string, error) {
+	if r.modelConfig.GetSeveritiesConfig() != nil {
+		severity := r.modelConfig.GetSeveritiesConfig().FindSeverityByIDWithFallback(string(obj.SeverityID))
+		return severity.Name, nil
+	}
+	// Return the severity ID if no config is available
+	return string(obj.SeverityID), nil
+}
+
+// SeverityLevel is the resolver for the severityLevel field.
+func (r *incidentResolver) SeverityLevel(ctx context.Context, obj *model.Incident) (int, error) {
+	if r.modelConfig.GetSeveritiesConfig() != nil {
+		severity := r.modelConfig.GetSeveritiesConfig().FindSeverityByIDWithFallback(string(obj.SeverityID))
+		return severity.Level, nil
+	}
+	// Return -1 (unknown) if no config is available
+	return -1, nil
 }
 
 // Status is the resolver for the status field.
@@ -185,6 +210,9 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 			if input.Lead != nil {
 				incident.Lead = types.SlackUserID(*input.Lead)
 			}
+			if input.SeverityID != nil {
+				incident.SeverityID = types.SeverityID(*input.SeverityID)
+			}
 			updatedIncident = incident
 			return nil
 		})
@@ -209,6 +237,9 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 	}
 	if input.Lead != nil {
 		incident.Lead = types.SlackUserID(*input.Lead)
+	}
+	if input.SeverityID != nil {
+		incident.SeverityID = types.SeverityID(*input.SeverityID)
 	}
 
 	// Save updated incident
@@ -529,6 +560,19 @@ func (r *queryResolver) Task(ctx context.Context, id string) (*model.Task, error
 // ChannelMembers is the resolver for the channelMembers field.
 func (r *queryResolver) ChannelMembers(ctx context.Context, channelID string) ([]*model.User, error) {
 	return r.authUC.GetChannelMembers(ctx, channelID)
+}
+
+// Severities is the resolver for the severities field.
+func (r *queryResolver) Severities(ctx context.Context) ([]*model.Severity, error) {
+	if r.modelConfig.GetSeveritiesConfig() == nil {
+		return []*model.Severity{}, nil
+	}
+
+	result := make([]*model.Severity, len(r.modelConfig.GetSeveritiesConfig().Severities))
+	for i := range r.modelConfig.GetSeveritiesConfig().Severities {
+		result[i] = &r.modelConfig.GetSeveritiesConfig().Severities[i]
+	}
+	return result, nil
 }
 
 // ID is the resolver for the id field.

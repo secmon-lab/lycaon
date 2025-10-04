@@ -29,6 +29,12 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
+func testConfig() *model.Config {
+	return &model.Config{
+		Categories: getTestCategoriesForController().Categories,
+	}
+}
+
 // getTestCategoriesForController returns categories for controller testing purposes
 func getTestCategoriesForController() *model.CategoriesConfig {
 	return &model.CategoriesConfig{
@@ -87,17 +93,17 @@ func TestSlackHandlerChallenge(t *testing.T) {
 	}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
 	gt.NoError(t, err).Required()
-	categories := getTestCategoriesForController()
 	config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, config)
+	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, config)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+	mockBlockBuilder := &mocks.BlockBuilderMock{}
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
 
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
-	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
+	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack, testConfig())
 
 	// Create challenge request with type field
 	challenge := map[string]any{
@@ -139,17 +145,17 @@ func TestSlackHandlerInvalidSignature(t *testing.T) {
 	}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
 	gt.NoError(t, err).Required()
-	categories := getTestCategoriesForController()
 	config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, config)
+	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, config)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+	mockBlockBuilder := &mocks.BlockBuilderMock{}
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
 
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
-	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
+	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack, testConfig())
 
 	// Create request with invalid signature
 	body := []byte(`{"type":"event_callback","event":{"type":"message","text":"test"}}`)
@@ -176,17 +182,17 @@ func TestSlackHandlerNotConfigured(t *testing.T) {
 	slackConfig := &config.SlackConfig{}
 	repo := repository.NewMemory()
 	mockLLM, mockSlack := createMockClientsForController()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForController())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
 	gt.NoError(t, err).Required()
-	categories := getTestCategoriesForController()
 	config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, config)
+	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, config)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
+	mockBlockBuilder := &mocks.BlockBuilderMock{}
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
 
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
-	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
+	handler := slack.NewHandler(ctx, slackConfig, repo, messageUC, incidentUC, taskUC, slackInteractionUC, mockSlack, testConfig())
 
 	// Create request with valid JSON body
 	body := []byte(`{"type":"event_callback","event":{"type":"message","text":"test"}}`)

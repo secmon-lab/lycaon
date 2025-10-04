@@ -68,6 +68,9 @@ type ComplexityRoot struct {
 		LeadUser          func(childComplexity int) int
 		OriginChannelID   func(childComplexity int) int
 		OriginChannelName func(childComplexity int) int
+		SeverityID        func(childComplexity int) int
+		SeverityLevel     func(childComplexity int) int
+		SeverityName      func(childComplexity int) int
 		Status            func(childComplexity int) int
 		StatusHistories   func(childComplexity int) int
 		Tasks             func(childComplexity int) int
@@ -107,8 +110,16 @@ type ComplexityRoot struct {
 		Incident              func(childComplexity int, id string) int
 		IncidentStatusHistory func(childComplexity int, incidentID string) int
 		Incidents             func(childComplexity int, first *int, after *string) int
+		Severities            func(childComplexity int) int
 		Task                  func(childComplexity int, id string) int
 		Tasks                 func(childComplexity int, incidentID string) int
+	}
+
+	Severity struct {
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Level       func(childComplexity int) int
+		Name        func(childComplexity int) int
 	}
 
 	StatusHistory struct {
@@ -153,6 +164,9 @@ type IncidentResolver interface {
 	ChannelName(ctx context.Context, obj *model.Incident) (string, error)
 
 	CategoryName(ctx context.Context, obj *model.Incident) (string, error)
+	SeverityID(ctx context.Context, obj *model.Incident) (string, error)
+	SeverityName(ctx context.Context, obj *model.Incident) (string, error)
+	SeverityLevel(ctx context.Context, obj *model.Incident) (int, error)
 	Status(ctx context.Context, obj *model.Incident) (*types.IncidentStatus, error)
 	Lead(ctx context.Context, obj *model.Incident) (*string, error)
 	LeadUser(ctx context.Context, obj *model.Incident) (*model.User, error)
@@ -181,6 +195,7 @@ type QueryResolver interface {
 	Tasks(ctx context.Context, incidentID string) ([]*model.Task, error)
 	Task(ctx context.Context, id string) (*model.Task, error)
 	ChannelMembers(ctx context.Context, channelID string) ([]*model.User, error)
+	Severities(ctx context.Context) ([]*model.Severity, error)
 }
 type StatusHistoryResolver interface {
 	ID(ctx context.Context, obj *model.StatusHistory) (string, error)
@@ -305,6 +320,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Incident.OriginChannelName(childComplexity), true
+	case "Incident.severityId":
+		if e.complexity.Incident.SeverityID == nil {
+			break
+		}
+
+		return e.complexity.Incident.SeverityID(childComplexity), true
+	case "Incident.severityLevel":
+		if e.complexity.Incident.SeverityLevel == nil {
+			break
+		}
+
+		return e.complexity.Incident.SeverityLevel(childComplexity), true
+	case "Incident.severityName":
+		if e.complexity.Incident.SeverityName == nil {
+			break
+		}
+
+		return e.complexity.Incident.SeverityName(childComplexity), true
 	case "Incident.status":
 		if e.complexity.Incident.Status == nil {
 			break
@@ -499,6 +532,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Incidents(childComplexity, args["first"].(*int), args["after"].(*string)), true
+	case "Query.severities":
+		if e.complexity.Query.Severities == nil {
+			break
+		}
+
+		return e.complexity.Query.Severities(childComplexity), true
 	case "Query.task":
 		if e.complexity.Query.Task == nil {
 			break
@@ -521,6 +560,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Tasks(childComplexity, args["incidentId"].(string)), true
+
+	case "Severity.description":
+		if e.complexity.Severity.Description == nil {
+			break
+		}
+
+		return e.complexity.Severity.Description(childComplexity), true
+	case "Severity.id":
+		if e.complexity.Severity.ID == nil {
+			break
+		}
+
+		return e.complexity.Severity.ID(childComplexity), true
+	case "Severity.level":
+		if e.complexity.Severity.Level == nil {
+			break
+		}
+
+		return e.complexity.Severity.Level(childComplexity), true
+	case "Severity.name":
+		if e.complexity.Severity.Name == nil {
+			break
+		}
+
+		return e.complexity.Severity.Name(childComplexity), true
 
 	case "StatusHistory.changedAt":
 		if e.complexity.StatusHistory.ChangedAt == nil {
@@ -815,6 +879,9 @@ type Incident {
   description: String!
   categoryId: String!
   categoryName: String!
+  severityId: String!
+  severityName: String!
+  severityLevel: Int!
   status: IncidentStatus
   lead: String
   leadUser: User
@@ -862,6 +929,13 @@ enum TaskStatus {
   completed
 }
 
+type Severity {
+  id: String!
+  name: String!
+  description: String!
+  level: Int!
+}
+
 type IncidentConnection {
   edges: [IncidentEdge!]!
   pageInfo: PageInfo!
@@ -883,21 +957,24 @@ type PageInfo {
 type Query {
   # Get paginated list of incidents
   incidents(first: Int, after: String): IncidentConnection!
-  
+
   # Get a specific incident by ID
   incident(id: ID!): Incident
-  
+
   # Get status history for a specific incident
   incidentStatusHistory(incidentId: ID!): [StatusHistory!]!
-  
+
   # Get tasks for a specific incident
   tasks(incidentId: ID!): [Task!]!
-  
+
   # Get a specific task
   task(id: ID!): Task
 
   # Get channel members for incident channel
   channelMembers(channelId: String!): [User!]!
+
+  # Get all severities
+  severities: [Severity!]!
 }
 
 type Mutation {
@@ -922,6 +999,7 @@ input UpdateIncidentInput {
   description: String
   lead: String
   status: IncidentStatus
+  severityId: String
 }
 
 input CreateTaskInput {
@@ -1351,6 +1429,93 @@ func (ec *executionContext) fieldContext_Incident_categoryName(_ context.Context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Incident_severityId(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_severityId,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Incident().SeverityID(ctx, obj)
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_severityId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Incident_severityName(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_severityName,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Incident().SeverityName(ctx, obj)
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_severityName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Incident_severityLevel(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_severityLevel,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Incident().SeverityLevel(ctx, obj)
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_severityLevel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1948,6 +2113,12 @@ func (ec *executionContext) fieldContext_IncidentEdge_node(_ context.Context, fi
 				return ec.fieldContext_Incident_categoryId(ctx, field)
 			case "categoryName":
 				return ec.fieldContext_Incident_categoryName(ctx, field)
+			case "severityId":
+				return ec.fieldContext_Incident_severityId(ctx, field)
+			case "severityName":
+				return ec.fieldContext_Incident_severityName(ctx, field)
+			case "severityLevel":
+				return ec.fieldContext_Incident_severityLevel(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -2049,6 +2220,12 @@ func (ec *executionContext) fieldContext_Mutation_updateIncident(ctx context.Con
 				return ec.fieldContext_Incident_categoryId(ctx, field)
 			case "categoryName":
 				return ec.fieldContext_Incident_categoryName(ctx, field)
+			case "severityId":
+				return ec.fieldContext_Incident_severityId(ctx, field)
+			case "severityName":
+				return ec.fieldContext_Incident_severityName(ctx, field)
+			case "severityLevel":
+				return ec.fieldContext_Incident_severityLevel(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -2132,6 +2309,12 @@ func (ec *executionContext) fieldContext_Mutation_updateIncidentStatus(ctx conte
 				return ec.fieldContext_Incident_categoryId(ctx, field)
 			case "categoryName":
 				return ec.fieldContext_Incident_categoryName(ctx, field)
+			case "severityId":
+				return ec.fieldContext_Incident_severityId(ctx, field)
+			case "severityName":
+				return ec.fieldContext_Incident_severityName(ctx, field)
+			case "severityLevel":
+				return ec.fieldContext_Incident_severityLevel(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -2559,6 +2742,12 @@ func (ec *executionContext) fieldContext_Query_incident(ctx context.Context, fie
 				return ec.fieldContext_Incident_categoryId(ctx, field)
 			case "categoryName":
 				return ec.fieldContext_Incident_categoryName(ctx, field)
+			case "severityId":
+				return ec.fieldContext_Incident_severityId(ctx, field)
+			case "severityName":
+				return ec.fieldContext_Incident_severityName(ctx, field)
+			case "severityLevel":
+				return ec.fieldContext_Incident_severityLevel(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -2853,6 +3042,45 @@ func (ec *executionContext) fieldContext_Query_channelMembers(ctx context.Contex
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_severities(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_severities,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().Severities(ctx)
+		},
+		nil,
+		ec.marshalNSeverity2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐSeverityᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_severities(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Severity_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Severity_name(ctx, field)
+			case "description":
+				return ec.fieldContext_Severity_description(ctx, field)
+			case "level":
+				return ec.fieldContext_Severity_level(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Severity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2956,6 +3184,122 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Severity_id(ctx context.Context, field graphql.CollectedField, obj *model.Severity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Severity_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Severity_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Severity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Severity_name(ctx context.Context, field graphql.CollectedField, obj *model.Severity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Severity_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Severity_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Severity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Severity_description(ctx context.Context, field graphql.CollectedField, obj *model.Severity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Severity_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Severity_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Severity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Severity_level(ctx context.Context, field graphql.CollectedField, obj *model.Severity) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Severity_level,
+		func(ctx context.Context) (any, error) {
+			return obj.Level, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Severity_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Severity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5248,7 +5592,7 @@ func (ec *executionContext) unmarshalInputUpdateIncidentInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"title", "description", "lead", "status"}
+	fieldsInOrder := [...]string{"title", "description", "lead", "status", "severityId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5283,6 +5627,13 @@ func (ec *executionContext) unmarshalInputUpdateIncidentInput(ctx context.Contex
 				return it, err
 			}
 			it.Status = data
+		case "severityId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("severityId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SeverityID = data
 		}
 	}
 
@@ -5489,6 +5840,114 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 					}
 				}()
 				res = ec._Incident_categoryName(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "severityId":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_severityId(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "severityName":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_severityName(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "severityLevel":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_severityLevel(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -6292,6 +6751,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "severities":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_severities(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -6300,6 +6781,60 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var severityImplementors = []string{"Severity"}
+
+func (ec *executionContext) _Severity(ctx context.Context, sel ast.SelectionSet, obj *model.Severity) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, severityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Severity")
+		case "id":
+			out.Values[i] = ec._Severity_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Severity_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._Severity_description(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "level":
+			out.Values[i] = ec._Severity_level(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7379,6 +7914,60 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋsecmonᚑlabᚋly
 		return graphql.Null
 	}
 	return ec._PageInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNSeverity2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐSeverityᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Severity) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNSeverity2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐSeverity(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNSeverity2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐSeverity(ctx context.Context, sel ast.SelectionSet, v *model.Severity) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Severity(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNStatusHistory2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐStatusHistoryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StatusHistory) graphql.Marshaler {

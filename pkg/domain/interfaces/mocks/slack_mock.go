@@ -6,6 +6,7 @@ package mocks
 import (
 	"context"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/slack-go/slack"
 	"sync"
 )
@@ -927,5 +928,83 @@ func (mock *SlackClientMock) UpdateMessageCalls() []struct {
 	mock.lockUpdateMessage.RLock()
 	calls = mock.calls.UpdateMessage
 	mock.lockUpdateMessage.RUnlock()
+	return calls
+}
+
+// Ensure, that BlockBuilderMock does implement interfaces.BlockBuilder.
+// If this is not the case, regenerate this file with moq.
+var _ interfaces.BlockBuilder = &BlockBuilderMock{}
+
+// BlockBuilderMock is a mock implementation of interfaces.BlockBuilder.
+//
+//	func TestSomethingThatUsesBlockBuilder(t *testing.T) {
+//
+//		// make and configure a mocked interfaces.BlockBuilder
+//		mockedBlockBuilder := &BlockBuilderMock{
+//			BuildStatusMessageBlocksFunc: func(incident *model.Incident, leadName string, config *model.Config) []slack.Block {
+//				panic("mock out the BuildStatusMessageBlocks method")
+//			},
+//		}
+//
+//		// use mockedBlockBuilder in code that requires interfaces.BlockBuilder
+//		// and then make assertions.
+//
+//	}
+type BlockBuilderMock struct {
+	// BuildStatusMessageBlocksFunc mocks the BuildStatusMessageBlocks method.
+	BuildStatusMessageBlocksFunc func(incident *model.Incident, leadName string, config *model.Config) []slack.Block
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// BuildStatusMessageBlocks holds details about calls to the BuildStatusMessageBlocks method.
+		BuildStatusMessageBlocks []struct {
+			// Incident is the incident argument value.
+			Incident *model.Incident
+			// LeadName is the leadName argument value.
+			LeadName string
+			// Config is the config argument value.
+			Config *model.Config
+		}
+	}
+	lockBuildStatusMessageBlocks sync.RWMutex
+}
+
+// BuildStatusMessageBlocks calls BuildStatusMessageBlocksFunc.
+func (mock *BlockBuilderMock) BuildStatusMessageBlocks(incident *model.Incident, leadName string, config *model.Config) []slack.Block {
+	if mock.BuildStatusMessageBlocksFunc == nil {
+		panic("BlockBuilderMock.BuildStatusMessageBlocksFunc: method is nil but BlockBuilder.BuildStatusMessageBlocks was just called")
+	}
+	callInfo := struct {
+		Incident *model.Incident
+		LeadName string
+		Config   *model.Config
+	}{
+		Incident: incident,
+		LeadName: leadName,
+		Config:   config,
+	}
+	mock.lockBuildStatusMessageBlocks.Lock()
+	mock.calls.BuildStatusMessageBlocks = append(mock.calls.BuildStatusMessageBlocks, callInfo)
+	mock.lockBuildStatusMessageBlocks.Unlock()
+	return mock.BuildStatusMessageBlocksFunc(incident, leadName, config)
+}
+
+// BuildStatusMessageBlocksCalls gets all the calls that were made to BuildStatusMessageBlocks.
+// Check the length with:
+//
+//	len(mockedBlockBuilder.BuildStatusMessageBlocksCalls())
+func (mock *BlockBuilderMock) BuildStatusMessageBlocksCalls() []struct {
+	Incident *model.Incident
+	LeadName string
+	Config   *model.Config
+} {
+	var calls []struct {
+		Incident *model.Incident
+		LeadName string
+		Config   *model.Config
+	}
+	mock.lockBuildStatusMessageBlocks.RLock()
+	calls = mock.calls.BuildStatusMessageBlocks
+	mock.lockBuildStatusMessageBlocks.RUnlock()
 	return calls
 }

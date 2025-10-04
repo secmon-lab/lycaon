@@ -159,3 +159,82 @@ func TestCategoriesConfig_IsValidCategoryID_CustomConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigValidate(t *testing.T) {
+	t.Run("valid configuration with categories and severities", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "security_incident", Name: "Security Incident"},
+				{ID: "unknown", Name: "Unknown"},
+			},
+			Severities: []model.Severity{
+				{ID: "critical", Name: "Critical", Level: 90},
+				{ID: "high", Name: "High", Level: 70},
+			},
+		}
+		gt.NoError(t, config.Validate())
+	})
+
+	t.Run("valid configuration with categories only (backward compatibility)", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "security_incident", Name: "Security Incident"},
+				{ID: "unknown", Name: "Unknown"},
+			},
+		}
+		gt.NoError(t, config.Validate())
+	})
+
+	t.Run("error when categories are invalid", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "", Name: "Invalid"}, // Invalid: empty ID
+			},
+		}
+		gt.Error(t, config.Validate())
+	})
+
+	t.Run("error when severities are invalid", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "security_incident", Name: "Security Incident"},
+				{ID: "unknown", Name: "Unknown"},
+			},
+			Severities: []model.Severity{
+				{ID: "", Name: "Invalid", Level: 50}, // Invalid: empty ID
+			},
+		}
+		gt.Error(t, config.Validate())
+	})
+}
+
+func TestConfigGetCategoriesConfig(t *testing.T) {
+	config := model.Config{
+		Categories: []model.Category{
+			{ID: "security_incident", Name: "Security Incident"},
+			{ID: "unknown", Name: "Unknown"},
+		},
+	}
+
+	catConfig := config.GetCategoriesConfig()
+	gt.V(t, catConfig).NotNil()
+	gt.Equal(t, len(catConfig.Categories), 2)
+	gt.Equal(t, catConfig.Categories[0].ID, "security_incident")
+}
+
+func TestConfigGetSeveritiesConfig(t *testing.T) {
+	config := model.Config{
+		Categories: []model.Category{
+			{ID: "security_incident", Name: "Security Incident"},
+			{ID: "unknown", Name: "Unknown"},
+		},
+		Severities: []model.Severity{
+			{ID: "critical", Name: "Critical", Level: 90},
+		},
+	}
+
+	sevConfig := config.GetSeveritiesConfig()
+	gt.V(t, sevConfig).NotNil()
+	gt.Equal(t, len(sevConfig.Severities), 1)
+	gt.Equal(t, sevConfig.Severities[0].ID, "critical")
+}

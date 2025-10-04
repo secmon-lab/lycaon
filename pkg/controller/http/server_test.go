@@ -29,6 +29,12 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
+func testConfig() *model.Config {
+	return &model.Config{
+		Categories: getTestCategoriesForHTTP().Categories,
+	}
+}
+
 // getTestCategoriesForHTTP returns categories for HTTP controller testing purposes
 func getTestCategoriesForHTTP() *model.CategoriesConfig {
 	return &model.CategoriesConfig{
@@ -92,29 +98,29 @@ func TestServerHealthCheck(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForHTTP())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
 	gt.NoError(t, err).Required()
-	categories := getTestCategoriesForHTTP()
 	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, incidentConfig)
+	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
+	mockBlockBuilder := &mocks.BlockBuilderMock{}
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
 
 	// Create configuration
-	config := controller.NewConfig(":8080", slackConfig, categories, "")
+	config := controller.NewConfig(":8080", slackConfig, testConfig(), "")
 
 	// Create use cases structure
 	useCases := controller.NewUseCases(authUC, messageUC, incidentUC, taskUC, slackInteractionUC)
 
 	// Create handlers
-	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, useCases.SlackMessage(), useCases.Incident(), useCases.Task(), useCases.SlackInteraction(), mockSlack)
+	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, useCases.SlackMessage(), useCases.Incident(), useCases.Task(), useCases.SlackInteraction(), mockSlack, testConfig())
 	authHandler := controller.NewAuthHandler(ctx, slackConfig, useCases.Auth(), "")
 
 	// Create GraphQL handler
 	var graphqlHandler http.Handler
 	if repo != nil && useCases.Incident() != nil && useCases.Task() != nil {
-		graphqlHandler = controller.CreateGraphQLHandler(repo, mockSlack, useCases, categories)
+		graphqlHandler = controller.CreateGraphQLHandler(repo, mockSlack, useCases, testConfig())
 	}
 
 	// Create controllers
@@ -146,29 +152,29 @@ func TestServerFallbackHome(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, getTestCategoriesForHTTP())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
 	gt.NoError(t, err).Required()
-	categories := getTestCategoriesForHTTP()
 	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, categories, nil, incidentConfig)
+	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack)
+	mockBlockBuilder := &mocks.BlockBuilderMock{}
+	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
 
 	// Create configuration
-	config := controller.NewConfig(":8080", slackConfig, categories, "")
+	config := controller.NewConfig(":8080", slackConfig, testConfig(), "")
 
 	// Create use cases structure
 	useCases := controller.NewUseCases(authUC, messageUC, incidentUC, taskUC, slackInteractionUC)
 
 	// Create handlers
-	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, useCases.SlackMessage(), useCases.Incident(), useCases.Task(), useCases.SlackInteraction(), mockSlack)
+	slackHandler := slackCtrl.NewHandler(ctx, slackConfig, repo, useCases.SlackMessage(), useCases.Incident(), useCases.Task(), useCases.SlackInteraction(), mockSlack, testConfig())
 	authHandler := controller.NewAuthHandler(ctx, slackConfig, useCases.Auth(), "")
 
 	// Create GraphQL handler
 	var graphqlHandler http.Handler
 	if repo != nil && useCases.Incident() != nil && useCases.Task() != nil {
-		graphqlHandler = controller.CreateGraphQLHandler(repo, mockSlack, useCases, categories)
+		graphqlHandler = controller.CreateGraphQLHandler(repo, mockSlack, useCases, testConfig())
 	}
 
 	// Create controllers
@@ -219,12 +225,9 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 	// Create mock slack client
 	_, mockSlack := createMockClients()
 
-	// Create minimal categories config
-	categories := getTestCategoriesForHTTP()
-
 	// Create use cases
 	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, mockSlack, categories, nil, incidentConfig)
+	incidentUC := usecase.NewIncident(repo, mockSlack, testConfig(), nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 
 	// Create Auth UC with mock Slack config
@@ -239,7 +242,7 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 		IncidentUC: incidentUC,
 		TaskUC:     taskUC,
 		AuthUC:     authUC,
-	}, categories)
+	}, testConfig())
 
 	// Create GraphQL server directly without auth middleware
 	srv := handler.NewDefaultServer(graphql.NewExecutableSchema(graphql.Config{Resolvers: resolver}))
@@ -356,6 +359,7 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 		"Single Test Incident",
 		"Single test incident description",
 		"test_category",
+		types.SeverityID(""),
 		types.ChannelID("C1234567890"),
 		types.ChannelName("origin-channel"),
 		types.TeamID("T1234567890"),
@@ -447,6 +451,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 		"CRUD Test Incident",
 		"Test incident for CRUD operations",
 		"test_category",
+		types.SeverityID(""),
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T1234567890"),
@@ -620,6 +625,7 @@ func TestGraphQL_IncidentStatusManagement(t *testing.T) {
 		"Status Test Incident",
 		"Test incident for status management",
 		"test_category",
+		types.SeverityID(""),
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T1234567890"),
@@ -865,6 +871,7 @@ func TestGraphQL_IncidentCreateWithTriage(t *testing.T) {
 		"Triage Test Incident",
 		"Test incident for triage status",
 		"test_category",
+		types.SeverityID(""),
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T1234567890"),

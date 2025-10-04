@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { GET_INCIDENTS } from '../graphql/queries';
 import { Button } from '../components/ui/Button';
-import { IncidentStatus } from '../types/incident';
+import { IncidentStatus, getSeverityStyle } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SlackChannelLink from '../components/common/SlackChannelLink';
 import {
@@ -35,6 +35,9 @@ interface Incident {
   description: string;
   categoryId: string;
   categoryName?: string;
+  severityId: string;
+  severityName: string;
+  severityLevel: number;
   status: IncidentStatus;
   teamId?: string;
   createdBy: string;
@@ -223,6 +226,21 @@ const IncidentList: React.FC = () => {
                         #{incident.id}
                       </span>
                       <StatusBadge status={incident.status} size="sm" />
+                      {(() => {
+                        const severityStyle = getSeverityStyle(incident.severityLevel);
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                            style={{
+                              color: severityStyle.color,
+                              backgroundColor: severityStyle.backgroundColor,
+                            }}
+                          >
+                            <span>{severityStyle.icon}</span>
+                            <span>{incident.severityName}</span>
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                   <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">

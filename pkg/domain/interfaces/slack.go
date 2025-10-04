@@ -1,10 +1,11 @@
 package interfaces
 
-//go:generate moq -out mocks/slack_mock.go -pkg mocks . SlackClient
+//go:generate moq -out mocks/slack_mock.go -pkg mocks . SlackClient BlockBuilder
 
 import (
 	"context"
 
+	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/slack-go/slack"
 )
 
@@ -31,4 +32,9 @@ type SlackClient interface {
 
 	// Bookmark management
 	AddBookmark(ctx context.Context, channelID, title, link string) error
+}
+
+// BlockBuilder defines the interface for building Slack Block Kit UI components
+type BlockBuilder interface {
+	BuildStatusMessageBlocks(incident *model.Incident, leadName string, config *model.Config) []slack.Block
 }

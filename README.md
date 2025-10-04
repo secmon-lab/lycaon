@@ -66,7 +66,7 @@ LYCAON_FIRESTORE_DATABASE_ID=(default)
 # Gemini Configuration (Optional for LLM analysis)
 LYCAON_GEMINI_PROJECT_ID=your-gcp-project
 LYCAON_GEMINI_LOCATION=us-central1
-LYCAON_GEMINI_MODEL=gemini-1.5-flash
+LYCAON_GEMINI_MODEL=gemini-2.5-flash
 
 # Logging Configuration
 LYCAON_LOG_LEVEL=info

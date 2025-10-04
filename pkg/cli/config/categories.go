@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// LoadCategoriesFromFile loads categories from YAML file
-func LoadCategoriesFromFile(path string) (*model.CategoriesConfig, error) {
+// LoadConfigFromFile loads unified configuration (categories + severities) from YAML file
+func LoadConfigFromFile(path string) (*model.Config, error) {
 	if path == "" {
 		return nil, goerr.New("configuration file path is required")
 	}
@@ -30,7 +30,7 @@ func LoadCategoriesFromFile(path string) (*model.CategoriesConfig, error) {
 	}
 
 	// Parse YAML
-	var config model.CategoriesConfig
+	var config model.Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, goerr.Wrap(err, "failed to parse YAML configuration",
 			goerr.V("path", path))

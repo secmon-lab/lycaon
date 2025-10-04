@@ -37,9 +37,6 @@ func (u *UserUseCase) GetOrFetchUser(ctx context.Context, slackUserID types.Slac
 	if err == nil && user != nil {
 		// Check if cache is still valid and avatar URL is present
 		if !user.IsExpired(u.cacheTTL) && user.AvatarURL != "" {
-			logger.Debug("User cache hit",
-				"slackUserID", slackUserID,
-				"name", user.GetDisplayName())
 			return user, nil
 		}
 		// User exists but is expired or missing avatar, try to refresh
