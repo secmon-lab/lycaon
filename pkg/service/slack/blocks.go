@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
@@ -710,8 +711,13 @@ func buildStatusChangePrivateMetadata(incidentID, channelID, messageTS string) s
 
 	jsonData, err := json.Marshal(context)
 	if err != nil {
-		// Should not happen with simple struct
-		return incidentID
+		// Should not happen with a simple struct, but log if it does
+		slog.Error("Failed to marshal status change metadata",
+			"error", err,
+			"incidentID", incidentID,
+			"channelID", channelID,
+			"messageTS", messageTS)
+		return ""
 	}
 
 	return base64.StdEncoding.EncodeToString(jsonData)
@@ -872,6 +878,15 @@ func buildEditIncidentDetailsPrivateMetadata(incidentID, channelID, messageTS st
 		MessageTimestamp: messageTS,
 	}
 
-	jsonData, _ := json.Marshal(metadata)
+	jsonData, err := json.Marshal(metadata)
+	if err != nil {
+		// Should not happen with a simple struct, but log if it does
+		slog.Error("Failed to marshal edit incident details metadata",
+			"error", err,
+			"incidentID", incidentID,
+			"channelID", channelID,
+			"messageTS", messageTS)
+		return ""
+	}
 	return base64.StdEncoding.EncodeToString(jsonData)
 }
