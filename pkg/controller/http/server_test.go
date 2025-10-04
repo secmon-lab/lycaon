@@ -25,6 +25,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
+	slackservice "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	slackgo "github.com/slack-go/slack"
 )
@@ -98,14 +99,14 @@ func TestServerHealthCheck(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
+	slackSvc := slackservice.NewUIService(mockSlack, testConfig())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, slackSvc, testConfig())
 	gt.NoError(t, err).Required()
 	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, incidentConfig)
+	incidentUC := usecase.NewIncident(repo, nil, slackSvc, testConfig(), nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
+	statusUC := usecase.NewStatusUseCase(repo, slackSvc, testConfig())
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, slackSvc, nil)
 
 	// Create configuration
 	config := controller.NewConfig(":8080", slackConfig, testConfig(), "")
@@ -152,14 +153,14 @@ func TestServerFallbackHome(t *testing.T) {
 	repo := repository.NewMemory()
 	authUC := usecase.NewAuth(ctx, repo, slackConfig)
 	mockLLM, mockSlack := createMockClients()
-	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, testConfig())
+	slackSvc := slackservice.NewUIService(mockSlack, testConfig())
+	messageUC, err := usecase.NewSlackMessage(ctx, repo, mockLLM, mockSlack, slackSvc, testConfig())
 	gt.NoError(t, err).Required()
 	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, nil, testConfig(), nil, incidentConfig)
+	incidentUC := usecase.NewIncident(repo, nil, slackSvc, testConfig(), nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
-	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, nil)
+	statusUC := usecase.NewStatusUseCase(repo, slackSvc, testConfig())
+	slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, mockSlack, slackSvc, nil)
 
 	// Create configuration
 	config := controller.NewConfig(":8080", slackConfig, testConfig(), "")
@@ -226,8 +227,9 @@ func setupGraphQLTestServer(t *testing.T) (*httptest.Server, *repository.Memory)
 	_, mockSlack := createMockClients()
 
 	// Create use cases
+	slackSvc := slackservice.NewUIService(mockSlack, testConfig())
 	incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-	incidentUC := usecase.NewIncident(repo, mockSlack, testConfig(), nil, incidentConfig)
+	incidentUC := usecase.NewIncident(repo, mockSlack, slackSvc, testConfig(), nil, incidentConfig)
 	taskUC := usecase.NewTaskUseCase(repo, mockSlack)
 
 	// Create Auth UC with mock Slack config

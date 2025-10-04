@@ -82,13 +82,15 @@ func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestI
 		}
 
 		// Send notification to the original channel thread with also_send_to_channel
-		notificationBlocks := u.blockBuilder.BuildIncidentCreatedBlocks(channelInfo.Name, incident.ChannelID.String(), title, details.categoryID, details.severityID, u.modelConfig)
-		if _, _, err := u.slackClient.PostMessage(
+		if err := u.slackSvc.PostIncidentCreatedNotification(
 			ctx,
-			request.ChannelID.String(),
-			slack.MsgOptionBlocks(notificationBlocks...),
-			slack.MsgOptionTS(request.MessageTS.String()),
-			slack.MsgOptionBroadcast(),
+			request.ChannelID,
+			request.MessageTS,
+			channelInfo.Name,
+			incident.ChannelID,
+			title,
+			details.categoryID,
+			details.severityID,
 		); err != nil {
 			// Log error but don't fail - the incident was created successfully
 			ctxlog.From(ctx).Warn("Failed to post incident creation notification",
@@ -131,20 +133,15 @@ func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestI
 		}
 
 		// Send notification to the original channel thread with also_send_to_channel
-		notificationBlocks := u.blockBuilder.BuildIncidentCreatedBlocks(
+		if err := u.slackSvc.PostIncidentCreatedNotification(
+			ctx,
+			request.ChannelID,
+			request.MessageTS,
 			channelInfo.Name,
-			incident.ChannelID.String(),
+			incident.ChannelID,
 			incident.Title,
 			incident.CategoryID,
 			incident.SeverityID.String(),
-			u.modelConfig,
-		)
-		if _, _, err := u.slackClient.PostMessage(
-			ctx,
-			request.ChannelID.String(),
-			slack.MsgOptionBlocks(notificationBlocks...),
-			slack.MsgOptionTS(request.MessageTS.String()),
-			slack.MsgOptionBroadcast(),
 		); err != nil {
 			// Log error but don't fail - the incident was created successfully
 			ctxlog.From(ctx).Warn("Failed to post incident creation notification",
@@ -190,13 +187,7 @@ func (u *Incident) updateOriginalMessageToDeclared(ctx context.Context, request 
 		"title", title,
 	)
 
-	usedBlocks := u.blockBuilder.BuildIncidentPromptUsedBlocks(title)
-	if _, _, _, err := u.slackClient.UpdateMessage(
-		ctx,
-		request.ChannelID.String(),
-		messageToUpdate.String(),
-		slack.MsgOptionBlocks(usedBlocks...),
-	); err != nil {
+	if err := u.slackSvc.UpdateOriginalPromptToUsed(ctx, request.ChannelID, messageToUpdate, title); err != nil {
 		ctxlog.From(ctx).Warn("Failed to update bot message",
 			"error", err,
 			"channelID", request.ChannelID,
@@ -251,10 +242,8 @@ func (u *Incident) HandleEditIncidentAction(ctx context.Context, requestID, user
 		"currentSeverityID", request.SeverityID,
 	)
 
-	modal := u.blockBuilder.BuildIncidentEditModal(requestID, request.Title, request.Description, request.CategoryID, request.SeverityID, u.modelConfig.Categories, u.modelConfig.Severities)
-
-	// Open the modal
-	_, err = u.slackClient.OpenView(ctx, triggerID, modal)
+	// Open the modal using slack service
+	err = u.slackSvc.OpenIncidentEditModal(ctx, triggerID, requestID, request.Title, request.Description, request.CategoryID, request.SeverityID)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to open edit modal",
 			"error", err,
@@ -291,13 +280,8 @@ func (u *Incident) HandleCreateIncidentActionAsync(ctx context.Context, requestI
 			errorMessage = "Failed to create incident. The request was not found."
 		}
 
-		// Build error blocks and send message
-		errorBlocks := u.blockBuilder.BuildErrorBlocks(errorMessage)
-		if _, _, msgErr := u.slackClient.PostMessage(
-			ctx,
-			channelID,
-			slack.MsgOptionBlocks(errorBlocks...),
-		); msgErr != nil {
+		// Send error message using slack service
+		if msgErr := u.slackSvc.PostErrorMessage(ctx, types.ChannelID(channelID), errorMessage); msgErr != nil {
 			ctxlog.From(ctx).Error("Failed to post error message", "error", msgErr)
 		}
 		return

@@ -103,9 +103,12 @@ func cmdServe() *cli.Command {
 				"has_oauth_token", slackCfg.OAuthToken != "",
 			)
 
+			// Create slack service
+			slackSvc := slackservice.NewUIService(slackClient, appConfig)
+
 			// Create use cases
 			authUC := usecase.NewAuth(ctx, repo, &slackCfg)
-			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient, appConfig)
+			messageUC, err := usecase.NewSlackMessage(ctx, repo, gollemClient, slackClient, slackSvc, appConfig)
 			if err != nil {
 				return goerr.Wrap(err, "failed to create message use case")
 			}
@@ -121,11 +124,10 @@ func cmdServe() *cli.Command {
 			}
 			incidentConfig := usecase.NewIncidentConfig(incidentOpts...)
 
-			incidentUC := usecase.NewIncident(repo, slackClient, appConfig, inviteUC, incidentConfig)
+			incidentUC := usecase.NewIncident(repo, slackClient, slackSvc, appConfig, inviteUC, incidentConfig)
 			taskUC := usecase.NewTaskUseCase(repo, slackClient)
-			blockBuilder := slackservice.NewBlockBuilder()
-			statusUC := usecase.NewStatusUseCase(repo, slackClient, appConfig, blockBuilder)
-			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, slackClient, appConfig.GetSeveritiesConfig())
+			statusUC := usecase.NewStatusUseCase(repo, slackSvc, appConfig)
+			slackInteractionUC := usecase.NewSlackInteraction(incidentUC, taskUC, statusUC, authUC, slackClient, slackSvc, appConfig.GetSeveritiesConfig())
 
 			// Create configuration
 			config := controller.NewConfig(

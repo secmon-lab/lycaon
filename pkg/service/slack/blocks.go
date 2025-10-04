@@ -1,6 +1,8 @@
 package slack
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -598,4 +600,278 @@ func getStatusEmoji(status types.IncidentStatus) string {
 	default:
 		return "⚪"
 	}
+}
+
+// BuildStatusSelectionModal creates a modal for status selection
+func (b *BlockBuilder) BuildStatusSelectionModal(incident *model.Incident, channelID, messageTS string) slack.ModalViewRequest {
+	// Create status options
+	statusOptions := []*slack.OptionBlockObject{}
+	statuses := []types.IncidentStatus{
+		types.IncidentStatusTriage,
+		types.IncidentStatusHandling,
+		types.IncidentStatusMonitoring,
+		types.IncidentStatusClosed,
+	}
+
+	for _, status := range statuses {
+		emoji := getStatusEmoji(status)
+		statusOptions = append(statusOptions, &slack.OptionBlockObject{
+			Text: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: emoji + " " + string(status),
+			},
+			Value: string(status),
+		})
+	}
+
+	blocks := []slack.Block{
+		&slack.SectionBlock{
+			Type: slack.MBTSection,
+			Text: &slack.TextBlockObject{
+				Type: slack.MarkdownType,
+				Text: "*Select new status for incident:*",
+			},
+		},
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "status_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Status",
+			},
+			Element: &slack.SelectBlockElement{
+				Type:     slack.OptTypeStatic,
+				ActionID: "status_select",
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Choose a status...",
+				},
+				Options: statusOptions,
+			},
+		},
+		&slack.InputBlock{
+			Type:     slack.MBTInput,
+			BlockID:  "note_block",
+			Optional: true,
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Note (optional)",
+			},
+			Element: &slack.PlainTextInputBlockElement{
+				Type:      slack.METPlainTextInput,
+				ActionID:  "note_input",
+				Multiline: true,
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Add a note about this status change...",
+				},
+			},
+		},
+	}
+
+	// Build private metadata with context
+	metadata := buildStatusChangePrivateMetadata(incident.ID.String(), channelID, messageTS)
+
+	return slack.ModalViewRequest{
+		Type:       slack.VTModal,
+		CallbackID: "status_change_modal",
+		Title: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Change Status",
+		},
+		Submit: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Update",
+		},
+		Close: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Cancel",
+		},
+		Blocks: slack.Blocks{
+			BlockSet: blocks,
+		},
+		PrivateMetadata: metadata,
+	}
+}
+
+// buildStatusChangePrivateMetadata creates base64-encoded JSON private metadata for status change modal
+func buildStatusChangePrivateMetadata(incidentID, channelID, messageTS string) string {
+	type statusChangePrivateMetadata struct {
+		IncidentID       string `json:"incident_id"`
+		ChannelID        string `json:"channel_id"`
+		MessageTimestamp string `json:"message_timestamp"`
+	}
+
+	context := statusChangePrivateMetadata{
+		IncidentID:       incidentID,
+		ChannelID:        channelID,
+		MessageTimestamp: messageTS,
+	}
+
+	jsonData, err := json.Marshal(context)
+	if err != nil {
+		// Should not happen with simple struct
+		return incidentID
+	}
+
+	return base64.StdEncoding.EncodeToString(jsonData)
+}
+
+// BuildEditIncidentDetailsModal creates a modal for editing incident details
+func (b *BlockBuilder) BuildEditIncidentDetailsModal(incident *model.Incident, channelID, messageTS string, severities []model.Severity) slack.ModalViewRequest {
+	blocks := []slack.Block{
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "title_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Title",
+			},
+			Element: &slack.PlainTextInputBlockElement{
+				Type:         slack.METPlainTextInput,
+				ActionID:     "title_input",
+				InitialValue: incident.Title,
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Enter incident title",
+				},
+			},
+		},
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "description_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Description",
+			},
+			Element: &slack.PlainTextInputBlockElement{
+				Type:         slack.METPlainTextInput,
+				ActionID:     "description_input",
+				Multiline:    true,
+				InitialValue: incident.Description,
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Enter incident description",
+				},
+			},
+			Optional: true,
+		},
+		&slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: "lead_block",
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Lead",
+			},
+			Element: &slack.SelectBlockElement{
+				Type:        slack.OptTypeUser,
+				ActionID:    "lead_select",
+				InitialUser: string(incident.Lead),
+				Placeholder: &slack.TextBlockObject{
+					Type: slack.PlainTextType,
+					Text: "Select incident lead",
+				},
+			},
+			Optional: true,
+		},
+	}
+
+	// Add severity selection block if severities are configured
+	if len(severities) > 0 {
+		var severityOptions []*slack.OptionBlockObject
+		var initialOption *slack.OptionBlockObject
+
+		for _, severity := range severities {
+			// Truncate description to avoid Slack limits (max 75 chars for option description)
+			description := severity.Description
+			if len(description) > 75 {
+				description = description[:72] + "..."
+			}
+
+			emoji := GetSeverityEmoji(severity.Level)
+			option := slack.NewOptionBlockObject(
+				severity.ID,
+				slack.NewTextBlockObject(slack.PlainTextType, fmt.Sprintf("%s %s", emoji, severity.Name), false, false),
+				slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
+			)
+			severityOptions = append(severityOptions, option)
+
+			// Set initial option if it matches incident severity
+			if severity.ID == incident.SeverityID.String() {
+				initialOption = option
+			}
+		}
+
+		severityBlock := &slack.InputBlock{
+			Type:    slack.MBTInput,
+			BlockID: BlockIDSeverityInput,
+			Label: &slack.TextBlockObject{
+				Type: slack.PlainTextType,
+				Text: "Severity",
+			},
+			Element: slack.NewOptionsSelectBlockElement(
+				"static_select",
+				slack.NewTextBlockObject(
+					slack.PlainTextType,
+					"Select incident severity",
+					false,
+					false,
+				),
+				ActionIDSeveritySelect,
+				severityOptions...,
+			),
+			Optional: true,
+		}
+
+		// Set initial option if we have a matching severity
+		if initialOption != nil {
+			if selectElement, ok := severityBlock.Element.(*slack.SelectBlockElement); ok {
+				selectElement.InitialOption = initialOption
+			}
+		}
+
+		blocks = append(blocks, severityBlock)
+	}
+
+	// Build private metadata with incident ID, channel ID, and message timestamp
+	metadata := buildEditIncidentDetailsPrivateMetadata(incident.ID.String(), channelID, messageTS)
+
+	return slack.ModalViewRequest{
+		Type:       slack.VTModal,
+		CallbackID: "edit_incident_details_modal",
+		Title: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Edit Incident Details",
+		},
+		Submit: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Save",
+		},
+		Close: &slack.TextBlockObject{
+			Type: slack.PlainTextType,
+			Text: "Cancel",
+		},
+		Blocks: slack.Blocks{
+			BlockSet: blocks,
+		},
+		PrivateMetadata: metadata,
+	}
+}
+
+// buildEditIncidentDetailsPrivateMetadata creates base64-encoded JSON private metadata for edit incident details modal
+func buildEditIncidentDetailsPrivateMetadata(incidentID, channelID, messageTS string) string {
+	type editIncidentDetailsPrivateMetadata struct {
+		IncidentID       string `json:"incident_id"`
+		ChannelID        string `json:"channel_id"`
+		MessageTimestamp string `json:"message_timestamp"`
+	}
+
+	metadata := editIncidentDetailsPrivateMetadata{
+		IncidentID:       incidentID,
+		ChannelID:        channelID,
+		MessageTimestamp: messageTS,
+	}
+
+	jsonData, _ := json.Marshal(metadata)
+	return base64.StdEncoding.EncodeToString(jsonData)
 }

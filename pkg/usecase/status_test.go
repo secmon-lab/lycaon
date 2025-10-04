@@ -12,6 +12,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/slack-go/slack"
 )
@@ -21,8 +22,9 @@ func TestStatusUseCase_UpdateStatus(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident first
 	incidentID := types.IncidentID(time.Now().UnixNano())
@@ -81,8 +83,9 @@ func TestStatusUseCase_UpdateStatus_SameStatus(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
@@ -120,8 +123,9 @@ func TestStatusUseCase_GetStatusHistory(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
@@ -190,8 +194,9 @@ func TestStatusUseCase_GetStatusHistory_UserNotFound(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
@@ -240,8 +245,9 @@ func TestStatusUseCase_UpdateOriginalStatusMessage(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
@@ -266,13 +272,6 @@ func TestStatusUseCase_UpdateOriginalStatusMessage(t *testing.T) {
 	// Test successful message update
 	channelID := "C123456"
 	messageTS := "1234567890.123456"
-
-	// Mock BuildStatusMessageBlocks to return some blocks
-	mockBlockBuilder.BuildStatusMessageBlocksFunc = func(incident *model.Incident, leadName string, config *model.Config) []slack.Block {
-		return []slack.Block{
-			slack.NewSectionBlock(nil, nil, nil),
-		}
-	}
 
 	// Mock UpdateMessage to succeed
 	mockSlack.UpdateMessageFunc = func(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
@@ -302,8 +301,9 @@ func TestStatusUseCase_InvalidInputs(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Test invalid incident ID
 	err := statusUC.UpdateStatus(ctx, types.IncidentID(0), types.IncidentStatusHandling, "U123456", "test")
@@ -327,8 +327,9 @@ func TestStatusUseCase_HandleStatusChangeModalSubmission(t *testing.T) {
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())
@@ -365,13 +366,6 @@ func TestStatusUseCase_HandleStatusChangeModalSubmission(t *testing.T) {
 	jsonData, err := json.Marshal(contextData)
 	gt.NoError(t, err)
 	privateMetadata := base64.StdEncoding.EncodeToString(jsonData)
-
-	// Mock BuildStatusMessageBlocks to return some blocks
-	mockBlockBuilder.BuildStatusMessageBlocksFunc = func(incident *model.Incident, leadName string, config *model.Config) []slack.Block {
-		return []slack.Block{
-			slack.NewSectionBlock(nil, nil, nil),
-		}
-	}
 
 	// Mock UpdateMessage to succeed
 	mockSlack.UpdateMessageFunc = func(ctx context.Context, channelID, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
@@ -418,8 +412,9 @@ func TestStatusUseCase_HandleStatusChangeModalSubmission_InvalidMetadata(t *test
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Test with invalid base64
 	err := statusUC.HandleStatusChangeModalSubmission(
@@ -458,8 +453,9 @@ func TestStatusUseCase_HandleStatusChangeModalSubmission_WithoutMessage(t *testi
 	repo := repository.NewMemory()
 	mockSlack := &mocks.SlackClientMock{}
 
-	mockBlockBuilder := &mocks.BlockBuilderMock{}
-	statusUC := usecase.NewStatusUseCase(repo, mockSlack, testConfig(), mockBlockBuilder)
+	// Create slack service with mock client
+	slackService := slackSvc.NewUIService(mockSlack, testConfig())
+	statusUC := usecase.NewStatusUseCase(repo, slackService, testConfig())
 
 	// Create a test incident
 	incidentID := types.IncidentID(time.Now().UnixNano())

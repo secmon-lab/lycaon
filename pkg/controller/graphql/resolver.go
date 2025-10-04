@@ -32,13 +32,14 @@ type UseCases struct {
 
 // NewResolver creates a new resolver instance
 func NewResolver(repo interfaces.Repository, slackSvc interfaces.SlackClient, uc *UseCases, modelConfig *model.Config) *Resolver {
+	slackUIService := slackservice.NewUIService(slackSvc, modelConfig)
 	return &Resolver{
 		repo:        repo,
 		slackSvc:    slackSvc,
 		incidentUC:  uc.IncidentUC,
 		taskUC:      uc.TaskUC,
 		authUC:      uc.AuthUC,
-		statusUC:    usecase.NewStatusUseCase(repo, slackSvc, modelConfig, slackservice.NewBlockBuilder()),
+		statusUC:    usecase.NewStatusUseCase(repo, slackUIService, modelConfig),
 		modelConfig: modelConfig,
 		userUC:      usecase.NewUserUseCase(repo, slackSvc),
 	}

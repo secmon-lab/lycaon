@@ -10,6 +10,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/secmon-lab/lycaon/pkg/repository"
+	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/slack-go/slack"
 )
@@ -90,7 +91,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 
 		// Create use case with mock and default categories
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -163,7 +165,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create first incident
 		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -246,7 +249,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create an incident
 		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -310,7 +314,8 @@ func TestIncidentUseCaseCreateIncident(t *testing.T) {
 			},
 		}
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Try to get non-existent incident
 		incident, err := uc.GetIncident(ctx, 999)
@@ -333,7 +338,8 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		mockSlack := &mocks.SlackClientMock{}
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(mockRepo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(mockRepo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Try to create incident - should fail due to repository error
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -420,7 +426,8 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		// Create use case with mock invite
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), mockInvite, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), mockInvite, config)
 
 		// Create an incident with security_incident category
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -491,7 +498,8 @@ func TestIncidentUseCaseWithMockRepository(t *testing.T) {
 
 		// Create use case with mock invite
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), mockInvite, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), mockInvite, config)
 
 		// Create an incident with unknown category (no invitations)
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -555,7 +563,8 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 
 		// Test with custom prefix "security"
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("security"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -632,7 +641,8 @@ func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
 				} else {
 					config = usecase.NewIncidentConfig(usecase.WithChannelPrefix(tc.prefix))
 				}
-				uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+				slackService := slackSvc.NewUIService(mockSlack, testConfig())
+				uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 				// Create an incident
 				incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -693,7 +703,8 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 		}
 
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -753,7 +764,8 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 		}
 
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc")) // No frontend URL
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create an incident
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
@@ -807,7 +819,8 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 		}
 
 		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
-		uc := usecase.NewIncident(repo, mockSlack, testConfig(), nil, config)
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
 
 		// Create an incident - should succeed even if bookmark fails
 		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{

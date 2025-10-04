@@ -36,8 +36,8 @@ type Handler struct {
 
 // NewHandler creates a new Slack handler
 func NewHandler(ctx context.Context, slackConfig *config.SlackConfig, repo interfaces.Repository, messageUC interfaces.SlackMessage, incidentUC interfaces.Incident, taskUC interfaces.Task, slackInteractionUC interfaces.SlackInteraction, slackClient interfaces.SlackClient, modelConfig *model.Config) *Handler {
-	blockBuilder := slackservice.NewBlockBuilder()
-	statusUC := usecase.NewStatusUseCase(repo, slackClient, modelConfig, blockBuilder)
+	slackUIService := slackservice.NewUIService(slackClient, modelConfig)
+	statusUC := usecase.NewStatusUseCase(repo, slackUIService, modelConfig)
 	return &Handler{
 		slackConfig:        slackConfig,
 		messageUC:          messageUC,

@@ -54,23 +54,23 @@ func NewIncidentConfig(opts ...IncidentOption) *IncidentConfig {
 
 // Incident implements Incident interface
 type Incident struct {
-	repo         interfaces.Repository
-	slackClient  interfaces.SlackClient
-	blockBuilder *slackSvc.BlockBuilder
-	modelConfig  *model.Config
-	invite       interfaces.Invite
-	config       *IncidentConfig
+	repo        interfaces.Repository
+	slackClient interfaces.SlackClient
+	slackSvc    *slackSvc.UIService
+	modelConfig *model.Config
+	invite      interfaces.Invite
+	config      *IncidentConfig
 }
 
 // NewIncident creates a new Incident instance with configuration
-func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, modelConfig *model.Config, invite interfaces.Invite, config *IncidentConfig) *Incident {
+func NewIncident(repo interfaces.Repository, slackClient interfaces.SlackClient, slackService *slackSvc.UIService, modelConfig *model.Config, invite interfaces.Invite, config *IncidentConfig) *Incident {
 	return &Incident{
-		repo:         repo,
-		slackClient:  slackClient,
-		blockBuilder: slackSvc.NewBlockBuilder(),
-		modelConfig:  modelConfig,
-		invite:       invite,
-		config:       config,
+		repo:        repo,
+		slackClient: slackClient,
+		slackSvc:    slackService,
+		modelConfig: modelConfig,
+		invite:      invite,
+		config:      config,
 	}
 }
 
@@ -161,16 +161,12 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	if leadName == "" {
 		leadName = "Unassigned"
 	}
-	welcomeBlocks := u.blockBuilder.BuildIncidentChannelWelcomeBlocks(
+	welcomeTS, err := u.slackSvc.PostWelcomeMessage(
+		ctx,
+		incident.ChannelID,
 		incident,
 		req.OriginChannelName,
 		leadName,
-		u.modelConfig,
-	)
-	_, welcomeTS, err := u.slackClient.PostMessage(
-		ctx,
-		channel.ID,
-		slack.MsgOptionBlocks(welcomeBlocks...),
 	)
 	if err != nil {
 		// Log error but don't fail - welcome message is nice to have but not critical
