@@ -3,6 +3,8 @@
 package graphql
 
 import (
+	"time"
+
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
@@ -12,6 +14,11 @@ type CreateTaskInput struct {
 	Title       string  `json:"title"`
 	Description *string `json:"description,omitempty"`
 	AssigneeID  *string `json:"assigneeId,omitempty"`
+}
+
+type GroupedIncidents struct {
+	Date      time.Time         `json:"date"`
+	Incidents []*model.Incident `json:"incidents"`
 }
 
 type IncidentConnection struct {
@@ -36,6 +43,13 @@ type PageInfo struct {
 }
 
 type Query struct {
+}
+
+type SeverityCount struct {
+	SeverityID    string `json:"severityId"`
+	SeverityName  string `json:"severityName"`
+	SeverityLevel int    `json:"severityLevel"`
+	Count         int    `json:"count"`
 }
 
 type UpdateIncidentInput struct {

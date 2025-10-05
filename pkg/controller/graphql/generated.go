@@ -47,12 +47,18 @@ type ResolverRoot interface {
 	StatusHistory() StatusHistoryResolver
 	Task() TaskResolver
 	User() UserResolver
+	WeeklySeverityCount() WeeklySeverityCountResolver
 }
 
 type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	GroupedIncidents struct {
+		Date      func(childComplexity int) int
+		Incidents func(childComplexity int) int
+	}
+
 	Incident struct {
 		CategoryID        func(childComplexity int) int
 		CategoryName      func(childComplexity int) int
@@ -106,13 +112,15 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		ChannelMembers        func(childComplexity int, channelID string) int
-		Incident              func(childComplexity int, id string) int
-		IncidentStatusHistory func(childComplexity int, incidentID string) int
-		Incidents             func(childComplexity int, first *int, after *string) int
-		Severities            func(childComplexity int) int
-		Task                  func(childComplexity int, id string) int
-		Tasks                 func(childComplexity int, incidentID string) int
+		ChannelMembers          func(childComplexity int, channelID string) int
+		Incident                func(childComplexity int, id string) int
+		IncidentStatusHistory   func(childComplexity int, incidentID string) int
+		IncidentTrendBySeverity func(childComplexity int, weeks *int) int
+		Incidents               func(childComplexity int, first *int, after *string) int
+		RecentOpenIncidents     func(childComplexity int, days *int) int
+		Severities              func(childComplexity int) int
+		Task                    func(childComplexity int, id string) int
+		Tasks                   func(childComplexity int, incidentID string) int
 	}
 
 	Severity struct {
@@ -120,6 +128,13 @@ type ComplexityRoot struct {
 		ID          func(childComplexity int) int
 		Level       func(childComplexity int) int
 		Name        func(childComplexity int) int
+	}
+
+	SeverityCount struct {
+		Count         func(childComplexity int) int
+		SeverityID    func(childComplexity int) int
+		SeverityLevel func(childComplexity int) int
+		SeverityName  func(childComplexity int) int
 	}
 
 	StatusHistory struct {
@@ -155,6 +170,13 @@ type ComplexityRoot struct {
 		Name        func(childComplexity int) int
 		RealName    func(childComplexity int) int
 		SlackUserID func(childComplexity int) int
+	}
+
+	WeeklySeverityCount struct {
+		SeverityCounts func(childComplexity int) int
+		WeekEnd        func(childComplexity int) int
+		WeekLabel      func(childComplexity int) int
+		WeekStart      func(childComplexity int) int
 	}
 }
 
@@ -196,6 +218,8 @@ type QueryResolver interface {
 	Task(ctx context.Context, id string) (*model.Task, error)
 	ChannelMembers(ctx context.Context, channelID string) ([]*model.User, error)
 	Severities(ctx context.Context) ([]*model.Severity, error)
+	RecentOpenIncidents(ctx context.Context, days *int) ([]*graphql1.GroupedIncidents, error)
+	IncidentTrendBySeverity(ctx context.Context, weeks *int) ([]*model.WeeklySeverityCount, error)
 }
 type StatusHistoryResolver interface {
 	ID(ctx context.Context, obj *model.StatusHistory) (string, error)
@@ -216,6 +240,9 @@ type UserResolver interface {
 	ID(ctx context.Context, obj *model.User) (string, error)
 	SlackUserID(ctx context.Context, obj *model.User) (string, error)
 }
+type WeeklySeverityCountResolver interface {
+	SeverityCounts(ctx context.Context, obj *model.WeeklySeverityCount) ([]*graphql1.SeverityCount, error)
+}
 
 type executableSchema struct {
 	schema     *ast.Schema
@@ -235,6 +262,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "GroupedIncidents.date":
+		if e.complexity.GroupedIncidents.Date == nil {
+			break
+		}
+
+		return e.complexity.GroupedIncidents.Date(childComplexity), true
+	case "GroupedIncidents.incidents":
+		if e.complexity.GroupedIncidents.Incidents == nil {
+			break
+		}
+
+		return e.complexity.GroupedIncidents.Incidents(childComplexity), true
 
 	case "Incident.categoryId":
 		if e.complexity.Incident.CategoryID == nil {
@@ -521,6 +561,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.IncidentStatusHistory(childComplexity, args["incidentId"].(string)), true
+	case "Query.incidentTrendBySeverity":
+		if e.complexity.Query.IncidentTrendBySeverity == nil {
+			break
+		}
+
+		args, err := ec.field_Query_incidentTrendBySeverity_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.IncidentTrendBySeverity(childComplexity, args["weeks"].(*int)), true
 	case "Query.incidents":
 		if e.complexity.Query.Incidents == nil {
 			break
@@ -532,6 +583,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Incidents(childComplexity, args["first"].(*int), args["after"].(*string)), true
+	case "Query.recentOpenIncidents":
+		if e.complexity.Query.RecentOpenIncidents == nil {
+			break
+		}
+
+		args, err := ec.field_Query_recentOpenIncidents_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.RecentOpenIncidents(childComplexity, args["days"].(*int)), true
 	case "Query.severities":
 		if e.complexity.Query.Severities == nil {
 			break
@@ -585,6 +647,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Severity.Name(childComplexity), true
+
+	case "SeverityCount.count":
+		if e.complexity.SeverityCount.Count == nil {
+			break
+		}
+
+		return e.complexity.SeverityCount.Count(childComplexity), true
+	case "SeverityCount.severityId":
+		if e.complexity.SeverityCount.SeverityID == nil {
+			break
+		}
+
+		return e.complexity.SeverityCount.SeverityID(childComplexity), true
+	case "SeverityCount.severityLevel":
+		if e.complexity.SeverityCount.SeverityLevel == nil {
+			break
+		}
+
+		return e.complexity.SeverityCount.SeverityLevel(childComplexity), true
+	case "SeverityCount.severityName":
+		if e.complexity.SeverityCount.SeverityName == nil {
+			break
+		}
+
+		return e.complexity.SeverityCount.SeverityName(childComplexity), true
 
 	case "StatusHistory.changedAt":
 		if e.complexity.StatusHistory.ChangedAt == nil {
@@ -744,6 +831,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.User.SlackUserID(childComplexity), true
+
+	case "WeeklySeverityCount.severityCounts":
+		if e.complexity.WeeklySeverityCount.SeverityCounts == nil {
+			break
+		}
+
+		return e.complexity.WeeklySeverityCount.SeverityCounts(childComplexity), true
+	case "WeeklySeverityCount.weekEnd":
+		if e.complexity.WeeklySeverityCount.WeekEnd == nil {
+			break
+		}
+
+		return e.complexity.WeeklySeverityCount.WeekEnd(childComplexity), true
+	case "WeeklySeverityCount.weekLabel":
+		if e.complexity.WeeklySeverityCount.WeekLabel == nil {
+			break
+		}
+
+		return e.complexity.WeeklySeverityCount.WeekLabel(childComplexity), true
+	case "WeeklySeverityCount.weekStart":
+		if e.complexity.WeeklySeverityCount.WeekStart == nil {
+			break
+		}
+
+		return e.complexity.WeeklySeverityCount.WeekStart(childComplexity), true
 
 	}
 	return 0, false
@@ -975,6 +1087,12 @@ type Query {
 
   # Get all severities
   severities: [Severity!]!
+
+  # Get recent open incidents grouped by date
+  recentOpenIncidents(days: Int = 7): [GroupedIncidents!]!
+
+  # Get incident trend by severity for specified weeks
+  incidentTrendBySeverity(weeks: Int = 4): [WeeklySeverityCount!]!
 }
 
 type Mutation {
@@ -1014,6 +1132,30 @@ input UpdateTaskInput {
   description: String
   status: TaskStatus
   assigneeId: String
+}
+
+# Dashboard types
+
+# Incidents grouped by date
+type GroupedIncidents {
+  date: Time!
+  incidents: [Incident!]!
+}
+
+# Weekly severity count data
+type WeeklySeverityCount {
+  weekStart: Time!
+  weekEnd: Time!
+  weekLabel: String!
+  severityCounts: [SeverityCount!]!
+}
+
+# Severity count item
+type SeverityCount {
+  severityId: String!
+  severityName: String!
+  severityLevel: Int!
+  count: Int!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -1130,6 +1272,17 @@ func (ec *executionContext) field_Query_incidentStatusHistory_args(ctx context.C
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_incidentTrendBySeverity_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "weeks", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["weeks"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_incident_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1154,6 +1307,17 @@ func (ec *executionContext) field_Query_incidents_args(ctx context.Context, rawA
 		return nil, err
 	}
 	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_recentOpenIncidents_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "days", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["days"] = arg0
 	return args, nil
 }
 
@@ -1230,6 +1394,112 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _GroupedIncidents_date(ctx context.Context, field graphql.CollectedField, obj *graphql1.GroupedIncidents) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GroupedIncidents_date,
+		func(ctx context.Context) (any, error) {
+			return obj.Date, nil
+		},
+		nil,
+		ec.marshalNTime2timeᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GroupedIncidents_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GroupedIncidents",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GroupedIncidents_incidents(ctx context.Context, field graphql.CollectedField, obj *graphql1.GroupedIncidents) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GroupedIncidents_incidents,
+		func(ctx context.Context) (any, error) {
+			return obj.Incidents, nil
+		},
+		nil,
+		ec.marshalNIncident2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐIncidentᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GroupedIncidents_incidents(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GroupedIncidents",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Incident_id(ctx, field)
+			case "channelId":
+				return ec.fieldContext_Incident_channelId(ctx, field)
+			case "channelName":
+				return ec.fieldContext_Incident_channelName(ctx, field)
+			case "title":
+				return ec.fieldContext_Incident_title(ctx, field)
+			case "description":
+				return ec.fieldContext_Incident_description(ctx, field)
+			case "categoryId":
+				return ec.fieldContext_Incident_categoryId(ctx, field)
+			case "categoryName":
+				return ec.fieldContext_Incident_categoryName(ctx, field)
+			case "severityId":
+				return ec.fieldContext_Incident_severityId(ctx, field)
+			case "severityName":
+				return ec.fieldContext_Incident_severityName(ctx, field)
+			case "severityLevel":
+				return ec.fieldContext_Incident_severityLevel(ctx, field)
+			case "status":
+				return ec.fieldContext_Incident_status(ctx, field)
+			case "lead":
+				return ec.fieldContext_Incident_lead(ctx, field)
+			case "leadUser":
+				return ec.fieldContext_Incident_leadUser(ctx, field)
+			case "originChannelId":
+				return ec.fieldContext_Incident_originChannelId(ctx, field)
+			case "originChannelName":
+				return ec.fieldContext_Incident_originChannelName(ctx, field)
+			case "teamId":
+				return ec.fieldContext_Incident_teamId(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_Incident_createdBy(ctx, field)
+			case "createdByUser":
+				return ec.fieldContext_Incident_createdByUser(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Incident_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Incident_updatedAt(ctx, field)
+			case "initialTriage":
+				return ec.fieldContext_Incident_initialTriage(ctx, field)
+			case "statusHistories":
+				return ec.fieldContext_Incident_statusHistories(ctx, field)
+			case "tasks":
+				return ec.fieldContext_Incident_tasks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
+		},
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _Incident_id(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -3081,6 +3351,104 @@ func (ec *executionContext) fieldContext_Query_severities(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_recentOpenIncidents(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_recentOpenIncidents,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().RecentOpenIncidents(ctx, fc.Args["days"].(*int))
+		},
+		nil,
+		ec.marshalNGroupedIncidents2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐGroupedIncidentsᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_recentOpenIncidents(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "date":
+				return ec.fieldContext_GroupedIncidents_date(ctx, field)
+			case "incidents":
+				return ec.fieldContext_GroupedIncidents_incidents(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GroupedIncidents", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_recentOpenIncidents_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_incidentTrendBySeverity(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_incidentTrendBySeverity,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().IncidentTrendBySeverity(ctx, fc.Args["weeks"].(*int))
+		},
+		nil,
+		ec.marshalNWeeklySeverityCount2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐWeeklySeverityCountᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_incidentTrendBySeverity(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "weekStart":
+				return ec.fieldContext_WeeklySeverityCount_weekStart(ctx, field)
+			case "weekEnd":
+				return ec.fieldContext_WeeklySeverityCount_weekEnd(ctx, field)
+			case "weekLabel":
+				return ec.fieldContext_WeeklySeverityCount_weekLabel(ctx, field)
+			case "severityCounts":
+				return ec.fieldContext_WeeklySeverityCount_severityCounts(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type WeeklySeverityCount", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_incidentTrendBySeverity_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3295,6 +3663,122 @@ func (ec *executionContext) _Severity_level(ctx context.Context, field graphql.C
 func (ec *executionContext) fieldContext_Severity_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Severity",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SeverityCount_severityId(ctx context.Context, field graphql.CollectedField, obj *graphql1.SeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SeverityCount_severityId,
+		func(ctx context.Context) (any, error) {
+			return obj.SeverityID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SeverityCount_severityId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SeverityCount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SeverityCount_severityName(ctx context.Context, field graphql.CollectedField, obj *graphql1.SeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SeverityCount_severityName,
+		func(ctx context.Context) (any, error) {
+			return obj.SeverityName, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SeverityCount_severityName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SeverityCount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SeverityCount_severityLevel(ctx context.Context, field graphql.CollectedField, obj *graphql1.SeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SeverityCount_severityLevel,
+		func(ctx context.Context) (any, error) {
+			return obj.SeverityLevel, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SeverityCount_severityLevel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SeverityCount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SeverityCount_count(ctx context.Context, field graphql.CollectedField, obj *graphql1.SeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SeverityCount_count,
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SeverityCount_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SeverityCount",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4086,6 +4570,132 @@ func (ec *executionContext) fieldContext_User_avatarUrl(_ context.Context, field
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklySeverityCount_weekStart(ctx context.Context, field graphql.CollectedField, obj *model.WeeklySeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_WeeklySeverityCount_weekStart,
+		func(ctx context.Context) (any, error) {
+			return obj.WeekStart, nil
+		},
+		nil,
+		ec.marshalNTime2timeᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_WeeklySeverityCount_weekStart(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklySeverityCount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklySeverityCount_weekEnd(ctx context.Context, field graphql.CollectedField, obj *model.WeeklySeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_WeeklySeverityCount_weekEnd,
+		func(ctx context.Context) (any, error) {
+			return obj.WeekEnd, nil
+		},
+		nil,
+		ec.marshalNTime2timeᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_WeeklySeverityCount_weekEnd(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklySeverityCount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklySeverityCount_weekLabel(ctx context.Context, field graphql.CollectedField, obj *model.WeeklySeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_WeeklySeverityCount_weekLabel,
+		func(ctx context.Context) (any, error) {
+			return obj.WeekLabel, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_WeeklySeverityCount_weekLabel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklySeverityCount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeeklySeverityCount_severityCounts(ctx context.Context, field graphql.CollectedField, obj *model.WeeklySeverityCount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_WeeklySeverityCount_severityCounts,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.WeeklySeverityCount().SeverityCounts(ctx, obj)
+		},
+		nil,
+		ec.marshalNSeverityCount2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐSeverityCountᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_WeeklySeverityCount_severityCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeeklySeverityCount",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "severityId":
+				return ec.fieldContext_SeverityCount_severityId(ctx, field)
+			case "severityName":
+				return ec.fieldContext_SeverityCount_severityName(ctx, field)
+			case "severityLevel":
+				return ec.fieldContext_SeverityCount_severityLevel(ctx, field)
+			case "count":
+				return ec.fieldContext_SeverityCount_count(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type SeverityCount", field.Name)
 		},
 	}
 	return fc, nil
@@ -5696,6 +6306,50 @@ func (ec *executionContext) unmarshalInputUpdateTaskInput(ctx context.Context, o
 
 // region    **************************** object.gotpl ****************************
 
+var groupedIncidentsImplementors = []string{"GroupedIncidents"}
+
+func (ec *executionContext) _GroupedIncidents(ctx context.Context, sel ast.SelectionSet, obj *graphql1.GroupedIncidents) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, groupedIncidentsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GroupedIncidents")
+		case "date":
+			out.Values[i] = ec._GroupedIncidents_date(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "incidents":
+			out.Values[i] = ec._GroupedIncidents_incidents(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var incidentImplementors = []string{"Incident"}
 
 func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet, obj *model.Incident) graphql.Marshaler {
@@ -6773,6 +7427,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "recentOpenIncidents":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_recentOpenIncidents(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "incidentTrendBySeverity":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_incidentTrendBySeverity(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -6832,6 +7530,60 @@ func (ec *executionContext) _Severity(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "level":
 			out.Values[i] = ec._Severity_level(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var severityCountImplementors = []string{"SeverityCount"}
+
+func (ec *executionContext) _SeverityCount(ctx context.Context, sel ast.SelectionSet, obj *graphql1.SeverityCount) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, severityCountImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SeverityCount")
+		case "severityId":
+			out.Values[i] = ec._SeverityCount_severityId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "severityName":
+			out.Values[i] = ec._SeverityCount_severityName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "severityLevel":
+			out.Values[i] = ec._SeverityCount_severityLevel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "count":
+			out.Values[i] = ec._SeverityCount_count(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -7419,6 +8171,91 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
+var weeklySeverityCountImplementors = []string{"WeeklySeverityCount"}
+
+func (ec *executionContext) _WeeklySeverityCount(ctx context.Context, sel ast.SelectionSet, obj *model.WeeklySeverityCount) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, weeklySeverityCountImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WeeklySeverityCount")
+		case "weekStart":
+			out.Values[i] = ec._WeeklySeverityCount_weekStart(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "weekEnd":
+			out.Values[i] = ec._WeeklySeverityCount_weekEnd(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "weekLabel":
+			out.Values[i] = ec._WeeklySeverityCount_weekLabel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "severityCounts":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._WeeklySeverityCount_severityCounts(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var __DirectiveImplementors = []string{"__Directive"}
 
 func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionSet, obj *introspection.Directive) graphql.Marshaler {
@@ -7775,6 +8612,60 @@ func (ec *executionContext) unmarshalNCreateTaskInput2githubᚗcomᚋsecmonᚑla
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNGroupedIncidents2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐGroupedIncidentsᚄ(ctx context.Context, sel ast.SelectionSet, v []*graphql1.GroupedIncidents) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNGroupedIncidents2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐGroupedIncidents(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNGroupedIncidents2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐGroupedIncidents(ctx context.Context, sel ast.SelectionSet, v *graphql1.GroupedIncidents) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GroupedIncidents(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -7793,6 +8684,50 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 
 func (ec *executionContext) marshalNIncident2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐIncident(ctx context.Context, sel ast.SelectionSet, v model.Incident) graphql.Marshaler {
 	return ec._Incident(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNIncident2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐIncidentᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Incident) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNIncident2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐIncident(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNIncident2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐIncident(ctx context.Context, sel ast.SelectionSet, v *model.Incident) graphql.Marshaler {
@@ -7968,6 +8903,60 @@ func (ec *executionContext) marshalNSeverity2ᚖgithubᚗcomᚋsecmonᚑlabᚋly
 		return graphql.Null
 	}
 	return ec._Severity(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNSeverityCount2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐSeverityCountᚄ(ctx context.Context, sel ast.SelectionSet, v []*graphql1.SeverityCount) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNSeverityCount2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐSeverityCount(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNSeverityCount2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚋgraphqlᚐSeverityCount(ctx context.Context, sel ast.SelectionSet, v *graphql1.SeverityCount) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SeverityCount(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNStatusHistory2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐStatusHistoryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StatusHistory) graphql.Marshaler {
@@ -8219,6 +9208,60 @@ func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaon
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNWeeklySeverityCount2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐWeeklySeverityCountᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.WeeklySeverityCount) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNWeeklySeverityCount2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐWeeklySeverityCount(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNWeeklySeverityCount2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐWeeklySeverityCount(ctx context.Context, sel ast.SelectionSet, v *model.WeeklySeverityCount) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._WeeklySeverityCount(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

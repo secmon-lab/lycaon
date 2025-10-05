@@ -3,7 +3,9 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/m-mizutani/ctxlog"
 	"github.com/m-mizutani/goerr/v2"
@@ -387,4 +389,143 @@ func (u *Incident) UpdateIncident(ctx context.Context, incidentID types.Incident
 	}
 
 	return incident, nil
+}
+
+// GetRecentOpenIncidents gets recent open incidents grouped by date
+func (u *Incident) GetRecentOpenIncidents(ctx context.Context, days int) (map[string][]*model.Incident, error) {
+	// Validate input
+	if days <= 0 {
+		days = 7 // Default to 7 days
+	}
+
+	// Get all incidents
+	allIncidents, err := u.repo.ListIncidents(ctx)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to list incidents")
+	}
+
+	// Filter by date and status
+	cutoffTime := time.Now().AddDate(0, 0, -days)
+	result := make(map[string][]*model.Incident)
+
+	for _, incident := range allIncidents {
+		// Skip old incidents
+		if incident.CreatedAt.Before(cutoffTime) {
+			continue
+		}
+		// Skip closed incidents
+		if incident.Status == types.IncidentStatusClosed {
+			continue
+		}
+
+		// Group by date (YYYY-MM-DD format)
+		dateKey := incident.CreatedAt.Format("2006-01-02")
+		result[dateKey] = append(result[dateKey], incident)
+	}
+
+	// Sort incidents within each date group (newest first)
+	for _, incidents := range result {
+		sort.Slice(incidents, func(i, j int) bool {
+			return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
+		})
+	}
+
+	return result, nil
+}
+
+// GetIncidentTrendBySeverity gets incident trend by severity for specified weeks
+func (u *Incident) GetIncidentTrendBySeverity(ctx context.Context, weeks int) ([]*model.WeeklySeverityCount, error) {
+	// Validate input
+	if weeks <= 0 {
+		weeks = 4 // Default to 4 weeks
+	}
+
+	// Get all incidents
+	allIncidents, err := u.repo.ListIncidents(ctx)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to list incidents")
+	}
+
+	// Calculate week ranges
+	now := time.Now()
+	startOfCurrentWeek := getStartOfWeek(now)
+	weekRanges := generateWeekRanges(startOfCurrentWeek, weeks)
+
+	// Count incidents by week and severity
+	result := make([]*model.WeeklySeverityCount, len(weekRanges))
+	for i, weekRange := range weekRanges {
+		counts := make(map[string]int)
+
+		for _, incident := range allIncidents {
+			// Check if incident is within this week
+			if incident.CreatedAt.Before(weekRange.Start) || incident.CreatedAt.After(weekRange.End) {
+				continue
+			}
+			// Increment count for this severity
+			severityID := string(incident.SeverityID)
+			counts[severityID]++
+		}
+
+		result[i] = &model.WeeklySeverityCount{
+			WeekStart:      weekRange.Start,
+			WeekEnd:        weekRange.End,
+			WeekLabel:      weekRange.Label,
+			SeverityCounts: counts,
+		}
+	}
+
+	return result, nil
+}
+
+// weekRange represents a week time range
+type weekRange struct {
+	Start time.Time
+	End   time.Time
+	Label string
+}
+
+// getStartOfWeek returns the start of the week (Monday 00:00:00) for a given time
+func getStartOfWeek(t time.Time) time.Time {
+	weekday := int(t.Weekday())
+	// Convert Sunday (0) to 7, then calculate days to subtract to get to Monday
+	if weekday == 0 {
+		weekday = 7
+	}
+	daysToMonday := weekday - 1
+	// Get the date of Monday, preserving timezone
+	monday := t.AddDate(0, 0, -daysToMonday)
+	// Return Monday at 00:00:00 in the same timezone
+	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
+}
+
+// generateWeekRanges generates week ranges from the current week backwards
+func generateWeekRanges(startOfCurrentWeek time.Time, weeks int) []weekRange {
+	ranges := make([]weekRange, weeks)
+
+	for i := 0; i < weeks; i++ {
+		weekOffset := weeks - 1 - i // Start from oldest week
+		start := startOfCurrentWeek.AddDate(0, 0, -7*weekOffset)
+		// Calculate Sunday (6 days after Monday) at 23:59:59 in the same timezone
+		sunday := start.AddDate(0, 0, 6)
+		end := time.Date(sunday.Year(), sunday.Month(), sunday.Day(), 23, 59, 59, 0, sunday.Location())
+
+		// Format: "Jan 2-8" or "Dec 30-Jan 5" for cross-month weeks
+		startMonth := start.Format("Jan")
+		endMonth := end.Format("Jan")
+		if startMonth == endMonth {
+			ranges[i] = weekRange{
+				Start: start,
+				End:   end,
+				Label: fmt.Sprintf("%s %d-%d", startMonth, start.Day(), end.Day()),
+			}
+		} else {
+			ranges[i] = weekRange{
+				Start: start,
+				End:   end,
+				Label: fmt.Sprintf("%s %d-%s %d", startMonth, start.Day(), endMonth, end.Day()),
+			}
+		}
+	}
+
+	return ranges
 }

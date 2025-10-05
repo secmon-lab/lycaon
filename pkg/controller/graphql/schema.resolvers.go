@@ -7,6 +7,7 @@ package graphql
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -575,6 +576,37 @@ func (r *queryResolver) Severities(ctx context.Context) ([]*model.Severity, erro
 	return result, nil
 }
 
+// RecentOpenIncidents is the resolver for the recentOpenIncidents field.
+func (r *queryResolver) RecentOpenIncidents(ctx context.Context, days *int) ([]*graphql1.GroupedIncidents, error) {
+	daysCount := 7
+	if days != nil && *days > 0 {
+		daysCount = *days
+	}
+
+	incidentsMap, err := r.incidentUC.GetRecentOpenIncidents(ctx, daysCount)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get recent open incidents")
+	}
+
+	// Convert map to sorted slice (by date descending)
+	return convertToGroupedIncidents(incidentsMap), nil
+}
+
+// IncidentTrendBySeverity is the resolver for the incidentTrendBySeverity field.
+func (r *queryResolver) IncidentTrendBySeverity(ctx context.Context, weeks *int) ([]*model.WeeklySeverityCount, error) {
+	weeksCount := 4
+	if weeks != nil && *weeks > 0 {
+		weeksCount = *weeks
+	}
+
+	trend, err := r.incidentUC.GetIncidentTrendBySeverity(ctx, weeksCount)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident trend by severity")
+	}
+
+	return trend, nil
+}
+
 // ID is the resolver for the id field.
 func (r *statusHistoryResolver) ID(ctx context.Context, obj *model.StatusHistory) (string, error) {
 	return string(obj.ID), nil
@@ -669,6 +701,55 @@ func (r *userResolver) SlackUserID(ctx context.Context, obj *model.User) (string
 	return string(obj.ID), nil
 }
 
+// SeverityCounts is the resolver for the severityCounts field.
+func (r *weeklySeverityCountResolver) SeverityCounts(ctx context.Context, obj *model.WeeklySeverityCount) ([]*graphql1.SeverityCount, error) {
+	if obj == nil {
+		return []*graphql1.SeverityCount{}, nil
+	}
+
+	severityCounts := make([]*graphql1.SeverityCount, 0, len(obj.SeverityCounts))
+	for severityID, count := range obj.SeverityCounts {
+		// Handle empty severity as "unknown"
+		if severityID == "" {
+			severityID = "unknown"
+		}
+
+		severityName := severityID
+		severityLevel := 0
+
+		// Get severity info from config
+		if r.Resolver != nil && r.Resolver.modelConfig != nil {
+			severitiesConfig := r.Resolver.modelConfig.GetSeveritiesConfig()
+			if severitiesConfig != nil {
+				severity := severitiesConfig.FindSeverityByIDWithFallback(severityID)
+				if severity != nil {
+					severityName = severity.Name
+					severityLevel = severity.Level
+				}
+			}
+		}
+
+		// Default name for unknown severity
+		if severityID == "unknown" && severityName == "unknown" {
+			severityName = "Unknown"
+		}
+
+		severityCounts = append(severityCounts, &graphql1.SeverityCount{
+			SeverityID:    severityID,
+			SeverityName:  severityName,
+			SeverityLevel: severityLevel,
+			Count:         count,
+		})
+	}
+
+	// Sort by severity level (descending - critical first)
+	sort.Slice(severityCounts, func(i, j int) bool {
+		return severityCounts[i].SeverityLevel > severityCounts[j].SeverityLevel
+	})
+
+	return severityCounts, nil
+}
+
 // Incident returns IncidentResolver implementation.
 func (r *Resolver) Incident() IncidentResolver { return &incidentResolver{r} }
 
@@ -687,9 +768,15 @@ func (r *Resolver) Task() TaskResolver { return &taskResolver{r} }
 // User returns UserResolver implementation.
 func (r *Resolver) User() UserResolver { return &userResolver{r} }
 
+// WeeklySeverityCount returns WeeklySeverityCountResolver implementation.
+func (r *Resolver) WeeklySeverityCount() WeeklySeverityCountResolver {
+	return &weeklySeverityCountResolver{r}
+}
+
 type incidentResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type statusHistoryResolver struct{ *Resolver }
 type taskResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+type weeklySeverityCountResolver struct{ *Resolver }
