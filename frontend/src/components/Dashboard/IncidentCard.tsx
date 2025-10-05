@@ -4,24 +4,7 @@ import { format } from 'date-fns';
 import * as Avatar from '@radix-ui/react-avatar';
 import SeverityBadge from '../common/SeverityBadge';
 import StatusBadge from '../IncidentList/StatusBadge';
-
-interface Incident {
-  id: string;
-  title: string;
-  description: string;
-  severityId: string;
-  severityName: string;
-  severityLevel: number;
-  status: string;
-  lead: string;
-  leadUser?: {
-    id: string;
-    name: string;
-    displayName: string;
-    avatarUrl: string;
-  };
-  createdAt: string;
-}
+import { Incident } from '../../types/incident';
 
 interface IncidentCardProps {
   incident: Incident;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
@@ -281,6 +282,28 @@ func (m *Memory) ListIncidents(ctx context.Context) ([]*model.Incident, error) {
 		// Return a copy to prevent external modifications
 		incidentCopy := *incident
 		incidents = append(incidents, &incidentCopy)
+	}
+
+	// Sort by creation time (newest first)
+	sort.Slice(incidents, func(i, j int) bool {
+		return incidents[i].CreatedAt.After(incidents[j].CreatedAt)
+	})
+
+	return incidents, nil
+}
+
+// ListIncidentsSince retrieves incidents created since the specified time
+func (m *Memory) ListIncidentsSince(ctx context.Context, since time.Time) ([]*model.Incident, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	incidents := make([]*model.Incident, 0)
+	for _, incident := range m.incidents {
+		if incident.CreatedAt.After(since) || incident.CreatedAt.Equal(since) {
+			// Return a copy to prevent external modifications
+			incidentCopy := *incident
+			incidents = append(incidents, &incidentCopy)
+		}
 	}
 
 	// Sort by creation time (newest first)

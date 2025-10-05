@@ -1,32 +1,10 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { IncidentCard } from './IncidentCard';
-
-interface Incident {
-  id: string;
-  title: string;
-  description: string;
-  severityId: string;
-  severityName: string;
-  severityLevel: number;
-  status: string;
-  lead: string;
-  leadUser?: {
-    id: string;
-    name: string;
-    displayName: string;
-    avatarUrl: string;
-  };
-  createdAt: string;
-}
-
-interface GroupedIncident {
-  date: string;
-  incidents: Incident[];
-}
+import { GroupedIncidents } from '../../types/dashboard';
 
 interface OpenIncidentsListProps {
-  incidents: GroupedIncident[];
+  incidents: GroupedIncidents[];
   loading?: boolean;
   error?: Error;
 }
@@ -70,7 +48,7 @@ export const OpenIncidentsList: React.FC<OpenIncidentsListProps> = ({
           Recent Open Incidents (Last 14 Days)
         </h2>
         <p className="text-gray-500 text-center py-8">
-          No open incidents in the last 7 days
+          No open incidents in the last 14 days
         </p>
       </div>
     );

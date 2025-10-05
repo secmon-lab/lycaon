@@ -4,6 +4,7 @@ package interfaces
 
 import (
 	"context"
+	"time"
 
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
@@ -32,6 +33,7 @@ type Repository interface {
 	GetIncidentByChannelID(ctx context.Context, channelID types.ChannelID) (*model.Incident, error)
 	ListIncidents(ctx context.Context) ([]*model.Incident, error)
 	ListIncidentsPaginated(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error)
+	ListIncidentsSince(ctx context.Context, since time.Time) ([]*model.Incident, error)
 	GetNextIncidentNumber(ctx context.Context) (types.IncidentID, error)
 
 	// Status history operations

@@ -6,6 +6,10 @@ import {
   GET_RECENT_OPEN_INCIDENTS,
   GET_INCIDENT_TREND_BY_SEVERITY,
 } from '../graphql/queries';
+import {
+  RecentOpenIncidentsData,
+  IncidentTrendBySeverityData,
+} from '../types/dashboard';
 
 interface User {
   id: string;
@@ -17,51 +21,6 @@ interface User {
 interface DashboardProps {
   user: User;
   setUser: (user: User | null) => void;
-}
-
-interface Incident {
-  id: string;
-  title: string;
-  description: string;
-  severityId: string;
-  severityName: string;
-  severityLevel: number;
-  status: string;
-  lead: string;
-  leadUser?: {
-    id: string;
-    name: string;
-    displayName: string;
-    avatarUrl: string;
-  };
-  createdAt: string;
-}
-
-interface GroupedIncidents {
-  date: string;
-  incidents: Incident[];
-}
-
-interface SeverityCount {
-  severityId: string;
-  severityName: string;
-  severityLevel: number;
-  count: number;
-}
-
-interface WeeklySeverityCount {
-  weekStart: string;
-  weekEnd: string;
-  weekLabel: string;
-  severityCounts: SeverityCount[];
-}
-
-interface RecentOpenIncidentsData {
-  recentOpenIncidents: GroupedIncidents[];
-}
-
-interface IncidentTrendBySeverityData {
-  incidentTrendBySeverity: WeeklySeverityCount[];
 }
 
 const Dashboard: React.FC<DashboardProps> = () => {

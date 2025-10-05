@@ -10,6 +10,7 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { WeeklySeverityCount } from '../../types/dashboard';
 
 ChartJS.register(
   CategoryScale,
@@ -20,22 +21,8 @@ ChartJS.register(
   Legend
 );
 
-interface SeverityCount {
-  severityId: string;
-  severityName: string;
-  severityLevel: number;
-  count: number;
-}
-
-interface WeeklySeverityData {
-  weekLabel: string;
-  weekStart: string;
-  weekEnd: string;
-  severityCounts: SeverityCount[];
-}
-
 interface SeverityTrendChartProps {
-  data: WeeklySeverityData[];
+  data: WeeklySeverityCount[];
   loading?: boolean;
   error?: Error;
 }
@@ -232,7 +219,7 @@ export const SeverityTrendChart: React.FC<SeverityTrendChartProps> = ({
       <h2 className="text-base font-semibold text-gray-900 mb-6">
         Incident Trend by Severity (Last 8 Weeks)
       </h2>
-      <div style={{ height: '280px' }}>
+      <div className="h-[280px]">
         <Bar options={options} data={chartData} />
       </div>
     </div>

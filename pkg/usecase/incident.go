@@ -398,21 +398,17 @@ func (u *Incident) GetRecentOpenIncidents(ctx context.Context, days int) (map[st
 		days = 7 // Default to 7 days
 	}
 
-	// Get all incidents
-	allIncidents, err := u.repo.ListIncidents(ctx)
+	// Get incidents since cutoff time
+	cutoffTime := time.Now().AddDate(0, 0, -days)
+	incidents, err := u.repo.ListIncidentsSince(ctx, cutoffTime)
 	if err != nil {
-		return nil, goerr.Wrap(err, "failed to list incidents")
+		return nil, goerr.Wrap(err, "failed to list incidents since cutoff time")
 	}
 
-	// Filter by date and status
-	cutoffTime := time.Now().AddDate(0, 0, -days)
+	// Filter by status and group by date
 	result := make(map[string][]*model.Incident)
 
-	for _, incident := range allIncidents {
-		// Skip old incidents
-		if incident.CreatedAt.Before(cutoffTime) {
-			continue
-		}
+	for _, incident := range incidents {
 		// Skip closed incidents
 		if incident.Status == types.IncidentStatusClosed {
 			continue
@@ -440,23 +436,24 @@ func (u *Incident) GetIncidentTrendBySeverity(ctx context.Context, weeks int) ([
 		weeks = 4 // Default to 4 weeks
 	}
 
-	// Get all incidents
-	allIncidents, err := u.repo.ListIncidents(ctx)
-	if err != nil {
-		return nil, goerr.Wrap(err, "failed to list incidents")
-	}
-
 	// Calculate week ranges
 	now := time.Now()
 	startOfCurrentWeek := getStartOfWeek(now)
 	weekRanges := generateWeekRanges(startOfCurrentWeek, weeks)
+
+	// Get incidents since the oldest week start
+	oldestWeekStart := weekRanges[0].Start
+	incidents, err := u.repo.ListIncidentsSince(ctx, oldestWeekStart)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to list incidents since oldest week")
+	}
 
 	// Count incidents by week and severity
 	result := make([]*model.WeeklySeverityCount, len(weekRanges))
 	for i, weekRange := range weekRanges {
 		counts := make(map[string]int)
 
-		for _, incident := range allIncidents {
+		for _, incident := range incidents {
 			// Check if incident is within this week
 			if incident.CreatedAt.Before(weekRange.Start) || incident.CreatedAt.After(weekRange.End) {
 				continue
