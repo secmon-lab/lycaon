@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { IncidentStatus } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
+import SlackChannelLink from '../components/common/SlackChannelLink';
 import {
   AlertCircle,
   RefreshCw,
@@ -15,7 +16,6 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
-  MessageSquare,
   Search,
   X,
   Check,
@@ -135,7 +135,16 @@ const IncidentList: React.FC = () => {
     return true;
   };
 
-  const compareIncidents = (a: Incident, b: Incident, column: string): number => {
+  // Pre-parse timestamps for efficient sorting (optimized)
+  const timestampMap = useMemo(() => {
+    const map = new Map<string, number>();
+    incidents.forEach(i => {
+      map.set(i.id, new Date(i.createdAt).getTime());
+    });
+    return map;
+  }, [incidents]);
+
+  const compareIncidents = useCallback((a: Incident, b: Incident, column: string): number => {
     switch (column) {
       case 'id':
         return a.id.localeCompare(b.id);
@@ -150,8 +159,11 @@ const IncidentList: React.FC = () => {
         const bName = b.createdByUser?.displayName || b.createdByUser?.name || b.createdBy;
         return aName.localeCompare(bName);
       }
-      case 'createdAt':
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case 'createdAt': {
+        const aTime = timestampMap.get(a.id) || 0;
+        const bTime = timestampMap.get(b.id) || 0;
+        return aTime - bTime;
+      }
       case 'category': {
         const aCategory = a.categoryName || a.categoryId || '';
         const bCategory = b.categoryName || b.categoryId || '';
@@ -160,7 +172,7 @@ const IncidentList: React.FC = () => {
       default:
         return 0;
     }
-  };
+  }, [timestampMap]);
 
   // Data processing pipeline
   const filteredIncidents = useMemo(() => {
@@ -178,7 +190,7 @@ const IncidentList: React.FC = () => {
       const compareValue = compareIncidents(a, b, sortColumn);
       return sortDirection === 'asc' ? compareValue : -compareValue;
     });
-  }, [filteredIncidents, sortColumn, sortDirection]);
+  }, [filteredIncidents, sortColumn, sortDirection, compareIncidents]);
 
   const paginatedIncidents = useMemo(() => {
     const startIndex = (currentPage - 1) * perPage;
@@ -266,65 +278,20 @@ const IncidentList: React.FC = () => {
     }
   };
 
-  // Slack Channel Icon Link component
-  const SlackChannelIconLink = ({ channelId, channelName, teamId }: {
-    channelId: string;
-    channelName: string;
-    teamId?: string;
-  }) => {
-    const handleClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!teamId) return;
-
-      const slackDeepLink = `slack://channel?team=${teamId}&id=${channelId}`;
-      const webUrl = `https://app.slack.com/client/${teamId}/${channelId}`;
-
-      let timeoutId: number;
-
-      const visibilityChangeHandler = () => {
-        if (document.visibilityState === 'hidden') {
-          clearTimeout(timeoutId);
-          window.removeEventListener('visibilitychange', visibilityChangeHandler);
-        }
-      };
-      window.addEventListener('visibilitychange', visibilityChangeHandler);
-
-      const link = document.createElement('a');
-      link.href = slackDeepLink;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      timeoutId = window.setTimeout(() => {
-        window.removeEventListener('visibilitychange', visibilityChangeHandler);
-        if (document.visibilityState === 'visible') {
-          window.open(webUrl, '_blank', 'noopener,noreferrer');
-        }
-      }, 1000);
-    };
-
-    if (!teamId) {
-      return <MessageSquare className="h-4 w-4 text-slate-400" />;
-    }
-
-    return (
-      <a
-        href={`https://app.slack.com/client/${teamId}/${channelId}`}
-        onClick={handleClick}
-        className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-        title={`Open #${channelName} in Slack`}
-      >
-        <MessageSquare className="h-4 w-4" />
-      </a>
-    );
-  };
-
-  // Get unique severity levels
-  const uniqueSeverityLevels = useMemo(() => {
-    const levels = new Set(incidents.map(i => i.severityLevel));
-    return Array.from(levels).sort((a, b) => b - a);
+  // Get unique severity levels with names (optimized)
+  const severityLevelMap = useMemo(() => {
+    const map = new Map<number, string>();
+    incidents.forEach(i => {
+      if (!map.has(i.severityLevel)) {
+        map.set(i.severityLevel, i.severityName);
+      }
+    });
+    return map;
   }, [incidents]);
+
+  const uniqueSeverityLevels = useMemo(() => {
+    return Array.from(severityLevelMap.keys()).sort((a, b) => b - a);
+  }, [severityLevelMap]);
 
   const hasActiveFilters = searchText || statusFilter.size > 0 || severityFilter.size > 0 || dateRange.start || dateRange.end;
 
@@ -534,28 +501,25 @@ const IncidentList: React.FC = () => {
                   />
                   <div className="absolute z-20 mt-1 w-48 rounded-md border border-slate-200 bg-white shadow-lg">
                     <div className="py-1">
-                      {uniqueSeverityLevels.map((level) => {
-                        const sample = incidents.find(i => i.severityLevel === level);
-                        return (
-                          <label
-                            key={level}
-                            className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={severityFilter.has(level)}
-                              onChange={() => handleSeverityToggle(level)}
-                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-slate-700">
-                              {sample?.severityName || `Level ${level}`}
-                            </span>
-                            {severityFilter.has(level) && (
-                              <Check className="ml-auto h-4 w-4 text-blue-600" />
-                            )}
-                          </label>
-                        );
-                      })}
+                      {uniqueSeverityLevels.map((level) => (
+                        <label
+                          key={level}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={severityFilter.has(level)}
+                            onChange={() => handleSeverityToggle(level)}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">
+                            {severityLevelMap.get(level) || `Level ${level}`}
+                          </span>
+                          {severityFilter.has(level) && (
+                            <Check className="ml-auto h-4 w-4 text-blue-600" />
+                          )}
+                        </label>
+                      ))}
                     </div>
                   </div>
                 </>
@@ -776,10 +740,11 @@ const IncidentList: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <SlackChannelIconLink
+                      <SlackChannelLink
                         channelId={incident.channelId}
                         channelName={incident.channelName}
                         teamId={incident.teamId}
+                        iconOnly
                       />
                     </td>
                     <td className="hidden md:table-cell px-4 py-3">
