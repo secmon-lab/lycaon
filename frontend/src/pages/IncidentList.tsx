@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -6,16 +6,19 @@ import { GET_INCIDENTS } from '../graphql/queries';
 import { Button } from '../components/ui/Button';
 import { IncidentStatus } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
-import SlackChannelLink from '../components/common/SlackChannelLink';
 import SeverityBadge from '../components/common/SeverityBadge';
+import SlackChannelLink from '../components/common/SlackChannelLink';
 import {
   AlertCircle,
   RefreshCw,
-  ChevronRight,
   Clock,
-  Hash,
   User,
   Plus,
+  ChevronUp,
+  ChevronDown,
+  Search,
+  X,
+  Check,
 } from 'lucide-react';
 
 interface User {
@@ -67,13 +70,29 @@ interface IncidentsData {
 
 const IncidentList: React.FC = () => {
   const navigate = useNavigate();
-  const rowsPerPage = 20;
 
+  // State management
+  const [searchInput, setSearchInput] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<Set<IncidentStatus>>(new Set());
+  const [severityFilter, setSeverityFilter] = useState<Set<number>>(new Set());
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
+    start: null,
+    end: null,
+  });
+  const [sortColumn, setSortColumn] = useState<string>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [severityDropdownOpen, setSeverityDropdownOpen] = useState(false);
+
+  // Fetch all incidents
   const { loading, error, data, refetch } = useQuery<IncidentsData>(
     GET_INCIDENTS,
     {
       variables: {
-        first: rowsPerPage,
+        first: 10000,
         after: null,
       },
       fetchPolicy: 'cache-and-network',
@@ -81,11 +100,200 @@ const IncidentList: React.FC = () => {
     }
   );
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchText(searchInput);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
+  const incidents = useMemo(() => {
+    return data?.incidents?.edges?.map((edge: IncidentEdge) => edge.node) || [];
+  }, [data?.incidents?.edges]);
+
+  // Helper functions
+  const matchesSearchText = (incident: Incident, search: string): boolean => {
+    const lowerSearch = search.toLowerCase();
+    return (
+      incident.id.toLowerCase().includes(lowerSearch) ||
+      incident.title.toLowerCase().includes(lowerSearch) ||
+      (incident.categoryName?.toLowerCase().includes(lowerSearch) ?? false) ||
+      (incident.categoryId?.toLowerCase().includes(lowerSearch) ?? false)
+    );
+  };
+
+  const matchesDateRange = (
+    incident: Incident,
+    range: { start: Date | null; end: Date | null }
+  ): boolean => {
+    if (!range.start && !range.end) return true;
+    const createdAt = new Date(incident.createdAt);
+    if (range.start && createdAt < range.start) return false;
+    if (range.end && createdAt > range.end) return false;
+    return true;
+  };
+
+  // Pre-parse timestamps for efficient sorting (optimized)
+  const timestampMap = useMemo(() => {
+    const map = new Map<string, number>();
+    incidents.forEach(i => {
+      map.set(i.id, new Date(i.createdAt).getTime());
+    });
+    return map;
+  }, [incidents]);
+
+  const compareIncidents = useCallback((a: Incident, b: Incident, column: string): number => {
+    switch (column) {
+      case 'id':
+        return a.id.localeCompare(b.id);
+      case 'status':
+        return a.status.localeCompare(b.status);
+      case 'severity':
+        return a.severityLevel - b.severityLevel;
+      case 'title':
+        return a.title.localeCompare(b.title);
+      case 'createdBy': {
+        const aName = a.createdByUser?.displayName || a.createdByUser?.name || a.createdBy;
+        const bName = b.createdByUser?.displayName || b.createdByUser?.name || b.createdBy;
+        return aName.localeCompare(bName);
+      }
+      case 'createdAt': {
+        const aTime = timestampMap.get(a.id) || 0;
+        const bTime = timestampMap.get(b.id) || 0;
+        return aTime - bTime;
+      }
+      case 'category': {
+        const aCategory = a.categoryName || a.categoryId || '';
+        const bCategory = b.categoryName || b.categoryId || '';
+        return aCategory.localeCompare(bCategory);
+      }
+      default:
+        return 0;
+    }
+  }, [timestampMap]);
+
+  // Data processing pipeline
+  const filteredIncidents = useMemo(() => {
+    return incidents.filter(incident => {
+      if (searchText && !matchesSearchText(incident, searchText)) return false;
+      if (statusFilter.size > 0 && !statusFilter.has(incident.status)) return false;
+      if (severityFilter.size > 0 && !severityFilter.has(incident.severityLevel)) return false;
+      if (!matchesDateRange(incident, dateRange)) return false;
+      return true;
+    });
+  }, [incidents, searchText, statusFilter, severityFilter, dateRange]);
+
+  const sortedIncidents = useMemo(() => {
+    return [...filteredIncidents].sort((a, b) => {
+      const compareValue = compareIncidents(a, b, sortColumn);
+      return sortDirection === 'asc' ? compareValue : -compareValue;
+    });
+  }, [filteredIncidents, sortColumn, sortDirection, compareIncidents]);
+
+  const paginatedIncidents = useMemo(() => {
+    const startIndex = (currentPage - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return sortedIncidents.slice(startIndex, endIndex);
+  }, [sortedIncidents, currentPage, perPage]);
+
+  const totalPages = Math.ceil(sortedIncidents.length / perPage);
+  const startIndex = (currentPage - 1) * perPage;
+  const endIndex = Math.min(startIndex + perPage, sortedIncidents.length);
+
+  // Event handlers
   const handleViewIncident = (id: string) => {
     navigate(`/incidents/${id}`);
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleStatusToggle = (status: IncidentStatus) => {
+    const newFilter = new Set(statusFilter);
+    if (newFilter.has(status)) {
+      newFilter.delete(status);
+    } else {
+      newFilter.add(status);
+    }
+    setStatusFilter(newFilter);
+    setCurrentPage(1);
+  };
+
+  const handleSeverityToggle = (level: number) => {
+    const newFilter = new Set(severityFilter);
+    if (newFilter.has(level)) {
+      newFilter.delete(level);
+    } else {
+      newFilter.add(level);
+    }
+    setSeverityFilter(newFilter);
+    setCurrentPage(1);
+  };
+
+  const handleDateRangePreset = (preset: 'today' | '7days' | '30days') => {
+    const now = new Date();
+    const start = new Date();
+
+    switch (preset) {
+      case 'today':
+        start.setHours(0, 0, 0, 0);
+        break;
+      case '7days':
+        start.setDate(now.getDate() - 7);
+        break;
+      case '30days':
+        start.setDate(now.getDate() - 30);
+        break;
+    }
+
+    setDateRange({ start, end: now });
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearchText('');
+    setStatusFilter(new Set());
+    setSeverityFilter(new Set());
+    setDateRange({ start: null, end: null });
+    setCurrentPage(1);
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    setPerPage(newPerPage);
+    setCurrentPage(1);
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === 'Enter') {
+      handleViewIncident(id);
+    }
+  };
+
+  // Get unique severity levels with names (optimized)
+  const severityLevelMap = useMemo(() => {
+    const map = new Map<number, string>();
+    incidents.forEach(i => {
+      if (!map.has(i.severityLevel)) {
+        map.set(i.severityLevel, i.severityName);
+      }
+    });
+    return map;
+  }, [incidents]);
+
+  const uniqueSeverityLevels = useMemo(() => {
+    return Array.from(severityLevelMap.keys()).sort((a, b) => b - a);
+  }, [severityLevelMap]);
+
+  const hasActiveFilters = searchText || statusFilter.size > 0 || severityFilter.size > 0 || dateRange.start || dateRange.end;
 
   if (loading) {
     return (
@@ -111,9 +319,6 @@ const IncidentList: React.FC = () => {
       </div>
     );
   }
-
-  const incidents = data?.incidents?.edges?.map((edge: IncidentEdge) => edge.node) || [];
-  const totalCount = data?.incidents?.totalCount || 0;
 
   return (
     <div className="space-y-6">
@@ -144,18 +349,18 @@ const IncidentList: React.FC = () => {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div key="stat-total" className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-blue-100 p-2">
               <AlertCircle className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">{totalCount}</p>
+              <p className="text-2xl font-semibold text-slate-900">{incidents.length}</p>
               <p className="text-sm text-slate-500">Total Incidents</p>
             </div>
           </div>
         </div>
-        <div key="stat-open" className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-red-100 p-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
@@ -168,7 +373,7 @@ const IncidentList: React.FC = () => {
             </div>
           </div>
         </div>
-        <div key="stat-closed" className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-green-100 p-2">
               <AlertCircle className="h-5 w-5 text-green-600" />
@@ -181,7 +386,7 @@ const IncidentList: React.FC = () => {
             </div>
           </div>
         </div>
-        <div key="stat-today" className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-purple-100 p-2">
               <Clock className="h-5 w-5 text-purple-600" />
@@ -200,103 +405,425 @@ const IncidentList: React.FC = () => {
         </div>
       </div>
 
-      {/* Incidents List */}
+      {/* Filters */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex flex-col gap-3">
+          {/* First Row: Search, Status, Severity */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by title, ID, or category..."
+                className="w-full rounded-md border border-slate-300 pl-10 pr-10 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                className={`h-10 rounded-md border px-3 py-2 text-sm min-w-[140px] flex items-center justify-between shadow-sm cursor-pointer transition-all ${
+                  statusFilter.size > 0
+                    ? 'border-blue-500 bg-blue-50 hover:bg-blue-100 hover:shadow-md'
+                    : 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 hover:shadow-md'
+                }`}
+              >
+                <span className={statusFilter.size > 0 ? 'text-blue-700 font-medium' : 'text-slate-700 font-medium'}>
+                  {statusFilter.size > 0 ? `Status (${statusFilter.size})` : 'Status'}
+                </span>
+                <ChevronDown className={`h-4 w-4 ml-2 ${statusFilter.size > 0 ? 'text-blue-600' : 'text-slate-500'}`} />
+              </button>
+              {statusDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setStatusDropdownOpen(false)}
+                  />
+                  <div className="absolute z-20 mt-1 w-48 rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="py-1">
+                      {Object.values(IncidentStatus).map((status) => (
+                        <label
+                          key={status}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={statusFilter.has(status)}
+                            onChange={() => handleStatusToggle(status)}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700 capitalize">
+                            {status.toLowerCase()}
+                          </span>
+                          {statusFilter.has(status) && (
+                            <Check className="ml-auto h-4 w-4 text-blue-600" />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Severity Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setSeverityDropdownOpen(!severityDropdownOpen)}
+                className={`h-10 rounded-md border px-3 py-2 text-sm min-w-[140px] flex items-center justify-between shadow-sm cursor-pointer transition-all ${
+                  severityFilter.size > 0
+                    ? 'border-blue-500 bg-blue-50 hover:bg-blue-100 hover:shadow-md'
+                    : 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 hover:shadow-md'
+                }`}
+              >
+                <span className={severityFilter.size > 0 ? 'text-blue-700 font-medium' : 'text-slate-700 font-medium'}>
+                  {severityFilter.size > 0 ? `Severity (${severityFilter.size})` : 'Severity'}
+                </span>
+                <ChevronDown className={`h-4 w-4 ml-2 ${severityFilter.size > 0 ? 'text-blue-600' : 'text-slate-500'}`} />
+              </button>
+              {severityDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setSeverityDropdownOpen(false)}
+                  />
+                  <div className="absolute z-20 mt-1 w-48 rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="py-1">
+                      {uniqueSeverityLevels.map((level) => (
+                        <label
+                          key={level}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={severityFilter.has(level)}
+                            onChange={() => handleSeverityToggle(level)}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-slate-700">
+                            {severityLevelMap.get(level) || `Level ${level}`}
+                          </span>
+                          {severityFilter.has(level) && (
+                            <Check className="ml-auto h-4 w-4 text-blue-600" />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Date Range Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDateRangePreset('today')}
+                className={dateRange.start?.toDateString() === new Date().toDateString() ? 'bg-blue-50 border-blue-300' : ''}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDateRangePreset('7days')}
+              >
+                7d
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDateRangePreset('30days')}
+              >
+                30d
+              </Button>
+              {(dateRange.start || dateRange.end) && (
+                <button
+                  onClick={() => { setDateRange({ start: null, end: null }); setCurrentPage(1); }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Second Row: Filter Summary */}
+          <div className="flex items-center justify-between text-sm text-slate-600">
+            <span>
+              Showing {sortedIncidents.length} of {incidents.length} incidents
+            </span>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        {incidents.length === 0 ? (
+        {paginatedIncidents.length === 0 ? (
           <div className="flex h-64 items-center justify-center">
             <div className="text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-slate-300" />
-              <p className="mt-3 text-sm text-slate-500">No incidents found</p>
-              <Button size="sm" className="mt-4" variant="outline">
-                Create your first incident
-              </Button>
+              {incidents.length === 0 ? (
+                <>
+                  <p className="mt-3 text-sm text-slate-500">No incidents found</p>
+                  <Button size="sm" className="mt-4" variant="outline">
+                    Create your first incident
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-3 text-sm text-slate-500">No incidents match your filters</p>
+                  <Button size="sm" className="mt-4" variant="outline" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-slate-200">
-            {incidents.map((incident: Incident) => (
-              <div
-                key={incident.id}
-                className="group flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer transition-colors"
-                onClick={() => handleViewIncident(incident.id)}
-              >
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-start gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-500">
-                        #{incident.id}
-                      </span>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('id')}
+                  >
+                    <div className="flex items-center gap-1">
+                      ID
+                      {sortColumn === 'id' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Status
+                      {sortColumn === 'status' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('severity')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Severity
+                      {sortColumn === 'severity' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('title')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Title
+                      {sortColumn === 'title' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
+                    Slack
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('createdBy')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Created By
+                      {sortColumn === 'createdBy' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('createdAt')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Created At
+                      {sortColumn === 'createdAt' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                    onClick={() => handleSort('category')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Category
+                      {sortColumn === 'category' && (
+                        sortDirection === 'asc' ?
+                          <ChevronUp className="h-3 w-3" /> :
+                          <ChevronDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {paginatedIncidents.map((incident: Incident) => (
+                  <tr
+                    key={incident.id}
+                    tabIndex={0}
+                    onClick={() => handleViewIncident(incident.id)}
+                    onKeyDown={(e) => handleRowKeyDown(e, incident.id)}
+                    className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3 text-xs font-medium text-slate-500 whitespace-nowrap">
+                      #{incident.id}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <StatusBadge status={incident.status} size="sm" />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <SeverityBadge
                         severityLevel={incident.severityLevel}
                         severityName={incident.severityName}
                         size="sm"
                       />
-                    </div>
-                  </div>
-                  <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
-                    {incident.title}
-                  </h3>
-                  {incident.description && (
-                    <p className="text-sm text-slate-500 line-clamp-2">
-                      {incident.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    </td>
+                    <td className="px-4 py-3 max-w-md">
+                      <div className="font-medium text-slate-900 truncate">
+                        {incident.title}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <SlackChannelLink
                         channelId={incident.channelId}
                         channelName={incident.channelName}
                         teamId={incident.teamId}
-                        showIcon={false}
-                        className="text-xs"
+                        iconOnly
                       />
-                    </span>
-                    <span className="flex items-center gap-1">
-                      {incident.createdByUser?.avatarUrl ? (
-                        <img 
-                          src={incident.createdByUser.avatarUrl} 
-                          alt={incident.createdByUser.displayName || incident.createdByUser.name}
-                          className="h-4 w-4 rounded-full"
-                        />
-                      ) : (
-                        <User className="h-3 w-3" />
-                      )}
-                      {incident.createdByUser?.displayName || 
-                       incident.createdByUser?.realName || 
-                       incident.createdByUser?.name || 
-                       incident.createdBy}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
+                    </td>
+                    <td className="hidden md:table-cell px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {incident.createdByUser?.avatarUrl ? (
+                          <img
+                            src={incident.createdByUser.avatarUrl}
+                            alt={incident.createdByUser.displayName || incident.createdByUser.name}
+                            className="h-6 w-6 rounded-full"
+                          />
+                        ) : (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100">
+                            <User className="h-4 w-4 text-slate-400" />
+                          </div>
+                        )}
+                        <span className="text-sm text-slate-600 truncate max-w-[120px]">
+                          {incident.createdByUser?.displayName ||
+                           incident.createdByUser?.realName ||
+                           incident.createdByUser?.name ||
+                           incident.createdBy}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
                       {format(new Date(incident.createdAt), 'MMM d, yyyy HH:mm')}
-                    </span>
-                    {(incident.categoryName || incident.categoryId) && (
-                      <span className="flex items-center gap-1">
-                        <Hash className="h-3 w-3" />
-                        {incident.categoryName || incident.categoryId}
+                    </td>
+                    <td className="hidden lg:table-cell px-4 py-3 text-sm text-slate-600">
+                      <span className="truncate max-w-[100px] block">
+                        {incident.categoryName || incident.categoryId || '-'}
                       </span>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-              </div>
-            ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
       {/* Pagination */}
-      {totalCount > rowsPerPage && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            Showing {incidents.length} of {totalCount} incidents
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
+      {sortedIncidents.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-600">Show</span>
+            <select
+              value={perPage}
+              onChange={(e) => handlePerPageChange(Number(e.target.value))}
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-slate-600">per page</span>
+          </div>
+
+          <div className="text-sm text-slate-600">
+            Showing {startIndex + 1}-{endIndex} of {sortedIncidents.length} incidents
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}
+            >
               Previous
             </Button>
-            <Button variant="outline" size="sm">
+            <span className="text-sm text-slate-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}
+            >
               Next
             </Button>
           </div>

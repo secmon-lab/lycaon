@@ -6,6 +6,7 @@ interface SlackChannelLinkProps {
   channelName: string;
   teamId?: string;
   showIcon?: boolean;
+  iconOnly?: boolean;
   className?: string;
 }
 
@@ -14,23 +15,15 @@ const SlackChannelLink: React.FC<SlackChannelLinkProps> = ({
   channelName,
   teamId,
   showIcon = true,
+  iconOnly = false,
   className = '',
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     const slackDeepLink = `slack://channel?team=${teamId}&id=${channelId}`;
     const webUrl = `https://app.slack.com/client/${teamId}/${channelId}`;
-
-    let timeoutId: number;
-
-    const visibilityChangeHandler = () => {
-      if (document.visibilityState === 'hidden') {
-        clearTimeout(timeoutId);
-        window.removeEventListener('visibilitychange', visibilityChangeHandler);
-      }
-    };
-    window.addEventListener('visibilitychange', visibilityChangeHandler);
 
     // Try to open deep link by creating and clicking a temporary link
     const link = document.createElement('a');
@@ -40,17 +33,28 @@ const SlackChannelLink: React.FC<SlackChannelLinkProps> = ({
     link.click();
     document.body.removeChild(link);
 
-    timeoutId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       window.removeEventListener('visibilitychange', visibilityChangeHandler);
       // If the page is still visible after a delay, the deep link likely failed
       if (document.visibilityState === 'visible') {
         window.open(webUrl, '_blank', 'noopener,noreferrer');
       }
     }, 1000);
+
+    const visibilityChangeHandler = () => {
+      if (document.visibilityState === 'hidden') {
+        clearTimeout(timeoutId);
+        window.removeEventListener('visibilitychange', visibilityChangeHandler);
+      }
+    };
+    window.addEventListener('visibilitychange', visibilityChangeHandler);
   };
 
-  // If no teamId, render as plain text
+  // If no teamId, render as plain text or icon
   if (!teamId) {
+    if (iconOnly) {
+      return <MessageSquare className={`h-4 w-4 text-slate-400 ${className}`} />;
+    }
     return (
       <span className={`inline-flex items-center gap-1 text-slate-600 ${className}`}>
         {showIcon && <MessageSquare className="h-3 w-3" />}
@@ -59,7 +63,21 @@ const SlackChannelLink: React.FC<SlackChannelLinkProps> = ({
     );
   }
 
-  // Render as clickable link
+  // Icon-only mode: just the clickable icon
+  if (iconOnly) {
+    return (
+      <a
+        href={`https://app.slack.com/client/${teamId}/${channelId}`}
+        onClick={handleClick}
+        className={`inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors ${className}`}
+        title={`Open #${channelName} in Slack`}
+      >
+        <MessageSquare className="h-4 w-4" />
+      </a>
+    );
+  }
+
+  // Render as clickable link with text
   return (
     <a
       href={`https://app.slack.com/client/${teamId}/${channelId}`}
