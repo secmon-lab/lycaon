@@ -7,18 +7,21 @@ interface OpenIncidentsListProps {
   incidents: GroupedIncidents[];
   loading?: boolean;
   error?: Error;
+  days?: number;
 }
 
 export const OpenIncidentsList: React.FC<OpenIncidentsListProps> = ({
   incidents,
   loading,
   error,
+  days = 14,
 }) => {
+  const title = `Recent Open Incidents (Last ${days} Days)`;
   if (loading) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Recent Open Incidents (Last 14 Days)
+          {title}
         </h2>
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -31,7 +34,7 @@ export const OpenIncidentsList: React.FC<OpenIncidentsListProps> = ({
     return (
       <div className="bg-white rounded-lg border border-red-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Recent Open Incidents (Last 14 Days)
+          {title}
         </h2>
         <div className="text-red-600">
           <p className="font-medium">Error loading incidents</p>
@@ -45,10 +48,10 @@ export const OpenIncidentsList: React.FC<OpenIncidentsListProps> = ({
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Recent Open Incidents (Last 14 Days)
+          {title}
         </h2>
         <p className="text-gray-500 text-center py-8">
-          No open incidents in the last 14 days
+          No open incidents in the last {days} days
         </p>
       </div>
     );
@@ -57,7 +60,7 @@ export const OpenIncidentsList: React.FC<OpenIncidentsListProps> = ({
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">
-        Recent Open Incidents (Last 14 Days)
+        {title}
       </h2>
       <div className="space-y-6">
         {incidents.map((group) => (

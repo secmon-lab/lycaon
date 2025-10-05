@@ -1,6 +1,8 @@
 package graphql
 
 import (
+	"context"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -9,7 +11,7 @@ import (
 )
 
 // convertToGroupedIncidents converts incidents map to grouped incidents slice
-func convertToGroupedIncidents(incidentsMap map[string][]*model.Incident) []*graphql1.GroupedIncidents {
+func convertToGroupedIncidents(ctx context.Context, incidentsMap map[string][]*model.Incident) []*graphql1.GroupedIncidents {
 	if len(incidentsMap) == 0 {
 		return []*graphql1.GroupedIncidents{}
 	}
@@ -32,7 +34,11 @@ func convertToGroupedIncidents(incidentsMap map[string][]*model.Incident) []*gra
 		// Parse date string to time.Time
 		dateTime, err := time.Parse("2006-01-02", date)
 		if err != nil {
-			// Skip invalid date
+			// Log error and skip invalid date
+			slog.WarnContext(ctx, "Failed to parse date string, skipping this group",
+				"date", date,
+				"error", err,
+			)
 			continue
 		}
 

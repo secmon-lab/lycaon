@@ -9,10 +9,3 @@ type WeeklySeverityCount struct {
 	WeekLabel      string
 	SeverityCounts map[string]int // severityID -> count
 }
-
-// SeverityCountItem holds severity count for GraphQL
-type SeverityCountItem struct {
-	SeverityID   string
-	SeverityName string
-	Count        int
-}

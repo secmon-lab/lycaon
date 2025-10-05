@@ -25,6 +25,7 @@ interface SeverityTrendChartProps {
   data: WeeklySeverityCount[];
   loading?: boolean;
   error?: Error;
+  weeks?: number;
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -40,6 +41,7 @@ export const SeverityTrendChart: React.FC<SeverityTrendChartProps> = ({
   data,
   loading,
   error,
+  weeks = 8,
 }) => {
   // Get all unique severity IDs sorted by level (ascending - low to high for stacking order)
   // Chart.js stacks from bottom to top, so we need low severity first
@@ -176,11 +178,13 @@ export const SeverityTrendChart: React.FC<SeverityTrendChartProps> = ({
     },
   };
 
+  const title = `Incident Trend by Severity (Last ${weeks} Weeks)`;
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-6">
-          Incident Trend by Severity (Last 8 Weeks)
+          {title}
         </h2>
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -193,7 +197,7 @@ export const SeverityTrendChart: React.FC<SeverityTrendChartProps> = ({
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-6">
-          Incident Trend by Severity (Last 8 Weeks)
+          {title}
         </h2>
         <div className="text-red-600">
           <p className="font-medium">Error loading trend data</p>
@@ -207,7 +211,7 @@ export const SeverityTrendChart: React.FC<SeverityTrendChartProps> = ({
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-6">
-          Incident Trend by Severity (Last 8 Weeks)
+          {title}
         </h2>
         <p className="text-gray-500 text-center py-8">No incident data available</p>
       </div>
@@ -217,7 +221,7 @@ export const SeverityTrendChart: React.FC<SeverityTrendChartProps> = ({
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h2 className="text-base font-semibold text-gray-900 mb-6">
-        Incident Trend by Severity (Last 8 Weeks)
+        {title}
       </h2>
       <div className="h-[280px]">
         <Bar options={options} data={chartData} />

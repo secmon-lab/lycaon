@@ -11,25 +11,16 @@ import {
   IncidentTrendBySeverityData,
 } from '../types/dashboard';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  slack_user_id: string;
-}
+const Dashboard: React.FC = () => {
+  const weeks = 8;
+  const days = 14;
 
-interface DashboardProps {
-  user: User;
-  setUser: (user: User | null) => void;
-}
-
-const Dashboard: React.FC<DashboardProps> = () => {
   const {
     data: incidentsData,
     loading: incidentsLoading,
     error: incidentsError,
   } = useQuery<RecentOpenIncidentsData>(GET_RECENT_OPEN_INCIDENTS, {
-    variables: { days: 14 },
+    variables: { days },
   });
 
   const {
@@ -37,7 +28,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
     loading: trendLoading,
     error: trendError,
   } = useQuery<IncidentTrendBySeverityData>(GET_INCIDENT_TREND_BY_SEVERITY, {
-    variables: { weeks: 8 },
+    variables: { weeks },
   });
 
   return (
@@ -46,12 +37,14 @@ const Dashboard: React.FC<DashboardProps> = () => {
         data={trendData?.incidentTrendBySeverity || []}
         loading={trendLoading}
         error={trendError}
+        weeks={weeks}
       />
 
       <OpenIncidentsList
         incidents={incidentsData?.recentOpenIncidents || []}
         loading={incidentsLoading}
         error={incidentsError}
+        days={days}
       />
     </div>
   );

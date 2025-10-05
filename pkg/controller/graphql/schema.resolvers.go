@@ -7,7 +7,6 @@ package graphql
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
 	"time"
 
@@ -589,7 +588,7 @@ func (r *queryResolver) RecentOpenIncidents(ctx context.Context, days *int) ([]*
 	}
 
 	// Convert map to sorted slice (by date descending)
-	return convertToGroupedIncidents(incidentsMap), nil
+	return convertToGroupedIncidents(ctx, incidentsMap), nil
 }
 
 // IncidentTrendBySeverity is the resolver for the incidentTrendBySeverity field.
@@ -742,11 +741,8 @@ func (r *weeklySeverityCountResolver) SeverityCounts(ctx context.Context, obj *m
 		})
 	}
 
-	// Sort by severity level (descending - critical first)
-	sort.Slice(severityCounts, func(i, j int) bool {
-		return severityCounts[i].SeverityLevel > severityCounts[j].SeverityLevel
-	})
-
+	// Note: Frontend (SeverityTrendChart) sorts by severity level for chart rendering
+	// No need to sort here as it will be re-sorted on the frontend
 	return severityCounts, nil
 }
 
