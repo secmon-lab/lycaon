@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/m-mizutani/ctxlog"
@@ -348,6 +349,35 @@ func (f *Firestore) GetIncidentByChannelID(ctx context.Context, channelID types.
 // ListIncidents retrieves all incidents from Firestore
 func (f *Firestore) ListIncidents(ctx context.Context) ([]*model.Incident, error) {
 	iter := f.client.Collection(incidentsCollection).OrderBy("CreatedAt", firestore.Desc).Documents(ctx)
+	defer iter.Stop()
+
+	var incidents []*model.Incident
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, goerr.Wrap(err, "failed to iterate incidents")
+		}
+
+		var incident model.Incident
+		if err := doc.DataTo(&incident); err != nil {
+			return nil, goerr.Wrap(err, "failed to unmarshal incident")
+		}
+
+		incidents = append(incidents, &incident)
+	}
+
+	return incidents, nil
+}
+
+// ListIncidentsSince retrieves incidents created since the specified time from Firestore
+func (f *Firestore) ListIncidentsSince(ctx context.Context, since time.Time) ([]*model.Incident, error) {
+	iter := f.client.Collection(incidentsCollection).
+		Where("CreatedAt", ">=", since).
+		OrderBy("CreatedAt", firestore.Desc).
+		Documents(ctx)
 	defer iter.Stop()
 
 	var incidents []*model.Incident

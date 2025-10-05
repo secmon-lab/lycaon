@@ -442,6 +442,12 @@ var _ interfaces.Incident = &IncidentMock{}
 //			GetIncidentRequestFunc: func(ctx context.Context, requestID string) (*model.IncidentRequest, error) {
 //				panic("mock out the GetIncidentRequest method")
 //			},
+//			GetIncidentTrendBySeverityFunc: func(ctx context.Context, weeks int) ([]*model.WeeklySeverityCount, error) {
+//				panic("mock out the GetIncidentTrendBySeverity method")
+//			},
+//			GetRecentOpenIncidentsFunc: func(ctx context.Context, days int) (map[string][]*model.Incident, error) {
+//				panic("mock out the GetRecentOpenIncidents method")
+//			},
 //			HandleCreateIncidentActionFunc: func(ctx context.Context, requestID string, userID string) (*model.Incident, error) {
 //				panic("mock out the HandleCreateIncidentAction method")
 //			},
@@ -475,6 +481,12 @@ type IncidentMock struct {
 
 	// GetIncidentRequestFunc mocks the GetIncidentRequest method.
 	GetIncidentRequestFunc func(ctx context.Context, requestID string) (*model.IncidentRequest, error)
+
+	// GetIncidentTrendBySeverityFunc mocks the GetIncidentTrendBySeverity method.
+	GetIncidentTrendBySeverityFunc func(ctx context.Context, weeks int) ([]*model.WeeklySeverityCount, error)
+
+	// GetRecentOpenIncidentsFunc mocks the GetRecentOpenIncidents method.
+	GetRecentOpenIncidentsFunc func(ctx context.Context, days int) (map[string][]*model.Incident, error)
 
 	// HandleCreateIncidentActionFunc mocks the HandleCreateIncidentAction method.
 	HandleCreateIncidentActionFunc func(ctx context.Context, requestID string, userID string) (*model.Incident, error)
@@ -520,6 +532,20 @@ type IncidentMock struct {
 			Ctx context.Context
 			// RequestID is the requestID argument value.
 			RequestID string
+		}
+		// GetIncidentTrendBySeverity holds details about calls to the GetIncidentTrendBySeverity method.
+		GetIncidentTrendBySeverity []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Weeks is the weeks argument value.
+			Weeks int
+		}
+		// GetRecentOpenIncidents holds details about calls to the GetRecentOpenIncidents method.
+		GetRecentOpenIncidents []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Days is the days argument value.
+			Days int
 		}
 		// HandleCreateIncidentAction holds details about calls to the HandleCreateIncidentAction method.
 		HandleCreateIncidentAction []struct {
@@ -591,6 +617,8 @@ type IncidentMock struct {
 	lockGetIncident                     sync.RWMutex
 	lockGetIncidentByChannelID          sync.RWMutex
 	lockGetIncidentRequest              sync.RWMutex
+	lockGetIncidentTrendBySeverity      sync.RWMutex
+	lockGetRecentOpenIncidents          sync.RWMutex
 	lockHandleCreateIncidentAction      sync.RWMutex
 	lockHandleCreateIncidentActionAsync sync.RWMutex
 	lockHandleCreateIncidentWithDetails sync.RWMutex
@@ -739,6 +767,78 @@ func (mock *IncidentMock) GetIncidentRequestCalls() []struct {
 	mock.lockGetIncidentRequest.RLock()
 	calls = mock.calls.GetIncidentRequest
 	mock.lockGetIncidentRequest.RUnlock()
+	return calls
+}
+
+// GetIncidentTrendBySeverity calls GetIncidentTrendBySeverityFunc.
+func (mock *IncidentMock) GetIncidentTrendBySeverity(ctx context.Context, weeks int) ([]*model.WeeklySeverityCount, error) {
+	if mock.GetIncidentTrendBySeverityFunc == nil {
+		panic("IncidentMock.GetIncidentTrendBySeverityFunc: method is nil but Incident.GetIncidentTrendBySeverity was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Weeks int
+	}{
+		Ctx:   ctx,
+		Weeks: weeks,
+	}
+	mock.lockGetIncidentTrendBySeverity.Lock()
+	mock.calls.GetIncidentTrendBySeverity = append(mock.calls.GetIncidentTrendBySeverity, callInfo)
+	mock.lockGetIncidentTrendBySeverity.Unlock()
+	return mock.GetIncidentTrendBySeverityFunc(ctx, weeks)
+}
+
+// GetIncidentTrendBySeverityCalls gets all the calls that were made to GetIncidentTrendBySeverity.
+// Check the length with:
+//
+//	len(mockedIncident.GetIncidentTrendBySeverityCalls())
+func (mock *IncidentMock) GetIncidentTrendBySeverityCalls() []struct {
+	Ctx   context.Context
+	Weeks int
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Weeks int
+	}
+	mock.lockGetIncidentTrendBySeverity.RLock()
+	calls = mock.calls.GetIncidentTrendBySeverity
+	mock.lockGetIncidentTrendBySeverity.RUnlock()
+	return calls
+}
+
+// GetRecentOpenIncidents calls GetRecentOpenIncidentsFunc.
+func (mock *IncidentMock) GetRecentOpenIncidents(ctx context.Context, days int) (map[string][]*model.Incident, error) {
+	if mock.GetRecentOpenIncidentsFunc == nil {
+		panic("IncidentMock.GetRecentOpenIncidentsFunc: method is nil but Incident.GetRecentOpenIncidents was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Days int
+	}{
+		Ctx:  ctx,
+		Days: days,
+	}
+	mock.lockGetRecentOpenIncidents.Lock()
+	mock.calls.GetRecentOpenIncidents = append(mock.calls.GetRecentOpenIncidents, callInfo)
+	mock.lockGetRecentOpenIncidents.Unlock()
+	return mock.GetRecentOpenIncidentsFunc(ctx, days)
+}
+
+// GetRecentOpenIncidentsCalls gets all the calls that were made to GetRecentOpenIncidents.
+// Check the length with:
+//
+//	len(mockedIncident.GetRecentOpenIncidentsCalls())
+func (mock *IncidentMock) GetRecentOpenIncidentsCalls() []struct {
+	Ctx  context.Context
+	Days int
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Days int
+	}
+	mock.lockGetRecentOpenIncidents.RLock()
+	calls = mock.calls.GetRecentOpenIncidents
+	mock.lockGetRecentOpenIncidents.RUnlock()
 	return calls
 }
 

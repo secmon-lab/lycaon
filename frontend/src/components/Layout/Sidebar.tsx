@@ -4,7 +4,6 @@ import { cn } from '../../lib/utils';
 import {
   LayoutDashboard,
   AlertCircle,
-  Settings,
   ChevronLeft,
   Menu,
 } from 'lucide-react';
@@ -28,11 +27,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       text: 'Incidents',
       path: '/incidents',
       icon: <AlertCircle className="h-5 w-5" />,
-    },
-    {
-      text: 'Settings',
-      path: '/settings',
-      icon: <Settings className="h-5 w-5" />,
     },
   ];
 

@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
@@ -839,5 +840,73 @@ func TestIncidentUseCaseWithBookmark(t *testing.T) {
 
 		// Verify AddBookmark was called (and failed)
 		gt.Equal(t, 1, len(mockSlack.AddBookmarkCalls()))
+	})
+}
+
+func TestGetIncidentTrendBySeverity_WeekRanges(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Week ranges should not overlap and preserve timezone", func(t *testing.T) {
+		repo := repository.NewMemory()
+		mockSlack := &mocks.SlackClientMock{}
+		slackService := slackSvc.NewUIService(mockSlack, testConfig())
+		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, nil)
+
+		// Get 8 weeks of trend data
+		trend, err := uc.GetIncidentTrendBySeverity(ctx, 8)
+		gt.NoError(t, err).Required()
+		gt.A(t, trend).Length(8)
+
+		// Verify no date overlap between consecutive weeks
+		for i := 0; i < len(trend)-1; i++ {
+			currentWeek := trend[i]
+			nextWeek := trend[i+1]
+
+			// Current week end should be before next week start
+			// Allow 1 second gap (current week ends at 23:59:59, next starts at 00:00:00 next day)
+			if !currentWeek.WeekEnd.Before(nextWeek.WeekStart) {
+				t.Errorf("Week %d end (%s) should be before Week %d start (%s)",
+					i, currentWeek.WeekEnd.Format("2006-01-02 15:04:05"),
+					i+1, nextWeek.WeekStart.Format("2006-01-02 15:04:05"))
+			}
+
+			// Verify each week is exactly 7 days (Monday to Sunday)
+			// WeekEnd is Sunday 23:59:59, so we check the day difference
+			weekDuration := currentWeek.WeekEnd.Sub(currentWeek.WeekStart)
+			expectedDuration := 7*24*time.Hour - time.Second // 6 days 23:59:59
+			if weekDuration != expectedDuration {
+				t.Errorf("Week %d should span exactly 7 days (Mon 00:00:00 to Sun 23:59:59), got %v",
+					i, weekDuration)
+			}
+
+			// Verify Monday start (weekday should be Monday = 1)
+			if currentWeek.WeekStart.Weekday() != time.Monday {
+				t.Errorf("Week %d should start on Monday, got %s",
+					i, currentWeek.WeekStart.Weekday())
+			}
+
+			// Verify Sunday end (weekday should be Sunday = 0)
+			if currentWeek.WeekEnd.Weekday() != time.Sunday {
+				t.Errorf("Week %d should end on Sunday, got %s",
+					i, currentWeek.WeekEnd.Weekday())
+			}
+
+			// Verify timezone is preserved (not UTC)
+			if currentWeek.WeekStart.Location().String() == "UTC" {
+				t.Errorf("Week %d start should preserve local timezone, got UTC", i)
+			}
+		}
+
+		// Verify labels don't contain overlapping dates
+		for i := 0; i < len(trend)-1; i++ {
+			currentLabel := trend[i].WeekLabel
+			nextLabel := trend[i+1].WeekLabel
+
+			// Labels should be different
+			if currentLabel == nextLabel {
+				t.Errorf("Week labels should be unique: Week %d (%s) vs Week %d (%s)",
+					i, currentLabel, i+1, nextLabel)
+			}
+		}
 	})
 }

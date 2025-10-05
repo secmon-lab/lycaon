@@ -9,6 +9,7 @@ import (
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"sync"
+	"time"
 )
 
 // Ensure, that RepositoryMock does implement interfaces.Repository.
@@ -77,6 +78,9 @@ var _ interfaces.Repository = &RepositoryMock{}
 //			},
 //			ListIncidentsPaginatedFunc: func(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error) {
 //				panic("mock out the ListIncidentsPaginated method")
+//			},
+//			ListIncidentsSinceFunc: func(ctx context.Context, since time.Time) ([]*model.Incident, error) {
+//				panic("mock out the ListIncidentsSince method")
 //			},
 //			ListMessagesFunc: func(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error) {
 //				panic("mock out the ListMessages method")
@@ -168,6 +172,9 @@ type RepositoryMock struct {
 
 	// ListIncidentsPaginatedFunc mocks the ListIncidentsPaginated method.
 	ListIncidentsPaginatedFunc func(ctx context.Context, opts types.PaginationOptions) ([]*model.Incident, *types.PaginationResult, error)
+
+	// ListIncidentsSinceFunc mocks the ListIncidentsSince method.
+	ListIncidentsSinceFunc func(ctx context.Context, since time.Time) ([]*model.Incident, error)
 
 	// ListMessagesFunc mocks the ListMessages method.
 	ListMessagesFunc func(ctx context.Context, channelID types.ChannelID, limit int) ([]*model.Message, error)
@@ -327,6 +334,13 @@ type RepositoryMock struct {
 			// Opts is the opts argument value.
 			Opts types.PaginationOptions
 		}
+		// ListIncidentsSince holds details about calls to the ListIncidentsSince method.
+		ListIncidentsSince []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Since is the since argument value.
+			Since time.Time
+		}
 		// ListMessages holds details about calls to the ListMessages method.
 		ListMessages []struct {
 			// Ctx is the ctx argument value.
@@ -414,6 +428,7 @@ type RepositoryMock struct {
 	lockGetUserBySlackID       sync.RWMutex
 	lockListIncidents          sync.RWMutex
 	lockListIncidentsPaginated sync.RWMutex
+	lockListIncidentsSince     sync.RWMutex
 	lockListMessages           sync.RWMutex
 	lockListTasksByIncident    sync.RWMutex
 	lockPutIncident            sync.RWMutex
@@ -1097,6 +1112,42 @@ func (mock *RepositoryMock) ListIncidentsPaginatedCalls() []struct {
 	mock.lockListIncidentsPaginated.RLock()
 	calls = mock.calls.ListIncidentsPaginated
 	mock.lockListIncidentsPaginated.RUnlock()
+	return calls
+}
+
+// ListIncidentsSince calls ListIncidentsSinceFunc.
+func (mock *RepositoryMock) ListIncidentsSince(ctx context.Context, since time.Time) ([]*model.Incident, error) {
+	if mock.ListIncidentsSinceFunc == nil {
+		panic("RepositoryMock.ListIncidentsSinceFunc: method is nil but Repository.ListIncidentsSince was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Since time.Time
+	}{
+		Ctx:   ctx,
+		Since: since,
+	}
+	mock.lockListIncidentsSince.Lock()
+	mock.calls.ListIncidentsSince = append(mock.calls.ListIncidentsSince, callInfo)
+	mock.lockListIncidentsSince.Unlock()
+	return mock.ListIncidentsSinceFunc(ctx, since)
+}
+
+// ListIncidentsSinceCalls gets all the calls that were made to ListIncidentsSince.
+// Check the length with:
+//
+//	len(mockedRepository.ListIncidentsSinceCalls())
+func (mock *RepositoryMock) ListIncidentsSinceCalls() []struct {
+	Ctx   context.Context
+	Since time.Time
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Since time.Time
+	}
+	mock.lockListIncidentsSince.RLock()
+	calls = mock.calls.ListIncidentsSince
+	mock.lockListIncidentsSince.RUnlock()
 	return calls
 }
 

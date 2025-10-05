@@ -124,6 +124,10 @@ type Incident interface {
 	// HandleEditIncidentAction handles the edit incident button click action
 	// This includes retrieving the request, opening the modal, and error handling
 	HandleEditIncidentAction(ctx context.Context, requestID, userID, triggerID string) error
+	// GetRecentOpenIncidents retrieves recent open incidents grouped by date
+	GetRecentOpenIncidents(ctx context.Context, days int) (map[string][]*model.Incident, error)
+	// GetIncidentTrendBySeverity retrieves incident trend data by severity for specified weeks
+	GetIncidentTrendBySeverity(ctx context.Context, weeks int) ([]*model.WeeklySeverityCount, error)
 }
 
 // TaskUpdateRequest represents parameters for updating a task

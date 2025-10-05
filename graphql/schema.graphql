@@ -120,6 +120,12 @@ type Query {
 
   # Get all severities
   severities: [Severity!]!
+
+  # Get recent open incidents grouped by date
+  recentOpenIncidents(days: Int = 7): [GroupedIncidents!]!
+
+  # Get incident trend by severity for specified weeks
+  incidentTrendBySeverity(weeks: Int = 4): [WeeklySeverityCount!]!
 }
 
 type Mutation {
@@ -159,4 +165,28 @@ input UpdateTaskInput {
   description: String
   status: TaskStatus
   assigneeId: String
+}
+
+# Dashboard types
+
+# Incidents grouped by date
+type GroupedIncidents {
+  date: Time!
+  incidents: [Incident!]!
+}
+
+# Weekly severity count data
+type WeeklySeverityCount {
+  weekStart: Time!
+  weekEnd: Time!
+  weekLabel: String!
+  severityCounts: [SeverityCount!]!
+}
+
+# Severity count item
+type SeverityCount {
+  severityId: String!
+  severityName: String!
+  severityLevel: Int!
+  count: Int!
 }

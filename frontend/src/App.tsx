@@ -53,7 +53,7 @@ function App() {
           />
           {user ? (
             <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard user={user} setUser={setUser} />} />
+              <Route index element={<Dashboard />} />
               <Route path="incidents" element={<IncidentList />} />
               <Route path="incidents/:id" element={<IncidentDetail />} />
               <Route path="*" element={<Navigate to="/" />} />

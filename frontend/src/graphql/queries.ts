@@ -172,3 +172,48 @@ export const GET_SEVERITIES = gql`
     }
   }
 `;
+
+// Dashboard queries
+
+// Query to get recent open incidents grouped by date
+export const GET_RECENT_OPEN_INCIDENTS = gql`
+  query GetRecentOpenIncidents($days: Int) {
+    recentOpenIncidents(days: $days) {
+      date
+      incidents {
+        id
+        title
+        description
+        severityId
+        severityName
+        severityLevel
+        status
+        lead
+        leadUser {
+          id
+          name
+          displayName
+          avatarUrl
+        }
+        createdAt
+      }
+    }
+  }
+`;
+
+// Query to get incident trend by severity
+export const GET_INCIDENT_TREND_BY_SEVERITY = gql`
+  query GetIncidentTrendBySeverity($weeks: Int) {
+    incidentTrendBySeverity(weeks: $weeks) {
+      weekStart
+      weekEnd
+      weekLabel
+      severityCounts {
+        severityId
+        severityName
+        severityLevel
+        count
+      }
+    }
+  }
+`;
