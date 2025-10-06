@@ -53,33 +53,32 @@ export const useIncidentStats = (incidents: MinimalIncident[]): IncidentStats =>
         }))
       : 0;
 
-    // Card 3: Weekly Trend
+    // Card 3 & 4: Weekly data and response times
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - WEEK_DAYS);
+
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - WEEK_DAYS * 2);
 
     const newThisWeek = incidents.filter(i => {
       const created = new Date(i.createdAt);
       return created >= weekAgo;
     }).length;
 
-    const resolvedThisWeek = incidents.filter(i => {
-      if (i.status !== IncidentStatus.CLOSED && i.status !== IncidentStatus.MONITORING) {
-        return false;
-      }
-      const lastStatusChange = i.statusHistories
-        ?.filter(h => h.status === IncidentStatus.CLOSED || h.status === IncidentStatus.MONITORING)
-        .sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime())[0];
+    // Helper function to get resolution time from statusHistories
+    const getResolutionTime = (incident: MinimalIncident): Date | null => {
+      const histories = incident.statusHistories?.filter(
+        h => h.status === IncidentStatus.CLOSED || h.status === IncidentStatus.MONITORING
+      ) || [];
 
-      if (!lastStatusChange) return false;
-      const resolvedAt = new Date(lastStatusChange.changedAt);
-      return resolvedAt >= weekAgo;
-    }).length;
+      if (histories.length === 0) return null;
 
-    const resolutionRate = newThisWeek > 0
-      ? Math.round((resolvedThisWeek / newThisWeek) * 100)
-      : 0;
+      const lastHistory = histories.reduce((latest, current) =>
+        new Date(current.changedAt) > new Date(latest.changedAt) ? current : latest
+      );
+      return new Date(lastHistory.changedAt);
+    };
 
-    // Card 4: Average Response Time (statusHistories-based)
     // Helper function to calculate response time for an incident
     const calculateResponseTime = (incident: MinimalIncident): number => {
       const histories = incident.statusHistories || [];
@@ -114,36 +113,30 @@ export const useIncidentStats = (incidents: MinimalIncident[]): IncidentStats =>
       return totalDuration;
     };
 
-    // This week's resolved incidents
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - WEEK_DAYS * 2);
-
-    const resolvedIncidents = incidents.filter(i =>
-      i.status === IncidentStatus.MONITORING ||
-      i.status === IncidentStatus.CLOSED
+    // Get all resolved incidents and categorize them by week
+    const resolvedIncidents = incidents.filter(
+      i => i.status === IncidentStatus.MONITORING || i.status === IncidentStatus.CLOSED
     );
 
-    // This week: resolved within last 7 days
-    const resolvedThisWeekIncidents = resolvedIncidents.filter(i => {
-      const lastStatusChange = i.statusHistories
-        ?.filter(h => h.status === IncidentStatus.CLOSED || h.status === IncidentStatus.MONITORING)
-        .sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime())[0];
+    const resolvedThisWeekIncidents: MinimalIncident[] = [];
+    const resolvedLastWeekIncidents: MinimalIncident[] = [];
 
-      if (!lastStatusChange) return false;
-      const resolvedAt = new Date(lastStatusChange.changedAt);
-      return resolvedAt >= weekAgo;
-    });
+    for (const incident of resolvedIncidents) {
+      const resolvedAt = getResolutionTime(incident);
+      if (resolvedAt) {
+        if (resolvedAt >= weekAgo) {
+          resolvedThisWeekIncidents.push(incident);
+        } else if (resolvedAt >= twoWeeksAgo && resolvedAt < weekAgo) {
+          resolvedLastWeekIncidents.push(incident);
+        }
+      }
+    }
 
-    // Last week: resolved between 7-14 days ago
-    const resolvedLastWeekIncidents = resolvedIncidents.filter(i => {
-      const lastStatusChange = i.statusHistories
-        ?.filter(h => h.status === IncidentStatus.CLOSED || h.status === IncidentStatus.MONITORING)
-        .sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime())[0];
+    const resolvedThisWeek = resolvedThisWeekIncidents.length;
 
-      if (!lastStatusChange) return false;
-      const resolvedAt = new Date(lastStatusChange.changedAt);
-      return resolvedAt >= twoWeeksAgo && resolvedAt < weekAgo;
-    });
+    const resolutionRate = newThisWeek > 0
+      ? Math.round((resolvedThisWeek / newThisWeek) * 100)
+      : 0;
 
     const responseTimesThisWeek = resolvedThisWeekIncidents
       .map(calculateResponseTime)
