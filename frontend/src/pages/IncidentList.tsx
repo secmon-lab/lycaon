@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { GET_INCIDENTS } from '../graphql/queries';
 import { Button } from '../components/ui/Button';
-import { IncidentStatus } from '../types/incident';
+import { IncidentStatus, StatusHistory, Task } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import SlackChannelLink from '../components/common/SlackChannelLink';
+import { StatCard } from '../components/IncidentList/StatCard';
+import { useIncidentStats } from '../hooks/useIncidentStats';
 import {
   AlertCircle,
   RefreshCw,
@@ -19,6 +21,8 @@ import {
   Search,
   X,
   Check,
+  TrendingUp,
+  Timer,
 } from 'lucide-react';
 
 interface User {
@@ -38,16 +42,22 @@ interface Incident {
   title: string;
   description: string;
   categoryId: string;
-  categoryName?: string;
+  categoryName: string;
   severityId: string;
   severityName: string;
   severityLevel: number;
   status: IncidentStatus;
+  lead: string;
+  leadUser?: User;
+  originChannelId: string;
+  originChannelName: string;
   teamId?: string;
   createdBy: string;
   createdByUser?: User;
   createdAt: string;
   updatedAt: string;
+  statusHistories: StatusHistory[];
+  tasks: Task[];
 }
 
 interface IncidentEdge {
@@ -112,6 +122,9 @@ const IncidentList: React.FC = () => {
   const incidents = useMemo(() => {
     return data?.incidents?.edges?.map((edge: IncidentEdge) => edge.node) || [];
   }, [data?.incidents?.edges]);
+
+  // Calculate statistics
+  const stats = useIncidentStats(incidents);
 
   // Helper functions
   const matchesSearchText = (incident: Incident, search: string): boolean => {
@@ -349,60 +362,49 @@ const IncidentList: React.FC = () => {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-2">
-              <AlertCircle className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">{incidents.length}</p>
-              <p className="text-sm text-slate-500">Total Incidents</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-red-100 p-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">
-                {incidents.filter(i => i.status === IncidentStatus.HANDLING || i.status === IncidentStatus.TRIAGE).length}
-              </p>
-              <p className="text-sm text-slate-500">Open</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <AlertCircle className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">
-                {incidents.filter(i => i.status === IncidentStatus.CLOSED).length}
-              </p>
-              <p className="text-sm text-slate-500">Closed</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-purple-100 p-2">
-              <Clock className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">
-                {incidents.filter(i => {
-                  const created = new Date(i.createdAt);
-                  const now = new Date();
-                  return (now.getTime() - created.getTime()) < 86400000;
-                }).length}
-              </p>
-              <p className="text-sm text-slate-500">Today</p>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          icon={AlertCircle}
+          iconColor="text-red-600"
+          iconBgColor="bg-red-100"
+          mainValue={stats.openCount}
+          label="Open"
+          subInfo={`Triage: ${stats.triageCount} / Handling: ${stats.handlingCount}`}
+        />
+        <StatCard
+          icon={Clock}
+          iconColor="text-orange-600"
+          iconBgColor="bg-orange-100"
+          mainValue={stats.longOpenCount}
+          label="Long Open"
+          subInfo={stats.maxDaysOpen > 0 ? `Max: ${stats.maxDaysOpen} days` : 'None'}
+        />
+        <StatCard
+          icon={TrendingUp}
+          iconColor="text-green-600"
+          iconBgColor="bg-green-100"
+          mainValue={`${stats.newThisWeek} / ${stats.resolvedThisWeek}`}
+          label="This Week"
+          subInfo={`Resolution Rate: ${stats.resolutionRate}%`}
+        />
+        <StatCard
+          icon={Timer}
+          iconColor="text-blue-600"
+          iconBgColor="bg-blue-100"
+          mainValue={`${stats.averageResponseHours}h`}
+          label="Avg Response Time"
+          subInfo={
+            stats.responseTimeDiff !== 0 ? (
+              <span>
+                Last week: {stats.averageResponseHoursLastWeek}h{' '}
+                <span className={stats.responseTimeDiff > 0 ? 'text-green-600' : 'text-red-600'}>
+                  ({stats.responseTimeDiff > 0 ? '-' : '+'}{Math.abs(stats.responseTimeDiff)}h)
+                </span>
+              </span>
+            ) : (
+              `This week only`
+            )
+          }
+        />
       </div>
 
       {/* Filters */}
