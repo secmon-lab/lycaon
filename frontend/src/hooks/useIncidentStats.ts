@@ -36,22 +36,18 @@ export const useIncidentStats = (incidents: MinimalIncident[]): IncidentStats =>
     const openCount = triageCount + handlingCount;
 
     // Card 2: Long Open Incidents (>2 days)
-    const longOpenIncidents = incidents.filter(i => {
-      if (i.status !== IncidentStatus.TRIAGE && i.status !== IncidentStatus.HANDLING) {
-        return false;
-      }
-      const created = new Date(i.createdAt);
-      const diffDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDays > LONG_OPEN_THRESHOLD_DAYS;
-    });
+    const longOpenDays = incidents
+      .filter(
+        i => i.status === IncidentStatus.TRIAGE || i.status === IncidentStatus.HANDLING
+      )
+      .map(i => {
+        const created = new Date(i.createdAt);
+        return (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+      })
+      .filter(days => days > LONG_OPEN_THRESHOLD_DAYS);
 
-    const longOpenCount = longOpenIncidents.length;
-    const maxDaysOpen = longOpenIncidents.length > 0
-      ? Math.max(...longOpenIncidents.map(i => {
-          const created = new Date(i.createdAt);
-          return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-        }))
-      : 0;
+    const longOpenCount = longOpenDays.length;
+    const maxDaysOpen = longOpenCount > 0 ? Math.floor(Math.max(...longOpenDays)) : 0;
 
     // Card 3 & 4: Weekly data and response times
     const weekAgo = new Date();
