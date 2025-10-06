@@ -71,7 +71,97 @@ LYCAON_GEMINI_MODEL=gemini-2.5-flash
 # Logging Configuration
 LYCAON_LOG_LEVEL=info
 LYCAON_LOG_FORMAT=auto
+
+# Incident Configuration (Optional)
+LYCAON_CONFIG_PATH=./config/config.yaml
 ```
+
+### Incident Configuration
+
+Configure incident categories and severities in a single YAML file:
+
+```yaml
+# config/config.yaml
+categories:
+  - id: security_incident
+    name: Security Incident
+    description: Security-related incidents requiring immediate attention
+    invite_users:
+      - U01234567  # User ID
+      - "@alice"   # Username
+    invite_groups:
+      - S01234567  # Group ID
+      - "@security-team"  # Group handle
+
+  - id: service_outage
+    name: Service Outage
+    description: Service availability issues
+    invite_users:
+      - "@bob"
+      - "@charlie"
+    invite_groups:
+      - "@sre-team"
+
+  - id: performance_issue
+    name: Performance Issue
+    description: Performance degradation or optimization needed
+
+  - id: unknown
+    name: Unknown
+    description: Category not yet determined
+
+severities:
+  - id: critical
+    name: Critical
+    description: System down, major business impact
+    level: 90
+
+  - id: high
+    name: High
+    description: Significant degradation, urgent response needed
+    level: 70
+
+  - id: medium
+    name: Medium
+    description: Moderate impact, schedule fix
+    level: 50
+
+  - id: low
+    name: Low
+    description: Minor issue, low priority
+    level: 30
+
+  - id: info
+    name: Info
+    description: Informational, no action required
+    level: 10
+
+  - id: unknown
+    name: Unknown
+    description: Severity not yet determined
+    level: -1
+```
+
+**Category Fields:**
+- `id`: Unique identifier (use snake_case)
+- `name`: Display name shown in UI
+- `description`: Help text for selecting the category
+- `invite_users`: List of user IDs or @usernames to automatically invite (optional)
+- `invite_groups`: List of group IDs or @groupnames to automatically invite (optional)
+- **Note**: The `unknown` category is required
+
+**Severity Fields:**
+- `id`: Unique identifier (use snake_case)
+- `name`: Display name shown in UI
+- `description`: Help text for selecting the severity
+- `level`: Importance level (higher = more severe)
+  - `90-99`: Critical - System down, immediate response required
+  - `70-89`: High - Significant impact, urgent attention needed
+  - `50-69`: Medium - Moderate impact, timely response needed
+  - `30-49`: Low - Minor impact, can be scheduled
+  - `10-29`: Info - Informational, minimal or no impact
+  - `0`: Ignorable - No action required
+  - `-1`: Unknown - Severity not yet determined (special case)
 
 ## Slack App Setup
 
@@ -106,24 +196,6 @@ LYCAON_LOG_FORMAT=auto
 source .env && ./lycaon serve
 ```
 
-### Development
-
-```bash
-# Run development environment (frontend and backend)
-./dev.sh
-
-# Run tests
-task test
-
-# Generate mocks
-task mock
-```
-
-The development script will:
-- Start the backend server on port 8080
-- Start the frontend development server on port 3000 with hot reload
-- Create a sample `.env` file if it doesn't exist
-
 ## Architecture
 
 Lycaon follows a clean architecture pattern:
@@ -133,38 +205,6 @@ Lycaon follows a clean architecture pattern:
 - **UseCase Layer**: Business logic
 - **Controller Layer**: HTTP handlers and Slack integration
 - **Frontend**: React-based web interface
-
-## Development
-
-### Project Structure
-
-```
-lycaon/
-├── main.go              # Entry point
-├── pkg/
-│   ├── domain/         # Domain models and interfaces
-│   ├── repository/     # Data persistence
-│   ├── usecase/        # Business logic
-│   ├── controller/     # HTTP and Slack handlers
-│   └── cli/            # CLI commands
-├── frontend/           # React frontend
-│   ├── src/           # Source code
-│   └── dist/          # Build output (embedded)
-└── Taskfile.yml       # Task automation
-```
-
-### Testing
-
-```bash
-# Run all tests
-go test ./...
-
-# Run with coverage
-go test -cover ./...
-
-# Run specific package tests
-go test ./pkg/repository/...
-```
 
 ## License
 
