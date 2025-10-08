@@ -75,7 +75,8 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
       input.severityId = severityId;
     }
     // Check if asset IDs have changed
-    const assetIdsChanged = JSON.stringify([...selectedAssetIds].sort()) !== JSON.stringify([...currentAssetIds].sort());
+    const currentAssetIdsSet = new Set(currentAssetIds);
+    const assetIdsChanged = selectedAssetIds.length !== currentAssetIds.length || !selectedAssetIds.every(id => currentAssetIdsSet.has(id));
     if (assetIdsChanged) {
       input.assetIds = selectedAssetIds;
     }
