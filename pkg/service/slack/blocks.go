@@ -306,6 +306,71 @@ func (b *BlockBuilder) BuildErrorBlocks(errorMessage string) []slack.Block {
 	}
 }
 
+// buildAssetInputBlock builds the asset selection input block with initial options
+func buildAssetInputBlock(assets []model.Asset, selectedAssetIDs []types.AssetID) *slack.InputBlock {
+	if len(assets) == 0 {
+		return nil
+	}
+
+	var assetOptions []*slack.OptionBlockObject
+	var initialOptions []*slack.OptionBlockObject
+
+	for _, asset := range assets {
+		// Truncate description to avoid Slack limits (max 75 chars for option description)
+		description := asset.Description
+		if len(description) > 75 {
+			description = description[:72] + "..."
+		}
+
+		option := slack.NewOptionBlockObject(
+			string(asset.ID),
+			slack.NewTextBlockObject(slack.PlainTextType, asset.Name, false, false),
+			slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
+		)
+		assetOptions = append(assetOptions, option)
+
+		// Set initial selection if this asset is in the provided selectedAssetIDs
+		for _, assetID := range selectedAssetIDs {
+			if asset.ID == assetID {
+				initialOptions = append(initialOptions, option)
+				break
+			}
+		}
+	}
+
+	assetBlock := slack.NewInputBlock(
+		"asset_block",
+		slack.NewTextBlockObject(
+			slack.PlainTextType,
+			"Assets (optional)",
+			false,
+			false,
+		),
+		nil,
+		slack.NewOptionsMultiSelectBlockElement(
+			"multi_static_select",
+			slack.NewTextBlockObject(
+				slack.PlainTextType,
+				"Select affected assets",
+				false,
+				false,
+			),
+			"asset_select",
+			assetOptions...,
+		),
+	)
+
+	// Set initial options if we have matching assets
+	if len(initialOptions) > 0 {
+		if selectElement, ok := assetBlock.Element.(*slack.MultiSelectBlockElement); ok {
+			selectElement.InitialOptions = initialOptions
+		}
+	}
+
+	assetBlock.Optional = true
+	return assetBlock
+}
+
 // BuildIncidentEditModal builds the modal view for editing incident details
 func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, categories []model.Category, severities []model.Severity, assets []model.Asset) slack.ModalViewRequest {
 	// Title input block
@@ -442,63 +507,7 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description, cat
 	}
 
 	// Add asset selection block if assets are configured
-	if len(assets) > 0 {
-		var assetOptions []*slack.OptionBlockObject
-		var initialOptions []*slack.OptionBlockObject
-
-		for _, asset := range assets {
-			// Truncate description to avoid Slack limits (max 75 chars for option description)
-			description := asset.Description
-			if len(description) > 75 {
-				description = description[:72] + "..."
-			}
-
-			option := slack.NewOptionBlockObject(
-				string(asset.ID),
-				slack.NewTextBlockObject(slack.PlainTextType, asset.Name, false, false),
-				slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
-			)
-			assetOptions = append(assetOptions, option)
-
-			// Set initial selection if this asset is in the provided assetIDs
-			for _, assetID := range assetIDs {
-				if asset.ID == assetID {
-					initialOptions = append(initialOptions, option)
-					break
-				}
-			}
-		}
-
-		assetBlock := slack.NewInputBlock(
-			"asset_block",
-			slack.NewTextBlockObject(
-				slack.PlainTextType,
-				"Assets (optional)",
-				false,
-				false,
-			),
-			nil,
-			slack.NewOptionsMultiSelectBlockElement(
-				"multi_static_select",
-				slack.NewTextBlockObject(
-					slack.PlainTextType,
-					"Select affected assets",
-					false,
-					false,
-				),
-				"asset_select",
-				assetOptions...,
-			),
-		)
-
-		// Set initial options if we have matching assets
-		if len(initialOptions) > 0 {
-			if selectElement, ok := assetBlock.Element.(*slack.MultiSelectBlockElement); ok {
-				selectElement.InitialOptions = initialOptions
-			}
-		}
-
-		assetBlock.Optional = true
+	if assetBlock := buildAssetInputBlock(assets, assetIDs); assetBlock != nil {
 		blocksSlice = append(blocksSlice, assetBlock)
 	}
 
@@ -921,61 +930,7 @@ func (b *BlockBuilder) BuildEditIncidentDetailsModal(incident *model.Incident, c
 	}
 
 	// Add asset selection block if assets are configured
-	if len(assets) > 0 {
-		var assetOptions []*slack.OptionBlockObject
-		var initialOptions []*slack.OptionBlockObject
-
-		for _, asset := range assets {
-			// Truncate description to avoid Slack limits (max 75 chars for option description)
-			description := asset.Description
-			if len(description) > 75 {
-				description = description[:72] + "..."
-			}
-
-			option := slack.NewOptionBlockObject(
-				string(asset.ID),
-				slack.NewTextBlockObject(slack.PlainTextType, asset.Name, false, false),
-				slack.NewTextBlockObject(slack.PlainTextType, description, false, false),
-			)
-			assetOptions = append(assetOptions, option)
-
-			// Set initial selection if this asset is assigned to the incident
-			for _, assetID := range incident.AssetIDs {
-				if asset.ID == assetID {
-					initialOptions = append(initialOptions, option)
-					break
-				}
-			}
-		}
-
-		assetBlock := &slack.InputBlock{
-			Type:    slack.MBTInput,
-			BlockID: "asset_block",
-			Label: &slack.TextBlockObject{
-				Type: slack.PlainTextType,
-				Text: "Assets (optional)",
-			},
-			Element: slack.NewOptionsMultiSelectBlockElement(
-				"multi_static_select",
-				slack.NewTextBlockObject(
-					slack.PlainTextType,
-					"Select affected assets",
-					false,
-					false,
-				),
-				"asset_select",
-				assetOptions...,
-			),
-			Optional: true,
-		}
-
-		// Set initial options if we have matching assets
-		if len(initialOptions) > 0 {
-			if selectElement, ok := assetBlock.Element.(*slack.MultiSelectBlockElement); ok {
-				selectElement.InitialOptions = initialOptions
-			}
-		}
-
+	if assetBlock := buildAssetInputBlock(assets, incident.AssetIDs); assetBlock != nil {
 		blocks = append(blocks, assetBlock)
 	}
 

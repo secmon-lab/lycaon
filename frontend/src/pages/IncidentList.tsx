@@ -791,7 +791,7 @@ const IncidentList: React.FC = () => {
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
                           {incident.assetNames.slice(0, 3).map((assetName: string, index: number) => (
                             <span
-                              key={incident.assetIds[index] || index}
+                              key={incident.assetIds[index]}
                               className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
                             >
                               {assetName}

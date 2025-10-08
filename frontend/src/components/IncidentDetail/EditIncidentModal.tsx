@@ -255,20 +255,23 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
                 {isAssetDropdownOpen && availableAssets.length > 0 && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {availableAssets.map((asset) => (
-                      <button
+                      <label
                         key={asset.id}
-                        type="button"
-                        onClick={() => {
-                          toggleAsset(asset.id);
-                          setIsAssetDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        className="flex items-start gap-2 px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 cursor-pointer"
                       >
-                        <div className="font-medium text-sm">{asset.name}</div>
-                        {asset.description && (
-                          <div className="text-xs text-gray-500 mt-0.5">{asset.description}</div>
-                        )}
-                      </button>
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => toggleAsset(asset.id)}
+                          className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{asset.name}</div>
+                          {asset.description && (
+                            <div className="text-xs text-gray-500 mt-0.5">{asset.description}</div>
+                          )}
+                        </div>
+                      </label>
                     ))}
                   </div>
                 )}

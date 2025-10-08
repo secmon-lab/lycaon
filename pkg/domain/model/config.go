@@ -79,6 +79,9 @@ type Config struct {
 	Categories []Category `yaml:"categories"`
 	Severities []Severity `yaml:"severities,omitempty"`
 	Assets     []Asset    `yaml:"assets,omitempty"`
+
+	// Cached asset map for O(1) lookup
+	assetMap map[types.AssetID]*Asset
 }
 
 // Validate validates the entire configuration
@@ -100,7 +103,9 @@ func (c *Config) Validate() error {
 	// Validate assets if present (optional)
 	if len(c.Assets) > 0 {
 		idMap := make(map[types.AssetID]bool)
-		for i, asset := range c.Assets {
+		c.assetMap = make(map[types.AssetID]*Asset, len(c.Assets))
+		for i := range c.Assets {
+			asset := &c.Assets[i]
 			if err := asset.Validate(); err != nil {
 				return goerr.Wrap(err, "invalid asset at index",
 					goerr.V("index", i),
@@ -112,6 +117,7 @@ func (c *Config) Validate() error {
 					goerr.V("id", asset.ID))
 			}
 			idMap[asset.ID] = true
+			c.assetMap[asset.ID] = asset
 		}
 	}
 
@@ -153,22 +159,22 @@ func (c *Config) FindSeverityByIDWithFallback(id string) *Severity {
 	return c.GetSeveritiesConfig().FindSeverityByIDWithFallback(id)
 }
 
-// FindAssetByID finds an asset by its ID
+// FindAssetByID finds an asset by its ID using O(1) map lookup
 func (c *Config) FindAssetByID(id types.AssetID) *Asset {
-	for _, asset := range c.Assets {
-		if asset.ID == id {
-			result := asset
-			return &result
-		}
+	if c.assetMap == nil {
+		return nil
 	}
-	return nil
+	return c.assetMap[id]
 }
 
-// FindAssetsByIDs finds multiple assets by their IDs
+// FindAssetsByIDs finds multiple assets by their IDs using O(1) map lookups
 func (c *Config) FindAssetsByIDs(ids []types.AssetID) []Asset {
 	result := make([]Asset, 0, len(ids))
+	if c.assetMap == nil {
+		return result
+	}
 	for _, id := range ids {
-		if asset := c.FindAssetByID(id); asset != nil {
+		if asset := c.assetMap[id]; asset != nil {
 			result = append(result, *asset)
 		}
 	}
