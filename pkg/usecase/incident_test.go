@@ -910,3 +910,193 @@ func TestGetIncidentTrendBySeverity_WeekRanges(t *testing.T) {
 		}
 	})
 }
+func TestUpdateIncident_AssetIDsChangeDetection(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Detect asset IDs removal", func(t *testing.T) {
+		repo := repository.NewMemory()
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{TeamID: "T123456"}, nil
+			},
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{ID: "C-TEST"},
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
+
+		config := &model.Config{
+			Categories: testConfig().Categories,
+			Assets: []model.Asset{
+				{ID: "asset_a", Name: "Asset A"},
+				{ID: "asset_b", Name: "Asset B"},
+				{ID: "asset_c", Name: "Asset C"},
+			},
+		}
+
+		slackService := slackSvc.NewUIService(mockSlack, config)
+		incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, slackService, config, nil, incidentConfig)
+
+		// Create incident with assets A and B
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "test",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-TEST",
+			AssetIDs:          []types.AssetID{"asset_a", "asset_b"},
+		})
+		gt.NoError(t, err).Required()
+		gt.A(t, incident.AssetIDs).Length(2)
+
+		// Update to only asset A (remove asset B)
+		assetIDs := []types.AssetID{"asset_a"}
+		updateReq := model.UpdateIncidentRequest{
+			AssetIDs: &assetIDs,
+		}
+		updated, err := uc.UpdateIncident(ctx, incident.ID, updateReq)
+		gt.NoError(t, err).Required()
+		gt.A(t, updated.AssetIDs).Length(1)
+		gt.Equal(t, types.AssetID("asset_a"), updated.AssetIDs[0])
+
+		// Verify persistence
+		retrieved, err := repo.GetIncident(ctx, incident.ID)
+		gt.NoError(t, err).Required()
+		gt.A(t, retrieved.AssetIDs).Length(1)
+		gt.Equal(t, types.AssetID("asset_a"), retrieved.AssetIDs[0])
+	})
+
+	t.Run("Detect asset IDs addition", func(t *testing.T) {
+		repo := repository.NewMemory()
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{TeamID: "T123456"}, nil
+			},
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{ID: "C-TEST"},
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
+
+		config := &model.Config{
+			Categories: testConfig().Categories,
+			Assets: []model.Asset{
+				{ID: "asset_a", Name: "Asset A"},
+				{ID: "asset_b", Name: "Asset B"},
+			},
+		}
+
+		slackService := slackSvc.NewUIService(mockSlack, config)
+		incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, slackService, config, nil, incidentConfig)
+
+		// Create incident with asset A only
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "test",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-TEST",
+			AssetIDs:          []types.AssetID{"asset_a"},
+		})
+		gt.NoError(t, err).Required()
+
+		// Update to add asset B
+		assetIDs := []types.AssetID{"asset_a", "asset_b"}
+		updateReq := model.UpdateIncidentRequest{
+			AssetIDs: &assetIDs,
+		}
+		updated, err := uc.UpdateIncident(ctx, incident.ID, updateReq)
+		gt.NoError(t, err).Required()
+		gt.A(t, updated.AssetIDs).Length(2)
+
+		// Verify persistence
+		retrieved, err := repo.GetIncident(ctx, incident.ID)
+		gt.NoError(t, err).Required()
+		gt.A(t, retrieved.AssetIDs).Length(2)
+	})
+
+	t.Run("No change when asset IDs are same", func(t *testing.T) {
+		repo := repository.NewMemory()
+		mockSlack := &mocks.SlackClientMock{
+			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
+				return &slack.AuthTestResponse{TeamID: "T123456"}, nil
+			},
+			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
+				return &slack.Channel{
+					GroupConversation: slack.GroupConversation{
+						Conversation: slack.Conversation{ID: "C-TEST"},
+					},
+				}, nil
+			},
+			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
+				return &slack.Channel{}, nil
+			},
+			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
+				return "channel", "timestamp", nil
+			},
+		}
+
+		config := &model.Config{
+			Categories: testConfig().Categories,
+			Assets: []model.Asset{
+				{ID: "asset_a", Name: "Asset A"},
+				{ID: "asset_b", Name: "Asset B"},
+			},
+		}
+
+		slackService := slackSvc.NewUIService(mockSlack, config)
+		incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
+		uc := usecase.NewIncident(repo, mockSlack, slackService, config, nil, incidentConfig)
+
+		// Create incident with assets
+		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
+			Title:             "test",
+			CategoryID:        "unknown",
+			OriginChannelID:   "C-ORIGIN",
+			OriginChannelName: "general",
+			CreatedBy:         "U-TEST",
+			AssetIDs:          []types.AssetID{"asset_a", "asset_b"},
+		})
+		gt.NoError(t, err).Required()
+
+		// Update with same asset IDs (different order)
+		assetIDs := []types.AssetID{"asset_b", "asset_a"}
+		updateReq := model.UpdateIncidentRequest{
+			AssetIDs: &assetIDs,
+		}
+		updated, err := uc.UpdateIncident(ctx, incident.ID, updateReq)
+		gt.NoError(t, err).Required()
+
+		// Asset IDs should remain the same
+		gt.A(t, updated.AssetIDs).Length(2)
+	})
+}

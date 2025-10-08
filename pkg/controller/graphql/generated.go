@@ -41,6 +41,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Asset() AssetResolver
 	Incident() IncidentResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
@@ -54,12 +55,20 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	Asset struct {
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Name        func(childComplexity int) int
+	}
+
 	GroupedIncidents struct {
 		Date      func(childComplexity int) int
 		Incidents func(childComplexity int) int
 	}
 
 	Incident struct {
+		AssetIds          func(childComplexity int) int
+		AssetNames        func(childComplexity int) int
 		CategoryID        func(childComplexity int) int
 		CategoryName      func(childComplexity int) int
 		ChannelID         func(childComplexity int) int
@@ -112,6 +121,7 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
+		Assets                  func(childComplexity int) int
 		ChannelMembers          func(childComplexity int, channelID string) int
 		Incident                func(childComplexity int, id string) int
 		IncidentStatusHistory   func(childComplexity int, incidentID string) int
@@ -180,6 +190,9 @@ type ComplexityRoot struct {
 	}
 }
 
+type AssetResolver interface {
+	ID(ctx context.Context, obj *model.Asset) (string, error)
+}
 type IncidentResolver interface {
 	ID(ctx context.Context, obj *model.Incident) (string, error)
 	ChannelID(ctx context.Context, obj *model.Incident) (string, error)
@@ -189,6 +202,8 @@ type IncidentResolver interface {
 	SeverityID(ctx context.Context, obj *model.Incident) (string, error)
 	SeverityName(ctx context.Context, obj *model.Incident) (string, error)
 	SeverityLevel(ctx context.Context, obj *model.Incident) (int, error)
+	AssetIds(ctx context.Context, obj *model.Incident) ([]string, error)
+	AssetNames(ctx context.Context, obj *model.Incident) ([]string, error)
 	Status(ctx context.Context, obj *model.Incident) (*types.IncidentStatus, error)
 	Lead(ctx context.Context, obj *model.Incident) (*string, error)
 	LeadUser(ctx context.Context, obj *model.Incident) (*model.User, error)
@@ -218,6 +233,7 @@ type QueryResolver interface {
 	Task(ctx context.Context, id string) (*model.Task, error)
 	ChannelMembers(ctx context.Context, channelID string) ([]*model.User, error)
 	Severities(ctx context.Context) ([]*model.Severity, error)
+	Assets(ctx context.Context) ([]*model.Asset, error)
 	RecentOpenIncidents(ctx context.Context, days *int) ([]*graphql1.GroupedIncidents, error)
 	IncidentTrendBySeverity(ctx context.Context, weeks *int) ([]*model.WeeklySeverityCount, error)
 }
@@ -263,6 +279,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "Asset.description":
+		if e.complexity.Asset.Description == nil {
+			break
+		}
+
+		return e.complexity.Asset.Description(childComplexity), true
+	case "Asset.id":
+		if e.complexity.Asset.ID == nil {
+			break
+		}
+
+		return e.complexity.Asset.ID(childComplexity), true
+	case "Asset.name":
+		if e.complexity.Asset.Name == nil {
+			break
+		}
+
+		return e.complexity.Asset.Name(childComplexity), true
+
 	case "GroupedIncidents.date":
 		if e.complexity.GroupedIncidents.Date == nil {
 			break
@@ -276,6 +311,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.GroupedIncidents.Incidents(childComplexity), true
 
+	case "Incident.assetIds":
+		if e.complexity.Incident.AssetIds == nil {
+			break
+		}
+
+		return e.complexity.Incident.AssetIds(childComplexity), true
+	case "Incident.assetNames":
+		if e.complexity.Incident.AssetNames == nil {
+			break
+		}
+
+		return e.complexity.Incident.AssetNames(childComplexity), true
 	case "Incident.categoryId":
 		if e.complexity.Incident.CategoryID == nil {
 			break
@@ -528,6 +575,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PageInfo.StartCursor(childComplexity), true
 
+	case "Query.assets":
+		if e.complexity.Query.Assets == nil {
+			break
+		}
+
+		return e.complexity.Query.Assets(childComplexity), true
 	case "Query.channelMembers":
 		if e.complexity.Query.ChannelMembers == nil {
 			break
@@ -994,6 +1047,8 @@ type Incident {
   severityId: String!
   severityName: String!
   severityLevel: Int!
+  assetIds: [String!]!
+  assetNames: [String!]!
   status: IncidentStatus
   lead: String
   leadUser: User
@@ -1048,6 +1103,12 @@ type Severity {
   level: Int!
 }
 
+type Asset {
+  id: String!
+  name: String!
+  description: String!
+}
+
 type IncidentConnection {
   edges: [IncidentEdge!]!
   pageInfo: PageInfo!
@@ -1088,6 +1149,9 @@ type Query {
   # Get all severities
   severities: [Severity!]!
 
+  # Get all assets
+  assets: [Asset!]!
+
   # Get recent open incidents grouped by date
   recentOpenIncidents(days: Int = 7): [GroupedIncidents!]!
 
@@ -1118,6 +1182,7 @@ input UpdateIncidentInput {
   lead: String
   status: IncidentStatus
   severityId: String
+  assetIds: [String!]
 }
 
 input CreateTaskInput {
@@ -1395,6 +1460,93 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
+func (ec *executionContext) _Asset_id(ctx context.Context, field graphql.CollectedField, obj *model.Asset) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Asset_id,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Asset().ID(ctx, obj)
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Asset_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Asset",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Asset_name(ctx context.Context, field graphql.CollectedField, obj *model.Asset) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Asset_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Asset_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Asset",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Asset_description(ctx context.Context, field graphql.CollectedField, obj *model.Asset) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Asset_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Asset_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Asset",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _GroupedIncidents_date(ctx context.Context, field graphql.CollectedField, obj *graphql1.GroupedIncidents) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1468,6 +1620,10 @@ func (ec *executionContext) fieldContext_GroupedIncidents_incidents(_ context.Co
 				return ec.fieldContext_Incident_severityName(ctx, field)
 			case "severityLevel":
 				return ec.fieldContext_Incident_severityLevel(ctx, field)
+			case "assetIds":
+				return ec.fieldContext_Incident_assetIds(ctx, field)
+			case "assetNames":
+				return ec.fieldContext_Incident_assetNames(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -1786,6 +1942,64 @@ func (ec *executionContext) fieldContext_Incident_severityLevel(_ context.Contex
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Incident_assetIds(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_assetIds,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Incident().AssetIds(ctx, obj)
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_assetIds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Incident_assetNames(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_assetNames,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Incident().AssetNames(ctx, obj)
+		},
+		nil,
+		ec.marshalNString2ᚕstringᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_assetNames(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2389,6 +2603,10 @@ func (ec *executionContext) fieldContext_IncidentEdge_node(_ context.Context, fi
 				return ec.fieldContext_Incident_severityName(ctx, field)
 			case "severityLevel":
 				return ec.fieldContext_Incident_severityLevel(ctx, field)
+			case "assetIds":
+				return ec.fieldContext_Incident_assetIds(ctx, field)
+			case "assetNames":
+				return ec.fieldContext_Incident_assetNames(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -2496,6 +2714,10 @@ func (ec *executionContext) fieldContext_Mutation_updateIncident(ctx context.Con
 				return ec.fieldContext_Incident_severityName(ctx, field)
 			case "severityLevel":
 				return ec.fieldContext_Incident_severityLevel(ctx, field)
+			case "assetIds":
+				return ec.fieldContext_Incident_assetIds(ctx, field)
+			case "assetNames":
+				return ec.fieldContext_Incident_assetNames(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -2585,6 +2807,10 @@ func (ec *executionContext) fieldContext_Mutation_updateIncidentStatus(ctx conte
 				return ec.fieldContext_Incident_severityName(ctx, field)
 			case "severityLevel":
 				return ec.fieldContext_Incident_severityLevel(ctx, field)
+			case "assetIds":
+				return ec.fieldContext_Incident_assetIds(ctx, field)
+			case "assetNames":
+				return ec.fieldContext_Incident_assetNames(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -3018,6 +3244,10 @@ func (ec *executionContext) fieldContext_Query_incident(ctx context.Context, fie
 				return ec.fieldContext_Incident_severityName(ctx, field)
 			case "severityLevel":
 				return ec.fieldContext_Incident_severityLevel(ctx, field)
+			case "assetIds":
+				return ec.fieldContext_Incident_assetIds(ctx, field)
+			case "assetNames":
+				return ec.fieldContext_Incident_assetNames(ctx, field)
 			case "status":
 				return ec.fieldContext_Incident_status(ctx, field)
 			case "lead":
@@ -3346,6 +3576,43 @@ func (ec *executionContext) fieldContext_Query_severities(_ context.Context, fie
 				return ec.fieldContext_Severity_level(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Severity", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_assets(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_assets,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().Assets(ctx)
+		},
+		nil,
+		ec.marshalNAsset2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐAssetᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_assets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Asset_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Asset_name(ctx, field)
+			case "description":
+				return ec.fieldContext_Asset_description(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Asset", field.Name)
 		},
 	}
 	return fc, nil
@@ -6202,7 +6469,7 @@ func (ec *executionContext) unmarshalInputUpdateIncidentInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"title", "description", "lead", "status", "severityId"}
+	fieldsInOrder := [...]string{"title", "description", "lead", "status", "severityId", "assetIds"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6244,6 +6511,13 @@ func (ec *executionContext) unmarshalInputUpdateIncidentInput(ctx context.Contex
 				return it, err
 			}
 			it.SeverityID = data
+		case "assetIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assetIds"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssetIds = data
 		}
 	}
 
@@ -6305,6 +6579,86 @@ func (ec *executionContext) unmarshalInputUpdateTaskInput(ctx context.Context, o
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var assetImplementors = []string{"Asset"}
+
+func (ec *executionContext) _Asset(ctx context.Context, sel ast.SelectionSet, obj *model.Asset) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, assetImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Asset")
+		case "id":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Asset_id(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "name":
+			out.Values[i] = ec._Asset_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._Asset_description(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
 
 var groupedIncidentsImplementors = []string{"GroupedIncidents"}
 
@@ -6602,6 +6956,78 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 					}
 				}()
 				res = ec._Incident_severityLevel(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "assetIds":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_assetIds(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "assetNames":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_assetNames(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -7415,6 +7841,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_severities(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "assets":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_assets(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8591,6 +9039,60 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) marshalNAsset2ᚕᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐAssetᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Asset) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNAsset2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐAsset(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNAsset2ᚖgithubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐAsset(ctx context.Context, sel ast.SelectionSet, v *model.Asset) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Asset(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -9027,6 +9529,36 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNTask2githubᚗcomᚋsecmonᚑlabᚋlycaonᚋpkgᚋdomainᚋmodelᚐTask(ctx context.Context, sel ast.SelectionSet, v model.Task) graphql.Marshaler {
@@ -9601,6 +10133,42 @@ func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.S
 	_ = ctx
 	res := graphql.MarshalString(v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

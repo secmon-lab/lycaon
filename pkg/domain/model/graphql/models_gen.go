@@ -58,6 +58,7 @@ type UpdateIncidentInput struct {
 	Lead        *string               `json:"lead,omitempty"`
 	Status      *types.IncidentStatus `json:"status,omitempty"`
 	SeverityID  *string               `json:"severityId,omitempty"`
+	AssetIds    []string              `json:"assetIds,omitempty"`
 }
 
 type UpdateTaskInput struct {

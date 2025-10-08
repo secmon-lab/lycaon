@@ -362,6 +362,7 @@ func TestGraphQL_SingleIncident(t *testing.T) {
 		"Single test incident description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C1234567890"),
 		types.ChannelName("origin-channel"),
 		types.TeamID("T1234567890"),
@@ -454,6 +455,7 @@ func TestGraphQL_CompleteCRUDOperations(t *testing.T) {
 		"Test incident for CRUD operations",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T1234567890"),
@@ -628,6 +630,7 @@ func TestGraphQL_IncidentStatusManagement(t *testing.T) {
 		"Test incident for status management",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T1234567890"),
@@ -874,6 +877,7 @@ func TestGraphQL_IncidentCreateWithTriage(t *testing.T) {
 		"Test incident for triage status",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C1234567890"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T1234567890"),

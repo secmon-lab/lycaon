@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // CategoriesConfig represents the categories configuration
@@ -77,6 +78,10 @@ func (c *CategoriesConfig) FindCategoryByIDWithFallback(id string) *Category {
 type Config struct {
 	Categories []Category `yaml:"categories"`
 	Severities []Severity `yaml:"severities,omitempty"`
+	Assets     []Asset    `yaml:"assets,omitempty"`
+
+	// Cached asset map for O(1) lookup
+	assetMap map[types.AssetID]*Asset
 }
 
 // Validate validates the entire configuration
@@ -92,6 +97,27 @@ func (c *Config) Validate() error {
 		sevConfig := &SeveritiesConfig{Severities: c.Severities}
 		if err := sevConfig.Validate(); err != nil {
 			return goerr.Wrap(err, "invalid severities")
+		}
+	}
+
+	// Validate assets if present (optional)
+	if len(c.Assets) > 0 {
+		idMap := make(map[types.AssetID]bool)
+		c.assetMap = make(map[types.AssetID]*Asset, len(c.Assets))
+		for i := range c.Assets {
+			asset := &c.Assets[i]
+			if err := asset.Validate(); err != nil {
+				return goerr.Wrap(err, "invalid asset at index",
+					goerr.V("index", i),
+					goerr.V("id", asset.ID))
+			}
+
+			if idMap[asset.ID] {
+				return goerr.New("duplicate asset ID",
+					goerr.V("id", asset.ID))
+			}
+			idMap[asset.ID] = true
+			c.assetMap[asset.ID] = asset
 		}
 	}
 
@@ -131,4 +157,54 @@ func (c *Config) FindSeverityByID(id string) *Severity {
 // FindSeverityByIDWithFallback finds a severity or returns unknown severity
 func (c *Config) FindSeverityByIDWithFallback(id string) *Severity {
 	return c.GetSeveritiesConfig().FindSeverityByIDWithFallback(id)
+}
+
+// FindAssetByID finds an asset by its ID using O(1) map lookup
+func (c *Config) FindAssetByID(id types.AssetID) *Asset {
+	if c.assetMap == nil {
+		return nil
+	}
+	return c.assetMap[id]
+}
+
+// FindAssetsByIDs finds multiple assets by their IDs using O(1) map lookups
+func (c *Config) FindAssetsByIDs(ids []types.AssetID) []Asset {
+	result := make([]Asset, 0, len(ids))
+	if c.assetMap == nil {
+		return result
+	}
+	for _, id := range ids {
+		if asset := c.assetMap[id]; asset != nil {
+			result = append(result, *asset)
+		}
+	}
+	return result
+}
+
+// IsValidAssetID checks if the given asset ID exists
+func (c *Config) IsValidAssetID(id types.AssetID) bool {
+	return c.FindAssetByID(id) != nil
+}
+
+// ValidateAssetIDs checks if all provided IDs are valid
+func (c *Config) ValidateAssetIDs(ids []types.AssetID) error {
+	for _, id := range ids {
+		if !c.IsValidAssetID(id) {
+			return goerr.New("invalid asset ID",
+				goerr.V("id", id))
+		}
+	}
+	return nil
+}
+
+// FindAssetByIDWithFallback finds an asset or returns a fallback
+func (c *Config) FindAssetByIDWithFallback(id types.AssetID) *Asset {
+	if asset := c.FindAssetByID(id); asset != nil {
+		return asset
+	}
+	return &Asset{
+		ID:          id,
+		Name:        "Unknown Asset",
+		Description: "This asset does not exist in current configuration",
+	}
 }

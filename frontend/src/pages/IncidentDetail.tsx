@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client/react';
 import { format } from 'date-fns';
-import { GET_INCIDENT, GET_SEVERITIES } from '../graphql/queries';
-import { IncidentStatus, toIncidentStatus } from '../types/incident';
+import { GET_INCIDENT, GET_SEVERITIES, GET_ASSETS } from '../graphql/queries';
+import { IncidentStatus, toIncidentStatus, Asset } from '../types/incident';
 import StatusSection from '../components/IncidentDetail/StatusSection';
 import TaskList from '../components/IncidentDetail/TaskList';
 import { EditIncidentModal } from '../components/IncidentDetail/EditIncidentModal';
@@ -16,6 +16,7 @@ import {
   Edit,
   Tag,
   AlertTriangle,
+  Server,
 } from 'lucide-react';
 
 const IncidentDetail: React.FC = () => {
@@ -29,6 +30,7 @@ const IncidentDetail: React.FC = () => {
   });
 
   const { data: severitiesData } = useQuery<{ severities: Array<{ id: string; name: string; level: number }> }>(GET_SEVERITIES);
+  const { data: assetsData } = useQuery<{ assets: Asset[] }>(GET_ASSETS);
 
   if (loading) {
     return (
@@ -148,6 +150,28 @@ const IncidentDetail: React.FC = () => {
                 />
               </div>
 
+              {/* Assets */}
+              <div>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                  <Server className="h-3 w-3" />
+                  Assets
+                </div>
+                {incident.assetNames && incident.assetNames.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {incident.assetNames.map((assetName: string, index: number) => (
+                      <span
+                        key={incident.assetIds[index]}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                      >
+                        {assetName}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-slate-400">No assets assigned</p>
+                )}
+              </div>
+
               <div>
                 <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
                   <User className="h-3 w-3" />
@@ -224,7 +248,9 @@ const IncidentDetail: React.FC = () => {
           currentDescription={incident.description || ''}
           currentLead={incident.lead}
           currentSeverityId={incident.severityId}
+          currentAssetIds={incident.assetIds || []}
           severities={severitiesData.severities}
+          assets={assetsData?.assets || []}
           onClose={() => setShowEditModal(false)}
           onUpdate={() => {
             // Optionally, you can add a success toast here

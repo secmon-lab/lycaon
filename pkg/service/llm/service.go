@@ -12,6 +12,7 @@ import (
 	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gollem"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 	"github.com/slack-go/slack"
 )
 
@@ -33,10 +34,11 @@ type LLMService struct {
 
 // IncidentSummary represents the structured response from LLM for incident creation
 type IncidentSummary struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	CategoryID  string `json:"category_id"`
-	SeverityID  string `json:"severity_id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	CategoryID  string   `json:"category_id"`
+	SeverityID  string   `json:"severity_id"`
+	AssetIDs    []string `json:"asset_ids"`
 }
 
 // ChannelInfo represents Slack channel information for LLM context
@@ -59,6 +61,7 @@ type TemplateMessage struct {
 type IncidentAnalysisTemplateData struct {
 	Categories       []model.Category
 	Severities       []model.Severity
+	Assets           []model.Asset
 	Messages         []TemplateMessage
 	AdditionalPrompt string
 	ChannelInfo      *ChannelInfo
@@ -72,48 +75,50 @@ func NewLLMService(llmClient gollem.LLMClient) *LLMService {
 }
 
 // AnalyzeIncident performs comprehensive incident analysis in a single LLM call
-// Returns title, description, category_id, and severity_id all at once
-func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, severities *model.SeveritiesConfig) (*IncidentSummary, error) {
+// Returns title, description, category_id, severity_id, and asset_ids all at once
+func (s *LLMService) AnalyzeIncident(ctx context.Context, messages []slack.Message, config *model.Config) (*IncidentSummary, error) {
 	if len(messages) == 0 {
 		return nil, goerr.New("no messages provided for incident analysis")
 	}
 
 	// Build template data without additional context
 	templateData := IncidentAnalysisTemplateData{
-		Categories: categories.Categories,
+		Categories: config.Categories,
+		Assets:     config.Assets,
 		Messages:   s.buildTemplateMessages(messages),
 	}
-	if severities != nil {
-		templateData.Severities = severities.Severities
+	if len(config.Severities) > 0 {
+		templateData.Severities = config.Severities
 	}
 
-	return s.analyze(ctx, templateData, categories, severities)
+	return s.analyze(ctx, templateData, config)
 }
 
 // AnalyzeIncidentWithContext performs comprehensive incident analysis with additional context
 // This method extends AnalyzeIncident to include additional prompt and channel information
-func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []slack.Message, categories *model.CategoriesConfig, severities *model.SeveritiesConfig, additionalPrompt string, channelInfo *slack.Channel) (*IncidentSummary, error) {
+func (s *LLMService) AnalyzeIncidentWithContext(ctx context.Context, messages []slack.Message, config *model.Config, additionalPrompt string, channelInfo *slack.Channel) (*IncidentSummary, error) {
 	if len(messages) == 0 {
 		return nil, goerr.New("no messages provided for incident analysis")
 	}
 
 	// Build template data with additional context
 	templateData := IncidentAnalysisTemplateData{
-		Categories:       categories.Categories,
+		Categories:       config.Categories,
+		Assets:           config.Assets,
 		Messages:         s.buildTemplateMessages(messages),
 		AdditionalPrompt: additionalPrompt,
 		ChannelInfo:      s.buildChannelInfo(channelInfo),
 	}
-	if severities != nil {
-		templateData.Severities = severities.Severities
+	if len(config.Severities) > 0 {
+		templateData.Severities = config.Severities
 	}
 
-	return s.analyze(ctx, templateData, categories, severities)
+	return s.analyze(ctx, templateData, config)
 }
 
 // analyze performs the common LLM analysis logic
 // This is the shared implementation used by both AnalyzeIncident and AnalyzeIncidentWithContext
-func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisTemplateData, categories *model.CategoriesConfig, severities *model.SeveritiesConfig) (*IncidentSummary, error) {
+func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisTemplateData, config *model.Config) (*IncidentSummary, error) {
 	// Generate prompt using the unified template
 	prompt, err := s.renderIncidentAnalysisTemplate(templateData)
 	if err != nil {
@@ -160,15 +165,27 @@ func (s *LLMService) analyze(ctx context.Context, templateData IncidentAnalysisT
 	}
 
 	// Validate category ID
-	if summary.CategoryID == "" || !categories.IsValidCategoryID(summary.CategoryID) {
+	if summary.CategoryID == "" || !config.IsValidCategoryID(summary.CategoryID) {
 		summary.CategoryID = "unknown"
 	}
 
 	// Validate severity ID
-	if summary.SeverityID != "" && severities != nil {
-		if !severities.IsValidSeverityID(summary.SeverityID) {
+	if summary.SeverityID != "" && len(config.Severities) > 0 {
+		severitiesConfig := config.GetSeveritiesConfig()
+		if severitiesConfig != nil && !severitiesConfig.IsValidSeverityID(summary.SeverityID) {
 			summary.SeverityID = "" // Clear invalid severity ID
 		}
+	}
+
+	// Validate asset IDs
+	if len(summary.AssetIDs) > 0 {
+		validAssetIDs := make([]string, 0, len(summary.AssetIDs))
+		for _, assetID := range summary.AssetIDs {
+			if config.IsValidAssetID(types.AssetID(assetID)) {
+				validAssetIDs = append(validAssetIDs, assetID)
+			}
+		}
+		summary.AssetIDs = validAssetIDs
 	}
 
 	return &summary, nil

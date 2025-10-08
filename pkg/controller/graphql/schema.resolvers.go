@@ -19,6 +19,11 @@ import (
 )
 
 // ID is the resolver for the id field.
+func (r *assetResolver) ID(ctx context.Context, obj *model.Asset) (string, error) {
+	return string(obj.ID), nil
+}
+
+// ID is the resolver for the id field.
 func (r *incidentResolver) ID(ctx context.Context, obj *model.Incident) (string, error) {
 	return fmt.Sprintf("%d", obj.ID), nil
 }
@@ -67,6 +72,29 @@ func (r *incidentResolver) SeverityLevel(ctx context.Context, obj *model.Inciden
 	}
 	// Return -1 (unknown) if no config is available
 	return -1, nil
+}
+
+// AssetIds is the resolver for the assetIds field.
+func (r *incidentResolver) AssetIds(ctx context.Context, obj *model.Incident) ([]string, error) {
+	assetIDs := make([]string, len(obj.AssetIDs))
+	for i, id := range obj.AssetIDs {
+		assetIDs[i] = string(id)
+	}
+	return assetIDs, nil
+}
+
+// AssetNames is the resolver for the assetNames field.
+func (r *incidentResolver) AssetNames(ctx context.Context, obj *model.Incident) ([]string, error) {
+	if r.modelConfig == nil {
+		return []string{}, nil
+	}
+
+	assetNames := make([]string, 0, len(obj.AssetIDs))
+	for _, assetID := range obj.AssetIDs {
+		asset := r.modelConfig.FindAssetByIDWithFallback(assetID)
+		assetNames = append(assetNames, asset.Name)
+	}
+	return assetNames, nil
 }
 
 // Status is the resolver for the status field.
@@ -213,6 +241,13 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 			if input.SeverityID != nil {
 				incident.SeverityID = types.SeverityID(*input.SeverityID)
 			}
+			if input.AssetIds != nil {
+				assetIDs := make([]types.AssetID, len(input.AssetIds))
+				for i, id := range input.AssetIds {
+					assetIDs[i] = types.AssetID(id)
+				}
+				incident.AssetIDs = assetIDs
+			}
 			updatedIncident = incident
 			return nil
 		})
@@ -240,6 +275,13 @@ func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input 
 	}
 	if input.SeverityID != nil {
 		incident.SeverityID = types.SeverityID(*input.SeverityID)
+	}
+	if input.AssetIds != nil {
+		assetIDs := make([]types.AssetID, len(input.AssetIds))
+		for i, id := range input.AssetIds {
+			assetIDs[i] = types.AssetID(id)
+		}
+		incident.AssetIDs = assetIDs
 	}
 
 	// Save updated incident
@@ -575,6 +617,19 @@ func (r *queryResolver) Severities(ctx context.Context) ([]*model.Severity, erro
 	return result, nil
 }
 
+// Assets is the resolver for the assets field.
+func (r *queryResolver) Assets(ctx context.Context) ([]*model.Asset, error) {
+	if r.modelConfig == nil || len(r.modelConfig.Assets) == 0 {
+		return []*model.Asset{}, nil
+	}
+
+	result := make([]*model.Asset, len(r.modelConfig.Assets))
+	for i := range r.modelConfig.Assets {
+		result[i] = &r.modelConfig.Assets[i]
+	}
+	return result, nil
+}
+
 // RecentOpenIncidents is the resolver for the recentOpenIncidents field.
 func (r *queryResolver) RecentOpenIncidents(ctx context.Context, days *int) ([]*graphql1.GroupedIncidents, error) {
 	daysCount := 7
@@ -746,6 +801,9 @@ func (r *weeklySeverityCountResolver) SeverityCounts(ctx context.Context, obj *m
 	return severityCounts, nil
 }
 
+// Asset returns AssetResolver implementation.
+func (r *Resolver) Asset() AssetResolver { return &assetResolver{r} }
+
 // Incident returns IncidentResolver implementation.
 func (r *Resolver) Incident() IncidentResolver { return &incidentResolver{r} }
 
@@ -769,6 +827,7 @@ func (r *Resolver) WeeklySeverityCount() WeeklySeverityCountResolver {
 	return &weeklySeverityCountResolver{r}
 }
 
+type assetResolver struct{ *Resolver }
 type incidentResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

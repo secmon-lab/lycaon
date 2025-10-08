@@ -6,10 +6,10 @@ import {
   BarElement,
   Title,
   Tooltip,
-  Legend,
-  ChartOptions,
+  Legend
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import type { ChartOptions } from 'chart.js';
 import { WeeklySeverityCount } from '../../types/dashboard';
 
 ChartJS.register(

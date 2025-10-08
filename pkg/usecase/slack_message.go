@@ -315,7 +315,7 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 		"hasChannelInfo", channelInfo != nil)
 
 	// Perform comprehensive incident analysis with additional context
-	summary, err := s.llmService.AnalyzeIncidentWithContext(ctx, enrichedMessages, s.modelConfig.GetCategoriesConfig(), s.modelConfig.GetSeveritiesConfig(), additionalPrompt, channelInfo)
+	summary, err := s.llmService.AnalyzeIncidentWithContext(ctx, enrichedMessages, s.modelConfig, additionalPrompt, channelInfo)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to analyze incident with LLM",
 			"error", err,
@@ -325,11 +325,18 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 		return baseCommand
 	}
 
+	// Convert asset IDs from string to types.AssetID
+	assetIDs := make([]types.AssetID, 0, len(summary.AssetIDs))
+	for _, assetID := range summary.AssetIDs {
+		assetIDs = append(assetIDs, types.AssetID(assetID))
+	}
+
 	ctxlog.From(ctx).Info("Incident analysis completed with LLM",
 		"title", summary.Title,
 		"descriptionLength", len(summary.Description),
 		"categoryID", summary.CategoryID,
-		"severityID", summary.SeverityID)
+		"severityID", summary.SeverityID,
+		"assetIDs", assetIDs)
 
 	// Return enhanced command with all information
 	return interfaces.IncidentCommand{
@@ -338,6 +345,7 @@ func (s *SlackMessage) enhanceIncidentCommandWithLLM(ctx context.Context, messag
 		Description:       summary.Description,
 		CategoryID:        summary.CategoryID,
 		SeverityID:        summary.SeverityID,
+		AssetIDs:          assetIDs,
 	}
 }
 
@@ -367,13 +375,14 @@ func (s *SlackMessage) SendProcessingMessage(ctx context.Context, channelID, mes
 }
 
 // SendIncidentMessage sends an incident creation prompt message
-func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description, categoryID, severityID string) error {
+func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messageTS, title, description, categoryID, severityID string, assetIDs []types.AssetID) error {
 	ctxlog.From(ctx).Info("SendIncidentMessage called",
 		"channelID", channelID,
 		"messageTS", messageTS,
 		"title", title,
 		"categoryID", categoryID,
 		"severityID", severityID,
+		"assetIDs", assetIDs,
 	)
 
 	if s.slackClient == nil {
@@ -387,7 +396,7 @@ func (s *SlackMessage) SendIncidentMessage(ctx context.Context, channelID, messa
 	}
 
 	// Create an incident request and save it
-	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, description, categoryID, severityID, types.SlackUserID(requestedBy))
+	request := model.NewIncidentRequest(types.ChannelID(channelID), types.MessageTS(messageTS), title, description, categoryID, severityID, assetIDs, types.SlackUserID(requestedBy))
 	if err := s.repo.SaveIncidentRequest(ctx, request); err != nil {
 		return goerr.Wrap(err, "failed to save incident request")
 	}

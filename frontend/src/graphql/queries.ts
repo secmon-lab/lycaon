@@ -41,6 +41,8 @@ export const INCIDENT_FIELDS = gql`
     severityId
     severityName
     severityLevel
+    assetIds
+    assetNames
     status
     lead
     leadUser {
@@ -169,6 +171,17 @@ export const GET_SEVERITIES = gql`
       name
       description
       level
+    }
+  }
+`;
+
+// Query to get all assets
+export const GET_ASSETS = gql`
+  query GetAssets {
+    assets {
+      id
+      name
+      description
     }
   }
 `;

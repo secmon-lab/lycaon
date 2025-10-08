@@ -37,7 +37,7 @@ var _ interfaces.SlackMessage = &SlackMessageMock{}
 //			SaveAndRespondFunc: func(ctx context.Context, event *slackevents.MessageEvent) (string, error) {
 //				panic("mock out the SaveAndRespond method")
 //			},
-//			SendIncidentMessageFunc: func(ctx context.Context, channelID string, messageTS string, title string, description string, categoryID string, severityID string) error {
+//			SendIncidentMessageFunc: func(ctx context.Context, channelID string, messageTS string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID) error {
 //				panic("mock out the SendIncidentMessage method")
 //			},
 //			SendProcessingMessageFunc: func(ctx context.Context, channelID string, messageTS string) error {
@@ -66,7 +66,7 @@ type SlackMessageMock struct {
 	SaveAndRespondFunc func(ctx context.Context, event *slackevents.MessageEvent) (string, error)
 
 	// SendIncidentMessageFunc mocks the SendIncidentMessage method.
-	SendIncidentMessageFunc func(ctx context.Context, channelID string, messageTS string, title string, description string, categoryID string, severityID string) error
+	SendIncidentMessageFunc func(ctx context.Context, channelID string, messageTS string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID) error
 
 	// SendProcessingMessageFunc mocks the SendProcessingMessage method.
 	SendProcessingMessageFunc func(ctx context.Context, channelID string, messageTS string) error
@@ -124,6 +124,8 @@ type SlackMessageMock struct {
 			CategoryID string
 			// SeverityID is the severityID argument value.
 			SeverityID string
+			// AssetIDs is the assetIDs argument value.
+			AssetIDs []types.AssetID
 		}
 		// SendProcessingMessage holds details about calls to the SendProcessingMessage method.
 		SendProcessingMessage []struct {
@@ -325,7 +327,7 @@ func (mock *SlackMessageMock) SaveAndRespondCalls() []struct {
 }
 
 // SendIncidentMessage calls SendIncidentMessageFunc.
-func (mock *SlackMessageMock) SendIncidentMessage(ctx context.Context, channelID string, messageTS string, title string, description string, categoryID string, severityID string) error {
+func (mock *SlackMessageMock) SendIncidentMessage(ctx context.Context, channelID string, messageTS string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID) error {
 	if mock.SendIncidentMessageFunc == nil {
 		panic("SlackMessageMock.SendIncidentMessageFunc: method is nil but SlackMessage.SendIncidentMessage was just called")
 	}
@@ -337,6 +339,7 @@ func (mock *SlackMessageMock) SendIncidentMessage(ctx context.Context, channelID
 		Description string
 		CategoryID  string
 		SeverityID  string
+		AssetIDs    []types.AssetID
 	}{
 		Ctx:         ctx,
 		ChannelID:   channelID,
@@ -345,11 +348,12 @@ func (mock *SlackMessageMock) SendIncidentMessage(ctx context.Context, channelID
 		Description: description,
 		CategoryID:  categoryID,
 		SeverityID:  severityID,
+		AssetIDs:    assetIDs,
 	}
 	mock.lockSendIncidentMessage.Lock()
 	mock.calls.SendIncidentMessage = append(mock.calls.SendIncidentMessage, callInfo)
 	mock.lockSendIncidentMessage.Unlock()
-	return mock.SendIncidentMessageFunc(ctx, channelID, messageTS, title, description, categoryID, severityID)
+	return mock.SendIncidentMessageFunc(ctx, channelID, messageTS, title, description, categoryID, severityID, assetIDs)
 }
 
 // SendIncidentMessageCalls gets all the calls that were made to SendIncidentMessage.
@@ -364,6 +368,7 @@ func (mock *SlackMessageMock) SendIncidentMessageCalls() []struct {
 	Description string
 	CategoryID  string
 	SeverityID  string
+	AssetIDs    []types.AssetID
 } {
 	var calls []struct {
 		Ctx         context.Context
@@ -373,6 +378,7 @@ func (mock *SlackMessageMock) SendIncidentMessageCalls() []struct {
 		Description string
 		CategoryID  string
 		SeverityID  string
+		AssetIDs    []types.AssetID
 	}
 	mock.lockSendIncidentMessage.RLock()
 	calls = mock.calls.SendIncidentMessage
@@ -457,11 +463,17 @@ var _ interfaces.Incident = &IncidentMock{}
 //			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, userID string) (*model.Incident, error) {
 //				panic("mock out the HandleCreateIncidentWithDetails method")
 //			},
+//			HandleCreateIncidentWithDetailsAndAssetsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error) {
+//				panic("mock out the HandleCreateIncidentWithDetailsAndAssets method")
+//			},
 //			HandleEditIncidentActionFunc: func(ctx context.Context, requestID string, userID string, triggerID string) error {
 //				panic("mock out the HandleEditIncidentAction method")
 //			},
 //			UpdateIncidentDetailsFunc: func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, updatedBy types.SlackUserID) (*model.Incident, error) {
 //				panic("mock out the UpdateIncidentDetails method")
+//			},
+//			UpdateIncidentDetailsWithAssetsFunc: func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, assetIDs []types.AssetID, updatedBy types.SlackUserID) (*model.Incident, error) {
+//				panic("mock out the UpdateIncidentDetailsWithAssets method")
 //			},
 //		}
 //
@@ -497,11 +509,17 @@ type IncidentMock struct {
 	// HandleCreateIncidentWithDetailsFunc mocks the HandleCreateIncidentWithDetails method.
 	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, userID string) (*model.Incident, error)
 
+	// HandleCreateIncidentWithDetailsAndAssetsFunc mocks the HandleCreateIncidentWithDetailsAndAssets method.
+	HandleCreateIncidentWithDetailsAndAssetsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error)
+
 	// HandleEditIncidentActionFunc mocks the HandleEditIncidentAction method.
 	HandleEditIncidentActionFunc func(ctx context.Context, requestID string, userID string, triggerID string) error
 
 	// UpdateIncidentDetailsFunc mocks the UpdateIncidentDetails method.
 	UpdateIncidentDetailsFunc func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, updatedBy types.SlackUserID) (*model.Incident, error)
+
+	// UpdateIncidentDetailsWithAssetsFunc mocks the UpdateIncidentDetailsWithAssets method.
+	UpdateIncidentDetailsWithAssetsFunc func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, assetIDs []types.AssetID, updatedBy types.SlackUserID) (*model.Incident, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -584,6 +602,25 @@ type IncidentMock struct {
 			// UserID is the userID argument value.
 			UserID string
 		}
+		// HandleCreateIncidentWithDetailsAndAssets holds details about calls to the HandleCreateIncidentWithDetailsAndAssets method.
+		HandleCreateIncidentWithDetailsAndAssets []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// RequestID is the requestID argument value.
+			RequestID string
+			// Title is the title argument value.
+			Title string
+			// Description is the description argument value.
+			Description string
+			// CategoryID is the categoryID argument value.
+			CategoryID string
+			// SeverityID is the severityID argument value.
+			SeverityID string
+			// AssetIDs is the assetIDs argument value.
+			AssetIDs []types.AssetID
+			// UserID is the userID argument value.
+			UserID string
+		}
 		// HandleEditIncidentAction holds details about calls to the HandleEditIncidentAction method.
 		HandleEditIncidentAction []struct {
 			// Ctx is the ctx argument value.
@@ -612,18 +649,39 @@ type IncidentMock struct {
 			// UpdatedBy is the updatedBy argument value.
 			UpdatedBy types.SlackUserID
 		}
+		// UpdateIncidentDetailsWithAssets holds details about calls to the UpdateIncidentDetailsWithAssets method.
+		UpdateIncidentDetailsWithAssets []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// Title is the title argument value.
+			Title string
+			// Description is the description argument value.
+			Description string
+			// Lead is the lead argument value.
+			Lead types.SlackUserID
+			// SeverityID is the severityID argument value.
+			SeverityID string
+			// AssetIDs is the assetIDs argument value.
+			AssetIDs []types.AssetID
+			// UpdatedBy is the updatedBy argument value.
+			UpdatedBy types.SlackUserID
+		}
 	}
-	lockCreateIncident                  sync.RWMutex
-	lockGetIncident                     sync.RWMutex
-	lockGetIncidentByChannelID          sync.RWMutex
-	lockGetIncidentRequest              sync.RWMutex
-	lockGetIncidentTrendBySeverity      sync.RWMutex
-	lockGetRecentOpenIncidents          sync.RWMutex
-	lockHandleCreateIncidentAction      sync.RWMutex
-	lockHandleCreateIncidentActionAsync sync.RWMutex
-	lockHandleCreateIncidentWithDetails sync.RWMutex
-	lockHandleEditIncidentAction        sync.RWMutex
-	lockUpdateIncidentDetails           sync.RWMutex
+	lockCreateIncident                           sync.RWMutex
+	lockGetIncident                              sync.RWMutex
+	lockGetIncidentByChannelID                   sync.RWMutex
+	lockGetIncidentRequest                       sync.RWMutex
+	lockGetIncidentTrendBySeverity               sync.RWMutex
+	lockGetRecentOpenIncidents                   sync.RWMutex
+	lockHandleCreateIncidentAction               sync.RWMutex
+	lockHandleCreateIncidentActionAsync          sync.RWMutex
+	lockHandleCreateIncidentWithDetails          sync.RWMutex
+	lockHandleCreateIncidentWithDetailsAndAssets sync.RWMutex
+	lockHandleEditIncidentAction                 sync.RWMutex
+	lockUpdateIncidentDetails                    sync.RWMutex
+	lockUpdateIncidentDetailsWithAssets          sync.RWMutex
 }
 
 // CreateIncident calls CreateIncidentFunc.
@@ -982,6 +1040,66 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsCalls() []struct {
 	return calls
 }
 
+// HandleCreateIncidentWithDetailsAndAssets calls HandleCreateIncidentWithDetailsAndAssetsFunc.
+func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error) {
+	if mock.HandleCreateIncidentWithDetailsAndAssetsFunc == nil {
+		panic("IncidentMock.HandleCreateIncidentWithDetailsAndAssetsFunc: method is nil but Incident.HandleCreateIncidentWithDetailsAndAssets was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		RequestID   string
+		Title       string
+		Description string
+		CategoryID  string
+		SeverityID  string
+		AssetIDs    []types.AssetID
+		UserID      string
+	}{
+		Ctx:         ctx,
+		RequestID:   requestID,
+		Title:       title,
+		Description: description,
+		CategoryID:  categoryID,
+		SeverityID:  severityID,
+		AssetIDs:    assetIDs,
+		UserID:      userID,
+	}
+	mock.lockHandleCreateIncidentWithDetailsAndAssets.Lock()
+	mock.calls.HandleCreateIncidentWithDetailsAndAssets = append(mock.calls.HandleCreateIncidentWithDetailsAndAssets, callInfo)
+	mock.lockHandleCreateIncidentWithDetailsAndAssets.Unlock()
+	return mock.HandleCreateIncidentWithDetailsAndAssetsFunc(ctx, requestID, title, description, categoryID, severityID, assetIDs, userID)
+}
+
+// HandleCreateIncidentWithDetailsAndAssetsCalls gets all the calls that were made to HandleCreateIncidentWithDetailsAndAssets.
+// Check the length with:
+//
+//	len(mockedIncident.HandleCreateIncidentWithDetailsAndAssetsCalls())
+func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssetsCalls() []struct {
+	Ctx         context.Context
+	RequestID   string
+	Title       string
+	Description string
+	CategoryID  string
+	SeverityID  string
+	AssetIDs    []types.AssetID
+	UserID      string
+} {
+	var calls []struct {
+		Ctx         context.Context
+		RequestID   string
+		Title       string
+		Description string
+		CategoryID  string
+		SeverityID  string
+		AssetIDs    []types.AssetID
+		UserID      string
+	}
+	mock.lockHandleCreateIncidentWithDetailsAndAssets.RLock()
+	calls = mock.calls.HandleCreateIncidentWithDetailsAndAssets
+	mock.lockHandleCreateIncidentWithDetailsAndAssets.RUnlock()
+	return calls
+}
+
 // HandleEditIncidentAction calls HandleEditIncidentActionFunc.
 func (mock *IncidentMock) HandleEditIncidentAction(ctx context.Context, requestID string, userID string, triggerID string) error {
 	if mock.HandleEditIncidentActionFunc == nil {
@@ -1079,6 +1197,66 @@ func (mock *IncidentMock) UpdateIncidentDetailsCalls() []struct {
 	mock.lockUpdateIncidentDetails.RLock()
 	calls = mock.calls.UpdateIncidentDetails
 	mock.lockUpdateIncidentDetails.RUnlock()
+	return calls
+}
+
+// UpdateIncidentDetailsWithAssets calls UpdateIncidentDetailsWithAssetsFunc.
+func (mock *IncidentMock) UpdateIncidentDetailsWithAssets(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, assetIDs []types.AssetID, updatedBy types.SlackUserID) (*model.Incident, error) {
+	if mock.UpdateIncidentDetailsWithAssetsFunc == nil {
+		panic("IncidentMock.UpdateIncidentDetailsWithAssetsFunc: method is nil but Incident.UpdateIncidentDetailsWithAssets was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		IncidentID  types.IncidentID
+		Title       string
+		Description string
+		Lead        types.SlackUserID
+		SeverityID  string
+		AssetIDs    []types.AssetID
+		UpdatedBy   types.SlackUserID
+	}{
+		Ctx:         ctx,
+		IncidentID:  incidentID,
+		Title:       title,
+		Description: description,
+		Lead:        lead,
+		SeverityID:  severityID,
+		AssetIDs:    assetIDs,
+		UpdatedBy:   updatedBy,
+	}
+	mock.lockUpdateIncidentDetailsWithAssets.Lock()
+	mock.calls.UpdateIncidentDetailsWithAssets = append(mock.calls.UpdateIncidentDetailsWithAssets, callInfo)
+	mock.lockUpdateIncidentDetailsWithAssets.Unlock()
+	return mock.UpdateIncidentDetailsWithAssetsFunc(ctx, incidentID, title, description, lead, severityID, assetIDs, updatedBy)
+}
+
+// UpdateIncidentDetailsWithAssetsCalls gets all the calls that were made to UpdateIncidentDetailsWithAssets.
+// Check the length with:
+//
+//	len(mockedIncident.UpdateIncidentDetailsWithAssetsCalls())
+func (mock *IncidentMock) UpdateIncidentDetailsWithAssetsCalls() []struct {
+	Ctx         context.Context
+	IncidentID  types.IncidentID
+	Title       string
+	Description string
+	Lead        types.SlackUserID
+	SeverityID  string
+	AssetIDs    []types.AssetID
+	UpdatedBy   types.SlackUserID
+} {
+	var calls []struct {
+		Ctx         context.Context
+		IncidentID  types.IncidentID
+		Title       string
+		Description string
+		Lead        types.SlackUserID
+		SeverityID  string
+		AssetIDs    []types.AssetID
+		UpdatedBy   types.SlackUserID
+	}
+	mock.lockUpdateIncidentDetailsWithAssets.RLock()
+	calls = mock.calls.UpdateIncidentDetailsWithAssets
+	mock.lockUpdateIncidentDetailsWithAssets.RUnlock()
 	return calls
 }
 

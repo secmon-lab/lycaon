@@ -5,6 +5,7 @@ import (
 
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // getTestCategories returns categories for testing purposes
@@ -205,6 +206,119 @@ func TestConfigValidate(t *testing.T) {
 			},
 		}
 		gt.Error(t, config.Validate())
+	})
+
+	t.Run("valid configuration with assets", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "security_incident", Name: "Security Incident"},
+				{ID: "unknown", Name: "Unknown"},
+			},
+			Assets: []model.Asset{
+				{ID: "web_frontend", Name: "Web Frontend"},
+				{ID: "api_gateway", Name: "API Gateway"},
+			},
+		}
+		gt.NoError(t, config.Validate())
+	})
+
+	t.Run("error when assets have duplicate IDs", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "security_incident", Name: "Security Incident"},
+				{ID: "unknown", Name: "Unknown"},
+			},
+			Assets: []model.Asset{
+				{ID: "web_frontend", Name: "Web Frontend"},
+				{ID: "web_frontend", Name: "Duplicate"}, // Duplicate ID
+			},
+		}
+		gt.Error(t, config.Validate())
+	})
+
+	t.Run("error when asset has empty ID", func(t *testing.T) {
+		config := model.Config{
+			Categories: []model.Category{
+				{ID: "security_incident", Name: "Security Incident"},
+				{ID: "unknown", Name: "Unknown"},
+			},
+			Assets: []model.Asset{
+				{ID: "", Name: "Invalid"}, // Invalid: empty ID
+			},
+		}
+		gt.Error(t, config.Validate())
+	})
+}
+
+func TestConfig_AssetHelpers(t *testing.T) {
+	config := model.Config{
+		Categories: []model.Category{
+			{ID: "security_incident", Name: "Security Incident"},
+			{ID: "unknown", Name: "Unknown"},
+		},
+		Assets: []model.Asset{
+			{ID: "web_frontend", Name: "Web Frontend", Description: "Customer-facing web application"},
+			{ID: "api_gateway", Name: "API Gateway", Description: "REST API entry point"},
+			{ID: "database", Name: "Database", Description: "Primary database"},
+		},
+	}
+
+	// Validate config to initialize internal maps
+	gt.NoError(t, config.Validate())
+
+	t.Run("FindAssetByID - found", func(t *testing.T) {
+		asset := config.FindAssetByID("web_frontend")
+		gt.V(t, asset).NotNil()
+		gt.Equal(t, "Web Frontend", asset.Name)
+	})
+
+	t.Run("FindAssetByID - not found", func(t *testing.T) {
+		asset := config.FindAssetByID("does_not_exist")
+		gt.V(t, asset).Nil()
+	})
+
+	t.Run("FindAssetsByIDs - multiple assets", func(t *testing.T) {
+		assets := config.FindAssetsByIDs([]types.AssetID{"web_frontend", "database"})
+		gt.Equal(t, 2, len(assets))
+		gt.Equal(t, "Web Frontend", assets[0].Name)
+		gt.Equal(t, "Database", assets[1].Name)
+	})
+
+	t.Run("FindAssetsByIDs - some not found", func(t *testing.T) {
+		assets := config.FindAssetsByIDs([]types.AssetID{"web_frontend", "does_not_exist", "database"})
+		gt.Equal(t, 2, len(assets)) // Only found assets
+	})
+
+	t.Run("IsValidAssetID - valid", func(t *testing.T) {
+		result := config.IsValidAssetID("api_gateway")
+		gt.True(t, result)
+	})
+
+	t.Run("IsValidAssetID - invalid", func(t *testing.T) {
+		result := config.IsValidAssetID("does_not_exist")
+		gt.False(t, result)
+	})
+
+	t.Run("ValidateAssetIDs - all valid", func(t *testing.T) {
+		err := config.ValidateAssetIDs([]types.AssetID{"web_frontend", "database"})
+		gt.NoError(t, err)
+	})
+
+	t.Run("ValidateAssetIDs - contains invalid", func(t *testing.T) {
+		err := config.ValidateAssetIDs([]types.AssetID{"web_frontend", "invalid_id"})
+		gt.Error(t, err)
+	})
+
+	t.Run("FindAssetByIDWithFallback - found", func(t *testing.T) {
+		asset := config.FindAssetByIDWithFallback("web_frontend")
+		gt.V(t, asset).NotNil()
+		gt.Equal(t, "Web Frontend", asset.Name)
+	})
+
+	t.Run("FindAssetByIDWithFallback - not found returns fallback", func(t *testing.T) {
+		asset := config.FindAssetByIDWithFallback("does_not_exist")
+		gt.V(t, asset).NotNil()
+		gt.Equal(t, "Unknown Asset", asset.Name)
 	})
 }
 

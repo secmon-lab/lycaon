@@ -19,6 +19,7 @@ func TestNewIncident(t *testing.T) {
 			"test description",
 			"system_failure",
 			types.SeverityID("high"),
+			[]types.AssetID{}, // assetIDs
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.TeamID("T12345"),
@@ -44,6 +45,7 @@ func TestNewIncident(t *testing.T) {
 			"",
 			"unknown",
 			types.SeverityID(""),
+			[]types.AssetID{}, // assetIDs
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.TeamID("T12345"),
@@ -63,6 +65,7 @@ func TestNewIncident(t *testing.T) {
 			"",
 			"unknown",
 			types.SeverityID(""),
+			[]types.AssetID{}, // assetIDs
 			types.ChannelID(""),
 			types.ChannelName("general"),
 			types.TeamID("T12345"),
@@ -82,6 +85,7 @@ func TestNewIncident(t *testing.T) {
 			"",
 			"unknown",
 			types.SeverityID(""),
+			[]types.AssetID{}, // assetIDs
 			types.ChannelID("C12345"),
 			types.ChannelName(""),
 			types.TeamID("T12345"),
@@ -101,6 +105,7 @@ func TestNewIncident(t *testing.T) {
 			"",
 			"unknown",
 			types.SeverityID(""),
+			[]types.AssetID{}, // assetIDs
 			types.ChannelID("C12345"),
 			types.ChannelName("general"),
 			types.TeamID("T12345"),
@@ -135,6 +140,7 @@ func TestIncidentChannelNameFormatting(t *testing.T) {
 				"",
 				"unknown",
 				types.SeverityID(""),
+				[]types.AssetID{}, // assetIDs
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.TeamID("T12345"),
@@ -176,6 +182,7 @@ func TestIncidentTitleInChannelName(t *testing.T) {
 				"",
 				"unknown",
 				types.SeverityID(""),
+				[]types.AssetID{}, // assetIDs
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.TeamID("T12345"),
@@ -214,6 +221,7 @@ func TestIncidentWithCustomPrefix(t *testing.T) {
 				"",
 				"unknown",
 				types.SeverityID(""),
+				[]types.AssetID{}, // assetIDs
 				types.ChannelID("C12345"),
 				types.ChannelName("general"),
 				types.TeamID("T12345"),
