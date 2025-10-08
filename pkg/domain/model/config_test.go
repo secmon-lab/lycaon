@@ -263,6 +263,9 @@ func TestConfig_AssetHelpers(t *testing.T) {
 		},
 	}
 
+	// Validate config to initialize internal maps
+	gt.NoError(t, config.Validate())
+
 	t.Run("FindAssetByID - found", func(t *testing.T) {
 		asset := config.FindAssetByID("web_frontend")
 		gt.V(t, asset).NotNil()
