@@ -216,10 +216,11 @@ func (h *EventHandler) processAppMentionAsync(ctx context.Context, event *slacke
 			"channel", event.Channel,
 			"title", cmd.Title,
 			"severityID", cmd.SeverityID,
+			"assetIDs", cmd.AssetIDs,
 		)
 
-		// Send incident creation prompt with title, description, category, and severity
-		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title, cmd.Description, cmd.CategoryID, cmd.SeverityID); err != nil {
+		// Send incident creation prompt with title, description, category, severity, and assets
+		if err := h.messageUC.SendIncidentMessage(ctx, event.Channel, event.TimeStamp, cmd.Title, cmd.Description, cmd.CategoryID, cmd.SeverityID, cmd.AssetIDs); err != nil {
 			ctxlog.From(ctx).Error("Failed to send incident prompt",
 				"error", err,
 				"channel", event.Channel,

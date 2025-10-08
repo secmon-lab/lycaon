@@ -106,7 +106,7 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	}
 
 	// Create incident model
-	incident, err := model.NewIncident(u.config.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.SeverityID(req.SeverityID), types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
+	incident, err := model.NewIncident(u.config.channelPrefix, incidentNumber, req.Title, req.Description, req.CategoryID, types.SeverityID(req.SeverityID), req.AssetIDs, types.ChannelID(req.OriginChannelID), types.ChannelName(req.OriginChannelName), teamID, types.SlackUserID(req.CreatedBy), req.InitialTriage)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create incident model")
 	}
@@ -292,6 +292,87 @@ func (u *Incident) UpdateIncidentDetails(ctx context.Context, incidentID types.I
 	if severityID != "" && types.SeverityID(severityID) != incident.SeverityID {
 		incident.SeverityID = types.SeverityID(severityID)
 		hasChanges = true
+	}
+
+	// Only update if there are changes
+	if !hasChanges {
+		return incident, nil
+	}
+
+	// Save updated incident using PutIncident
+	if err := u.repo.PutIncident(ctx, incident); err != nil {
+		return nil, goerr.Wrap(err, "failed to update incident")
+	}
+
+	return incident, nil
+}
+
+// UpdateIncidentDetailsWithAssets updates incident title, description, lead, severity, and assets
+func (u *Incident) UpdateIncidentDetailsWithAssets(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID, severityID string, assetIDs []types.AssetID, updatedBy types.SlackUserID) (*model.Incident, error) {
+	// Validate incident ID
+	if err := incidentID.Validate(); err != nil {
+		return nil, goerr.Wrap(err, "invalid incident ID")
+	}
+
+	// Validate severity ID if provided and severities config is available
+	if severityID != "" && u.modelConfig != nil {
+		severity := u.modelConfig.FindSeverityByID(severityID)
+		if severity == nil {
+			return nil, goerr.New("invalid severity ID", goerr.V("severityID", severityID))
+		}
+	}
+
+	// Validate asset IDs if provided and assets config is available
+	if len(assetIDs) > 0 && u.modelConfig != nil {
+		if err := u.modelConfig.ValidateAssetIDs(assetIDs); err != nil {
+			return nil, goerr.Wrap(err, "invalid asset IDs")
+		}
+	}
+
+	// Get existing incident
+	incident, err := u.repo.GetIncident(ctx, incidentID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident")
+	}
+
+	// Track if any changes were made
+	hasChanges := false
+
+	// Update fields if they have changed
+	if title != incident.Title {
+		incident.Title = title
+		hasChanges = true
+	}
+	if description != incident.Description {
+		incident.Description = description
+		hasChanges = true
+	}
+	if lead != incident.Lead {
+		incident.Lead = lead
+		hasChanges = true
+	}
+	if severityID != "" && types.SeverityID(severityID) != incident.SeverityID {
+		incident.SeverityID = types.SeverityID(severityID)
+		hasChanges = true
+	}
+
+	// Update assets if they have changed
+	if len(assetIDs) != len(incident.AssetIDs) {
+		incident.AssetIDs = assetIDs
+		hasChanges = true
+	} else {
+		// Check if asset IDs are different
+		assetIDsMap := make(map[types.AssetID]bool)
+		for _, id := range incident.AssetIDs {
+			assetIDsMap[id] = true
+		}
+		for _, id := range assetIDs {
+			if !assetIDsMap[id] {
+				incident.AssetIDs = assetIDs
+				hasChanges = true
+				break
+			}
+		}
 	}
 
 	// Only update if there are changes

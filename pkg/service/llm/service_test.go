@@ -35,8 +35,8 @@ func TestLLMService_AnalyzeIncident_Success(t *testing.T) {
 	}
 	service := llm.NewLLMService(mockClient)
 
-	// Setup test categories
-	categories := &model.CategoriesConfig{
+	// Setup test config
+	config := &model.Config{
 		Categories: []model.Category{
 			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
 			{ID: "performance", Name: "Performance", Description: "System performance degradation"},
@@ -62,7 +62,7 @@ func TestLLMService_AnalyzeIncident_Success(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
+	summary, err := service.AnalyzeIncident(ctx, messages, config)
 
 	// Verify results
 	gt.NoError(t, err)
@@ -90,7 +90,7 @@ func TestLLMService_AnalyzeIncident_InvalidJSON(t *testing.T) {
 	}
 	service := llm.NewLLMService(mockClient)
 
-	categories := &model.CategoriesConfig{
+	config := &model.Config{
 		Categories: []model.Category{
 			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
 		},
@@ -107,7 +107,7 @@ func TestLLMService_AnalyzeIncident_InvalidJSON(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
+	summary, err := service.AnalyzeIncident(ctx, messages, config)
 
 	// Verify error occurs with correct tag
 	gt.Error(t, err)
@@ -136,7 +136,7 @@ func TestLLMService_AnalyzeIncident_MissingTitle(t *testing.T) {
 	}
 	service := llm.NewLLMService(mockClient)
 
-	categories := &model.CategoriesConfig{
+	config := &model.Config{
 		Categories: []model.Category{
 			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
 		},
@@ -153,7 +153,7 @@ func TestLLMService_AnalyzeIncident_MissingTitle(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
+	summary, err := service.AnalyzeIncident(ctx, messages, config)
 
 	// Verify error occurs with correct tag and field info
 	gt.Error(t, err)
@@ -186,7 +186,7 @@ func TestLLMService_AnalyzeIncident_InvalidCategory(t *testing.T) {
 	}
 	service := llm.NewLLMService(mockClient)
 
-	categories := &model.CategoriesConfig{
+	config := &model.Config{
 		Categories: []model.Category{
 			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
 		},
@@ -203,7 +203,7 @@ func TestLLMService_AnalyzeIncident_InvalidCategory(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
+	summary, err := service.AnalyzeIncident(ctx, messages, config)
 
 	// Verify that invalid category falls back to "unknown"
 	gt.NoError(t, err)
@@ -229,7 +229,7 @@ func TestLLMService_AnalyzeIncident_EmptyResponse(t *testing.T) {
 	}
 	service := llm.NewLLMService(mockClient)
 
-	categories := &model.CategoriesConfig{
+	config := &model.Config{
 		Categories: []model.Category{
 			{ID: "system_outage", Name: "System Outage", Description: "System down or unreachable"},
 		},
@@ -246,7 +246,7 @@ func TestLLMService_AnalyzeIncident_EmptyResponse(t *testing.T) {
 	}
 
 	// Call the method
-	summary, err := service.AnalyzeIncident(ctx, messages, categories, nil)
+	summary, err := service.AnalyzeIncident(ctx, messages, config)
 
 	// Verify error occurs with correct tag
 	gt.Error(t, err)

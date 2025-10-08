@@ -27,6 +27,13 @@ export interface User {
   avatarUrl: string;
 }
 
+// Asset type
+export interface Asset {
+  id: string;
+  name: string;
+  description: string;
+}
+
 // Extended incident type with status fields
 export interface Incident {
   id: string;
@@ -39,6 +46,8 @@ export interface Incident {
   severityId: string;
   severityName: string;
   severityLevel: number;
+  assetIds: string[];
+  assetNames: string[];
   status: IncidentStatus;
   lead: string;
   leadUser?: User;

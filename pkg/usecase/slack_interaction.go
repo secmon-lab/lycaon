@@ -284,6 +284,16 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		}
 	}
 
+	// Extract assets from the modal (optional)
+	var assetIDs []types.AssetID
+	if assetBlock, ok := interaction.View.State.Values["asset_block"]; ok {
+		if assetSelect, ok := assetBlock["asset_select"]; ok {
+			for _, option := range assetSelect.SelectedOptions {
+				assetIDs = append(assetIDs, types.AssetID(option.Value))
+			}
+		}
+	}
+
 	// Validate required fields
 	if titleValue == "" {
 		ctxlog.From(ctx).Error("Title is required for incident creation")
@@ -300,19 +310,21 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		"hasDescription", descriptionValue != "",
 		"category", categoryValue,
 		"severity", severityValue,
+		"assetCount", len(assetIDs),
 	)
 
 	// Process incident creation asynchronously
 	backgroundCtx := async.NewBackgroundContext(ctx)
 	async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
 		// Call the incident creation with the edited details
-		incident, err := s.incidentUC.HandleCreateIncidentWithDetails(
+		incident, err := s.incidentUC.HandleCreateIncidentWithDetailsAndAssets(
 			asyncCtx,
 			requestID,
 			titleValue,
 			descriptionValue,
 			categoryValue,
 			severityValue,
+			assetIDs,
 			interaction.User.ID,
 		)
 		if err != nil {
@@ -912,9 +924,19 @@ func (s *SlackInteraction) handleEditIncidentDetailsModalSubmission(ctx context.
 		}
 	}
 
+	// Extract assets (optional)
+	var assetIDs []types.AssetID
+	if assetBlock, ok := interaction.View.State.Values["asset_block"]; ok {
+		if assetSelect, ok := assetBlock["asset_select"]; ok {
+			for _, option := range assetSelect.SelectedOptions {
+				assetIDs = append(assetIDs, types.AssetID(option.Value))
+			}
+		}
+	}
+
 	// Call the incident usecase to update details
 	// UpdateIncidentDetails will also update the welcome message in the incident channel
-	updatedIncident, err := s.incidentUC.UpdateIncidentDetails(ctx, incidentID, title, description, lead, severityID, types.SlackUserID(interaction.User.ID))
+	updatedIncident, err := s.incidentUC.UpdateIncidentDetailsWithAssets(ctx, incidentID, title, description, lead, severityID, assetIDs, types.SlackUserID(interaction.User.ID))
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to update incident details",
 			"error", err,

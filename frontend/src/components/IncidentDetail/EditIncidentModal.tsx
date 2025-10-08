@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { UPDATE_INCIDENT } from '../../graphql/mutations';
 import { GET_INCIDENT } from '../../graphql/queries';
 import { Button } from '../ui/Button';
-import { getSeverityStyle } from '../../types/incident';
-import { X } from 'lucide-react';
+import { getSeverityStyle, Asset } from '../../types/incident';
+import { X, ChevronDown } from 'lucide-react';
 
 interface Severity {
   id: string;
@@ -18,7 +18,9 @@ interface EditIncidentModalProps {
   currentDescription: string;
   currentLead: string | null;
   currentSeverityId: string;
+  currentAssetIds: string[];
   severities: Severity[];
+  assets: Asset[];
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -29,7 +31,9 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
   currentDescription,
   currentLead,
   currentSeverityId,
+  currentAssetIds,
   severities,
+  assets,
   onClose,
   onUpdate
 }) => {
@@ -37,6 +41,9 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
   const [description, setDescription] = useState(currentDescription);
   const [lead, setLead] = useState(currentLead || '');
   const [severityId, setSeverityId] = useState(currentSeverityId);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>(currentAssetIds);
+  const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
+  const assetDropdownRef = useRef<HTMLDivElement>(null);
 
   const [updateIncident, { loading }] = useMutation(UPDATE_INCIDENT, {
     refetchQueries: [
@@ -54,7 +61,7 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
 
   const handleSave = async () => {
     // Only include fields that have changed
-    const input: { title?: string; description?: string; lead?: string | null; severityId?: string } = {};
+    const input: { title?: string; description?: string; lead?: string | null; severityId?: string; assetIds?: string[] } = {};
     if (title !== currentTitle) {
       input.title = title;
     }
@@ -66,6 +73,11 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
     }
     if (severityId !== currentSeverityId) {
       input.severityId = severityId;
+    }
+    // Check if asset IDs have changed
+    const assetIdsChanged = JSON.stringify([...selectedAssetIds].sort()) !== JSON.stringify([...currentAssetIds].sort());
+    if (assetIdsChanged) {
+      input.assetIds = selectedAssetIds;
     }
 
     // Only update if there are changes
@@ -81,6 +93,33 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
       }
     });
   };
+
+  const toggleAsset = (assetId: string) => {
+    setSelectedAssetIds(prev =>
+      prev.includes(assetId)
+        ? prev.filter(id => id !== assetId)
+        : [...prev, assetId]
+    );
+  };
+
+  const removeAsset = (assetId: string) => {
+    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
+  };
+
+  const selectedAssets = assets.filter(asset => selectedAssetIds.includes(asset.id));
+  const availableAssets = assets.filter(asset => !selectedAssetIds.includes(asset.id));
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (assetDropdownRef.current && !assetDropdownRef.current.contains(event.target as Node)) {
+        setIsAssetDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -170,6 +209,75 @@ export const EditIncidentModal: React.FC<EditIncidentModalProps> = ({
               Select the severity level for this incident
             </p>
           </div>
+
+          {/* Assets field */}
+          {assets.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assets (optional)
+              </label>
+
+              {/* Selected assets badges */}
+              {selectedAssets.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedAssets.map((asset) => (
+                    <span
+                      key={asset.id}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-sm bg-blue-100 text-blue-800"
+                    >
+                      {asset.name}
+                      <button
+                        type="button"
+                        onClick={() => removeAsset(asset.id)}
+                        className="hover:bg-blue-200 rounded-full p-0.5"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Dropdown selector */}
+              <div className="relative" ref={assetDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center justify-between bg-white hover:bg-gray-50"
+                >
+                  <span className="text-sm text-gray-700">
+                    {availableAssets.length > 0 ? 'Add assets...' : 'All assets selected'}
+                  </span>
+                  <ChevronDown size={16} className="text-gray-400" />
+                </button>
+
+                {isAssetDropdownOpen && availableAssets.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {availableAssets.map((asset) => (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        onClick={() => {
+                          toggleAsset(asset.id);
+                          setIsAssetDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-sm">{asset.name}</div>
+                        {asset.description && (
+                          <div className="text-xs text-gray-500 mt-0.5">{asset.description}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Select the assets affected by this incident
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

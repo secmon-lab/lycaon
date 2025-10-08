@@ -18,6 +18,18 @@ func (u *Incident) HandleCreateIncidentWithDetails(ctx context.Context, requestI
 		description: description,
 		categoryID:  categoryID,
 		severityID:  severityID,
+		assetIDs:    []types.AssetID{},
+	})
+}
+
+// HandleCreateIncidentWithDetailsAndAssets handles the create incident with edited details and assets from modal
+func (u *Incident) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error) {
+	return u.handleCreateIncidentFromRequest(ctx, requestID, userID, &incidentDetails{
+		title:       title,
+		description: description,
+		categoryID:  categoryID,
+		severityID:  severityID,
+		assetIDs:    assetIDs,
 	})
 }
 
@@ -27,6 +39,7 @@ type incidentDetails struct {
 	description string
 	categoryID  string
 	severityID  string
+	assetIDs    []types.AssetID
 }
 
 // handleCreateIncidentFromRequest is the common implementation for creating incidents from requests
@@ -72,6 +85,7 @@ func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestI
 			Description:       details.description,
 			CategoryID:        details.categoryID,
 			SeverityID:        details.severityID,
+			AssetIDs:          details.assetIDs,
 			OriginChannelID:   request.ChannelID.String(),
 			OriginChannelName: channelInfo.Name,
 			CreatedBy:         userID,
@@ -240,10 +254,11 @@ func (u *Incident) HandleEditIncidentAction(ctx context.Context, requestID, user
 		"categoriesCount", len(u.modelConfig.Categories),
 		"currentCategoryID", request.CategoryID,
 		"currentSeverityID", request.SeverityID,
+		"assetIDsCount", len(request.AssetIDs),
 	)
 
 	// Open the modal using slack service
-	err = u.slackSvc.OpenIncidentEditModal(ctx, triggerID, requestID, request.Title, request.Description, request.CategoryID, request.SeverityID)
+	err = u.slackSvc.OpenIncidentEditModal(ctx, triggerID, requestID, request.Title, request.Description, request.CategoryID, request.SeverityID, request.AssetIDs)
 	if err != nil {
 		ctxlog.From(ctx).Error("Failed to open edit modal",
 			"error", err,

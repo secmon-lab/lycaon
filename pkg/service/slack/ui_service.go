@@ -83,8 +83,8 @@ func (s *UIService) OpenStatusChangeModal(ctx context.Context, triggerID string,
 }
 
 // OpenIncidentEditModal opens an incident edit modal
-func (s *UIService) OpenIncidentEditModal(ctx context.Context, triggerID, requestID, title, description, categoryID, severityID string) error {
-	return s.modal.openIncidentEditModal(ctx, triggerID, requestID, title, description, categoryID, severityID)
+func (s *UIService) OpenIncidentEditModal(ctx context.Context, triggerID, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID) error {
+	return s.modal.openIncidentEditModal(ctx, triggerID, requestID, title, description, categoryID, severityID, assetIDs)
 }
 
 // OpenIncidentDetailsEditModal opens an incident details edit modal

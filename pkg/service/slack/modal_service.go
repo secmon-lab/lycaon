@@ -44,14 +44,15 @@ func (s *modalService) openStatusChangeModal(ctx context.Context, triggerID stri
 }
 
 // openIncidentEditModal opens an incident edit modal
-func (s *modalService) openIncidentEditModal(ctx context.Context, triggerID, requestID, title, description, categoryID, severityID string) error {
+func (s *modalService) openIncidentEditModal(ctx context.Context, triggerID, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID) error {
 	if triggerID == "" {
 		return goerr.New("trigger ID is required")
 	}
 
-	// Get categories and severities from config
+	// Get categories, severities, and assets from config
 	var categories []model.Category
 	var severities []model.Severity
+	var assets []model.Asset
 	if s.config != nil {
 		if s.config.Categories != nil {
 			categories = s.config.Categories
@@ -59,10 +60,13 @@ func (s *modalService) openIncidentEditModal(ctx context.Context, triggerID, req
 		if s.config.Severities != nil {
 			severities = s.config.Severities
 		}
+		if s.config.Assets != nil {
+			assets = s.config.Assets
+		}
 	}
 
 	// Build edit modal
-	modal := s.builder.BuildIncidentEditModal(requestID, title, description, categoryID, severityID, categories, severities)
+	modal := s.builder.BuildIncidentEditModal(requestID, title, description, categoryID, severityID, assetIDs, categories, severities, assets)
 
 	// Open the modal
 	_, err := s.client.OpenView(ctx, triggerID, modal)
@@ -79,14 +83,20 @@ func (s *modalService) openIncidentDetailsEditModal(ctx context.Context, trigger
 		return goerr.New("trigger ID is required")
 	}
 
-	// Get severities from config
+	// Get severities and assets from config
 	var severities []model.Severity
-	if s.config != nil && s.config.Severities != nil {
-		severities = s.config.Severities
+	var assets []model.Asset
+	if s.config != nil {
+		if s.config.Severities != nil {
+			severities = s.config.Severities
+		}
+		if s.config.Assets != nil {
+			assets = s.config.Assets
+		}
 	}
 
 	// Build edit incident details modal
-	modal := s.builder.BuildEditIncidentDetailsModal(incident, channelID, messageTS, severities)
+	modal := s.builder.BuildEditIncidentDetailsModal(incident, channelID, messageTS, severities, assets)
 
 	// Open the modal
 	_, err := s.client.OpenView(ctx, triggerID, modal)

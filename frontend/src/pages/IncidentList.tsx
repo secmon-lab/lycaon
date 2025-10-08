@@ -46,6 +46,8 @@ interface Incident {
   severityId: string;
   severityName: string;
   severityLevel: number;
+  assetIds: string[];
+  assetNames: string[];
   status: IncidentStatus;
   lead: string;
   leadUser?: User;
@@ -712,6 +714,12 @@ const IncidentList: React.FC = () => {
                       )}
                     </div>
                   </th>
+                  <th
+                    scope="col"
+                    className="hidden xl:table-cell px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
+                    Assets
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -777,6 +785,27 @@ const IncidentList: React.FC = () => {
                       <span className="truncate max-w-[100px] block">
                         {incident.categoryName || incident.categoryId || '-'}
                       </span>
+                    </td>
+                    <td className="hidden xl:table-cell px-4 py-3">
+                      {incident.assetNames && incident.assetNames.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {incident.assetNames.slice(0, 3).map((assetName: string, index: number) => (
+                            <span
+                              key={incident.assetIds[index] || index}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {assetName}
+                            </span>
+                          ))}
+                          {incident.assetNames.length > 3 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                              +{incident.assetNames.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}

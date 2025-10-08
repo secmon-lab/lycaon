@@ -140,6 +140,27 @@ severities:
     name: Unknown
     description: Severity not yet determined
     level: -1
+
+assets:
+  - id: web_frontend
+    name: Web Frontend
+    description: Customer-facing web application
+
+  - id: api_gateway
+    name: API Gateway
+    description: REST API entry point
+
+  - id: database
+    name: Database
+    description: Primary PostgreSQL database
+
+  - id: auth_service
+    name: Auth Service
+    description: Authentication and authorization service
+
+  - id: payment_system
+    name: Payment System
+    description: Payment processing infrastructure
 ```
 
 **Category Fields:**
@@ -162,6 +183,12 @@ severities:
   - `10-29`: Info - Informational, minimal or no impact
   - `0`: Ignorable - No action required
   - `-1`: Unknown - Severity not yet determined (special case)
+
+**Asset Fields:**
+- `id`: Unique identifier (use snake_case)
+- `name`: Display name shown in UI
+- `description`: Help text describing the asset
+- **Note**: Assets are optional and can be used to track infrastructure components, services, or resources affected by incidents. Multiple assets can be assigned to a single incident.
 
 ## Slack App Setup
 

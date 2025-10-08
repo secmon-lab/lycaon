@@ -35,6 +35,7 @@ func TestStatusUseCase_UpdateStatus(t *testing.T) {
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),
@@ -96,6 +97,7 @@ func TestStatusUseCase_UpdateStatus_SameStatus(t *testing.T) {
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),
@@ -136,6 +138,7 @@ func TestStatusUseCase_GetStatusHistory(t *testing.T) {
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),
@@ -207,6 +210,7 @@ func TestStatusUseCase_GetStatusHistory_UserNotFound(t *testing.T) {
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),
@@ -258,6 +262,7 @@ func TestStatusUseCase_UpdateOriginalStatusMessage(t *testing.T) {
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),
@@ -340,6 +345,7 @@ func TestStatusUseCase_HandleStatusChangeModalSubmission(t *testing.T) {
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),
@@ -466,6 +472,7 @@ func TestStatusUseCase_HandleStatusChangeModalSubmission_WithoutMessage(t *testi
 		"Test Description",
 		"test_category",
 		types.SeverityID(""),
+		[]types.AssetID{}, // assetIDs
 		types.ChannelID("C123456"),
 		types.ChannelName("test-channel"),
 		types.TeamID("T123456"),

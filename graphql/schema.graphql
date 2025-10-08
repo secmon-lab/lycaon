@@ -27,6 +27,8 @@ type Incident {
   severityId: String!
   severityName: String!
   severityLevel: Int!
+  assetIds: [String!]!
+  assetNames: [String!]!
   status: IncidentStatus
   lead: String
   leadUser: User
@@ -81,6 +83,12 @@ type Severity {
   level: Int!
 }
 
+type Asset {
+  id: String!
+  name: String!
+  description: String!
+}
+
 type IncidentConnection {
   edges: [IncidentEdge!]!
   pageInfo: PageInfo!
@@ -121,6 +129,9 @@ type Query {
   # Get all severities
   severities: [Severity!]!
 
+  # Get all assets
+  assets: [Asset!]!
+
   # Get recent open incidents grouped by date
   recentOpenIncidents(days: Int = 7): [GroupedIncidents!]!
 
@@ -151,6 +162,7 @@ input UpdateIncidentInput {
   lead: String
   status: IncidentStatus
   severityId: String
+  assetIds: [String!]
 }
 
 input CreateTaskInput {

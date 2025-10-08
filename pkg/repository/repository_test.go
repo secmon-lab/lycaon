@@ -400,6 +400,7 @@ func testRepository(t *testing.T, newRepo func(t *testing.T) interfaces.Reposito
 			"Description",
 			"category-1",
 			types.SeverityID(""),
+			[]types.AssetID{}, // assetIDs
 			channelID,
 			types.ChannelName("test-channel"),
 			types.TeamID("T123456"),

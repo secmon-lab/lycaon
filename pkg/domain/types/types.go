@@ -168,6 +168,14 @@ func (id SeverityID) String() string {
 	return string(id)
 }
 
+// AssetID represents an asset identifier
+type AssetID string
+
+// String returns the string representation
+func (id AssetID) String() string {
+	return string(id)
+}
+
 // PaginationOptions represents pagination parameters for list operations
 type PaginationOptions struct {
 	// Limit is the maximum number of items to return
