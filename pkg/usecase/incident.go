@@ -357,22 +357,25 @@ func (u *Incident) UpdateIncidentDetailsWithAssets(ctx context.Context, incident
 	}
 
 	// Update assets if they have changed
+	assetIDsChanged := false
 	if len(assetIDs) != len(incident.AssetIDs) {
-		incident.AssetIDs = assetIDs
-		hasChanges = true
+		assetIDsChanged = true
 	} else {
-		// Check if asset IDs are different
-		assetIDsMap := make(map[types.AssetID]bool)
+		currentAssets := make(map[types.AssetID]struct{})
 		for _, id := range incident.AssetIDs {
-			assetIDsMap[id] = true
+			currentAssets[id] = struct{}{}
 		}
 		for _, id := range assetIDs {
-			if !assetIDsMap[id] {
-				incident.AssetIDs = assetIDs
-				hasChanges = true
+			if _, ok := currentAssets[id]; !ok {
+				assetIDsChanged = true
 				break
 			}
 		}
+	}
+
+	if assetIDsChanged {
+		incident.AssetIDs = assetIDs
+		hasChanges = true
 	}
 
 	// Only update if there are changes
@@ -442,6 +445,34 @@ func (u *Incident) UpdateIncident(ctx context.Context, incidentID types.Incident
 		incident.SeverityID = *req.SeverityID
 		hasChanges = true
 		changes = append(changes, "severity")
+	}
+
+	// Update assets if provided
+	if req.AssetIDs != nil {
+		assetIDs := *req.AssetIDs
+
+		// Check if asset IDs have changed
+		assetIDsChanged := false
+		if len(assetIDs) != len(incident.AssetIDs) {
+			assetIDsChanged = true
+		} else {
+			currentAssets := make(map[types.AssetID]struct{})
+			for _, id := range incident.AssetIDs {
+				currentAssets[id] = struct{}{}
+			}
+			for _, id := range assetIDs {
+				if _, ok := currentAssets[id]; !ok {
+					assetIDsChanged = true
+					break
+				}
+			}
+		}
+
+		if assetIDsChanged {
+			incident.AssetIDs = assetIDs
+			hasChanges = true
+			changes = append(changes, "assets")
+		}
 	}
 
 	// Only update if there are changes
