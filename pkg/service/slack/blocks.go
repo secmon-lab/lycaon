@@ -498,12 +498,39 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description, cat
 	// Build severity selection block
 	severityBlock := buildSeverityInputBlock(severityID, severities)
 
+	// Build private checkbox block
+	privateBlock := slack.NewInputBlock(
+		"private_block",
+		slack.NewTextBlockObject(
+			slack.PlainTextType,
+			"Visibility (optional)",
+			false,
+			false,
+		),
+		slack.NewTextBlockObject(
+			slack.PlainTextType,
+			"Private incidents can only be viewed by channel members",
+			false,
+			false,
+		),
+		slack.NewCheckboxGroupsBlockElement(
+			"private_checkbox",
+			slack.NewOptionBlockObject(
+				"private",
+				slack.NewTextBlockObject(slack.PlainTextType, "Make this a private incident", false, false),
+				slack.NewTextBlockObject(slack.PlainTextType, "Only channel members can view full details", false, false),
+			),
+		),
+	)
+	privateBlock.Optional = true
+
 	// Build blocks slice
 	blocksSlice := []slack.Block{
 		titleBlock,
 		descriptionBlock,
 		categoryBlock,
 		severityBlock,
+		privateBlock,
 	}
 
 	// Add asset selection block if assets are configured

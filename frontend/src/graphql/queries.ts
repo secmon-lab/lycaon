@@ -57,6 +57,7 @@ export const INCIDENT_FIELDS = gql`
     }
     createdAt
     updatedAt
+    private
     statusHistories {
       ...StatusHistoryFields
     }

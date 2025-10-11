@@ -17,6 +17,7 @@ import {
   Tag,
   AlertTriangle,
   Server,
+  Lock,
 } from 'lucide-react';
 
 const IncidentDetail: React.FC = () => {
@@ -58,6 +59,9 @@ const IncidentDetail: React.FC = () => {
   // Validate and convert status safely
   const validStatus = toIncidentStatus(incident.status) || IncidentStatus.TRIAGE;
 
+  // Check if this is a private incident with restricted access
+  const isPrivateRestricted = incident.private && incident.title === "Private Incident";
+
   return (
     <div className="max-w-7xl mx-auto p-4">
       {/* Header */}
@@ -70,7 +74,12 @@ const IncidentDetail: React.FC = () => {
             ←
           </button>
           <div>
-            <h1 className="text-2xl font-bold">Incident #{incident.id}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">Incident #{incident.id}</h1>
+              {isPrivateRestricted && (
+                <Lock className="h-5 w-5 text-slate-400" />
+              )}
+            </div>
             <p className="text-sm text-slate-500">
               Created {format(new Date(incident.createdAt), 'MMM d, yyyy HH:mm')}
             </p>
@@ -78,37 +87,66 @@ const IncidentDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Left Column - Main Content */}
-        <div className="flex-1">
-          <div className="bg-white rounded-lg border p-6">
-            <div className="flex items-start justify-between mb-3">
-              <h2 className="text-lg font-semibold">{incident.title}</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowEditModal(true)}
-                className="flex items-center gap-1"
-              >
-                <Edit className="h-4 w-4" />
-                Edit
-              </Button>
+      {/* Private Incident Restricted View */}
+      {isPrivateRestricted ? (
+        <div className="bg-white rounded-lg border p-8">
+          <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
+            <div className="rounded-full bg-slate-100 p-4 mb-4">
+              <Lock className="h-12 w-12 text-slate-400" />
             </div>
-            <p className="text-slate-600">
-              {incident.description || 'No description provided.'}
+            <h2 className="text-xl font-semibold text-slate-900 mb-2">
+              Private Incident
+            </h2>
+            <p className="text-slate-600 mb-6">
+              This is a private incident. You don't have access to view the full details.
+              Only members who have joined the incident Slack channel can see the complete information.
             </p>
-          </div>
-
-          {/* Tasks */}
-          <div className="mt-6 bg-white rounded-lg border p-6">
-            <TaskList
-              incidentId={incident.id}
-              incident={incident}
-              tasks={incident.tasks || []}
-            />
+            <div className="w-full bg-slate-50 rounded-lg p-4 text-left space-y-2">
+              <p className="text-sm text-slate-500">
+                You can view limited information:
+              </p>
+              <ul className="text-sm text-slate-600 space-y-1 ml-4">
+                <li>• Status: {validStatus}</li>
+                <li>• Category: {incident.categoryName || incident.categoryId}</li>
+                <li>• Severity: {incident.severityName}</li>
+                <li>• Created: {format(new Date(incident.createdAt), 'MMM d, yyyy HH:mm')}</li>
+              </ul>
+            </div>
           </div>
         </div>
+      ) : (
+        <>
+          {/* Two Column Layout */}
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Left Column - Main Content */}
+            <div className="flex-1">
+              <div className="bg-white rounded-lg border p-6">
+                <div className="flex items-start justify-between mb-3">
+                  <h2 className="text-lg font-semibold">{incident.title}</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowEditModal(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </div>
+                <p className="text-slate-600">
+                  {incident.description || 'No description provided.'}
+                </p>
+              </div>
+
+              {/* Tasks */}
+              <div className="mt-6 bg-white rounded-lg border p-6">
+                <TaskList
+                  incidentId={incident.id}
+                  incident={incident}
+                  tasks={incident.tasks || []}
+                />
+              </div>
+            </div>
 
         {/* Right Column - Sidebar */}
         <div className="w-full md:w-80">
@@ -148,6 +186,22 @@ const IncidentDetail: React.FC = () => {
                   severityLevel={incident.severityLevel}
                   severityName={incident.severityName}
                 />
+              </div>
+
+              {/* Visibility */}
+              <div>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                  <Lock className="h-3 w-3" />
+                  Visibility
+                </div>
+                {incident.private ? (
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700">
+                    <Lock className="h-3 w-3" />
+                    <span className="text-xs font-medium">Private</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-slate-600">Public</span>
+                )}
               </div>
 
               {/* Assets */}
@@ -241,7 +295,7 @@ const IncidentDetail: React.FC = () => {
       </div>
 
       {/* Edit Incident Modal */}
-      {showEditModal && severitiesData?.severities && (
+      {!isPrivateRestricted && showEditModal && severitiesData?.severities && (
         <EditIncidentModal
           incidentId={incident.id}
           currentTitle={incident.title}
@@ -256,6 +310,8 @@ const IncidentDetail: React.FC = () => {
             // Optionally, you can add a success toast here
           }}
         />
+      )}
+        </>
       )}
     </div>
   );

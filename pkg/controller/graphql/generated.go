@@ -83,6 +83,7 @@ type ComplexityRoot struct {
 		LeadUser          func(childComplexity int) int
 		OriginChannelID   func(childComplexity int) int
 		OriginChannelName func(childComplexity int) int
+		Private           func(childComplexity int) int
 		SeverityID        func(childComplexity int) int
 		SeverityLevel     func(childComplexity int) int
 		SeverityName      func(childComplexity int) int
@@ -407,6 +408,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Incident.OriginChannelName(childComplexity), true
+	case "Incident.private":
+		if e.complexity.Incident.Private == nil {
+			break
+		}
+
+		return e.complexity.Incident.Private(childComplexity), true
 	case "Incident.severityId":
 		if e.complexity.Incident.SeverityID == nil {
 			break
@@ -1062,6 +1069,7 @@ type Incident {
   initialTriage: Boolean!
   statusHistories: [StatusHistory!]!
   tasks: [Task!]!
+  private: Boolean!
 }
 
 type User {
@@ -1650,6 +1658,8 @@ func (ec *executionContext) fieldContext_GroupedIncidents_incidents(_ context.Co
 				return ec.fieldContext_Incident_statusHistories(ctx, field)
 			case "tasks":
 				return ec.fieldContext_Incident_tasks(ctx, field)
+			case "private":
+				return ec.fieldContext_Incident_private(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2456,6 +2466,35 @@ func (ec *executionContext) fieldContext_Incident_tasks(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Incident_private(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_private,
+		func(ctx context.Context) (any, error) {
+			return obj.Private, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_private(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IncidentConnection_edges(ctx context.Context, field graphql.CollectedField, obj *graphql1.IncidentConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2633,6 +2672,8 @@ func (ec *executionContext) fieldContext_IncidentEdge_node(_ context.Context, fi
 				return ec.fieldContext_Incident_statusHistories(ctx, field)
 			case "tasks":
 				return ec.fieldContext_Incident_tasks(ctx, field)
+			case "private":
+				return ec.fieldContext_Incident_private(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2744,6 +2785,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncident(ctx context.Con
 				return ec.fieldContext_Incident_statusHistories(ctx, field)
 			case "tasks":
 				return ec.fieldContext_Incident_tasks(ctx, field)
+			case "private":
+				return ec.fieldContext_Incident_private(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2837,6 +2880,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncidentStatus(ctx conte
 				return ec.fieldContext_Incident_statusHistories(ctx, field)
 			case "tasks":
 				return ec.fieldContext_Incident_tasks(ctx, field)
+			case "private":
+				return ec.fieldContext_Incident_private(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -3274,6 +3319,8 @@ func (ec *executionContext) fieldContext_Query_incident(ctx context.Context, fie
 				return ec.fieldContext_Incident_statusHistories(ctx, field)
 			case "tasks":
 				return ec.fieldContext_Incident_tasks(ctx, field)
+			case "private":
+				return ec.fieldContext_Incident_private(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -7445,6 +7492,11 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "private":
+			out.Values[i] = ec._Incident_private(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
