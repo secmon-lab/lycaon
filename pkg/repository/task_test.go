@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
@@ -127,15 +128,17 @@ func TestTaskRepository(t *testing.T) {
 	})
 
 	t.Run("ListTasksByIncident_Empty", func(t *testing.T) {
-		emptyIncidentID := types.IncidentID(time.Now().UnixNano() % 1000000)
+		// Use UUID to generate unique incident ID
+		emptyIncidentID := types.IncidentID(uuid.New().ID())
 		tasks, err := repo.ListTasksByIncident(ctx, emptyIncidentID)
 		gt.NoError(t, err)
 		gt.Equal(t, len(tasks), 0)
 	})
 
 	t.Run("ListTasksByIncident_MultipleIncidents", func(t *testing.T) {
-		incident1ID := types.IncidentID(time.Now().UnixNano() % 1000000)
-		incident2ID := types.IncidentID((time.Now().UnixNano() % 1000000) + 1)
+		// Use UUID to generate unique incident IDs
+		incident1ID := types.IncidentID(uuid.New().ID())
+		incident2ID := types.IncidentID(uuid.New().ID())
 
 		// Create tasks for different incidents
 		task1, err := model.NewTask(incident1ID, "Inc1 Task", "U444444")

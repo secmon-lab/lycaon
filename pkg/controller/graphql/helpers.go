@@ -6,8 +6,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/secmon-lab/lycaon/pkg/domain/interfaces"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	graphql1 "github.com/secmon-lab/lycaon/pkg/domain/model/graphql"
+	"github.com/secmon-lab/lycaon/pkg/domain/types"
 )
 
 // convertToGroupedIncidents converts incidents map to grouped incidents slice
@@ -49,4 +51,37 @@ func convertToGroupedIncidents(ctx context.Context, incidentsMap map[string][]*m
 	}
 
 	return result
+}
+
+// getSlackUserIDFromContext retrieves the SlackUserID from the context
+func getSlackUserIDFromContext(ctx context.Context) (types.SlackUserID, bool) {
+	authCtx, ok := model.GetAuthContext(ctx)
+	if !ok || authCtx == nil {
+		return "", false
+	}
+	if authCtx.SlackUserID == "" {
+		return "", false
+	}
+	return types.SlackUserID(authCtx.SlackUserID), true
+}
+
+// filterIncidentForUser filters incident information based on user access
+func filterIncidentForUser(ctx context.Context, incident *model.Incident, incidentUC interfaces.Incident, slackUserID types.SlackUserID) *model.Incident {
+	if incident == nil {
+		return nil
+	}
+	return incidentUC.FilterIncidentForUser(ctx, incident, slackUserID)
+}
+
+// filterIncidentsForUser filters multiple incidents based on user access
+func filterIncidentsForUser(ctx context.Context, incidents []*model.Incident, incidentUC interfaces.Incident, slackUserID types.SlackUserID) []*model.Incident {
+	if len(incidents) == 0 {
+		return incidents
+	}
+
+	filtered := make([]*model.Incident, len(incidents))
+	for i, incident := range incidents {
+		filtered[i] = filterIncidentForUser(ctx, incident, incidentUC, slackUserID)
+	}
+	return filtered
 }

@@ -42,6 +42,8 @@ type Incident {
   initialTriage: Boolean!
   statusHistories: [StatusHistory!]!
   tasks: [Task!]!
+  private: Boolean!
+  viewerCanAccess: Boolean!
 }
 
 type User {

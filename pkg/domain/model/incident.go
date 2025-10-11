@@ -31,6 +31,9 @@ type Incident struct {
 	Status        types.IncidentStatus // Current status of the incident
 	Lead          types.SlackUserID    // Incident lead (Slack user ID)
 	InitialTriage bool                 // Whether the incident started with Triage status
+	// Private mode fields
+	Private         bool                // Private incident flag
+	JoinedMemberIDs []types.SlackUserID // List of Slack user IDs who joined this incident channel
 }
 
 // CreateIncidentRequest represents parameters for creating an incident
@@ -45,6 +48,7 @@ type CreateIncidentRequest struct {
 	TeamID            string
 	CreatedBy         string
 	InitialTriage     bool // Whether to start with Triage status
+	Private           bool // Whether to create a private incident
 }
 
 // UpdateIncidentRequest represents parameters for updating an incident

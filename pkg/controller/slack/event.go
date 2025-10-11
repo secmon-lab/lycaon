@@ -65,6 +65,12 @@ func (h *EventHandler) HandleEvent(ctx context.Context, event *slackevents.Event
 	case *slackevents.AppMentionEvent:
 		return h.handleAppMentionEvent(ctx, ev)
 
+	case *slackevents.MemberJoinedChannelEvent:
+		return h.handleMemberJoinedChannel(ctx, ev)
+
+	case *slackevents.MemberLeftChannelEvent:
+		return h.handleMemberLeftChannel(ctx, ev)
+
 	default:
 		ctxlog.From(ctx).Debug("Unhandled event type",
 			"type", event.InnerEvent.Type,
@@ -381,4 +387,82 @@ func (h *EventHandler) sendStatusErrorMessage(ctx context.Context, channel, thre
 		slack.MsgOptionTS(threadTS),
 	)
 	return err
+}
+
+// handleMemberJoinedChannel handles member_joined_channel events
+// Controller responsibility: Parse event, dispatch async processing
+func (h *EventHandler) handleMemberJoinedChannel(ctx context.Context, event *slackevents.MemberJoinedChannelEvent) error {
+	logger := ctxlog.From(ctx)
+
+	logger.Debug("Member joined channel",
+		"channelID", event.Channel,
+		"userID", event.User)
+
+	// Get incident by channel ID
+	incident, err := h.incidentUC.GetIncidentByChannelID(ctx, types.ChannelID(event.Channel))
+	if err != nil {
+		// Not an incident channel - ignore
+		logger.Debug("Channel is not an incident channel", "channelID", event.Channel)
+		return nil
+	}
+
+	// Skip if not private
+	if !incident.Private {
+		logger.Debug("Incident is not private, skipping member sync",
+			"incidentID", incident.ID)
+		return nil
+	}
+
+	// Create background context for async processing
+	backgroundCtx := async.NewBackgroundContext(ctx)
+
+	// Extract event user ID
+	eventUserID := types.SlackUserID(event.User)
+
+	// Dispatch member sync asynchronously with event details
+	async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
+		return h.incidentUC.SyncIncidentMemberWithEvent(asyncCtx, incident.ID, incident.ChannelID, eventUserID, true)
+	})
+
+	// Return immediately to send 200 response to Slack
+	return nil
+}
+
+// handleMemberLeftChannel handles member_left_channel events
+// Controller responsibility: Parse event, dispatch async processing
+func (h *EventHandler) handleMemberLeftChannel(ctx context.Context, event *slackevents.MemberLeftChannelEvent) error {
+	logger := ctxlog.From(ctx)
+
+	logger.Debug("Member left channel",
+		"channelID", event.Channel,
+		"userID", event.User)
+
+	// Get incident by channel ID
+	incident, err := h.incidentUC.GetIncidentByChannelID(ctx, types.ChannelID(event.Channel))
+	if err != nil {
+		// Not an incident channel - ignore
+		logger.Debug("Channel is not an incident channel", "channelID", event.Channel)
+		return nil
+	}
+
+	// Skip if not private
+	if !incident.Private {
+		logger.Debug("Incident is not private, skipping member sync",
+			"incidentID", incident.ID)
+		return nil
+	}
+
+	// Create background context for async processing
+	backgroundCtx := async.NewBackgroundContext(ctx)
+
+	// Extract event user ID
+	eventUserID := types.SlackUserID(event.User)
+
+	// Dispatch member sync asynchronously with event details
+	async.Dispatch(backgroundCtx, func(asyncCtx context.Context) error {
+		return h.incidentUC.SyncIncidentMemberWithEvent(asyncCtx, incident.ID, incident.ChannelID, eventUserID, false)
+	})
+
+	// Return immediately to send 200 response to Slack
+	return nil
 }

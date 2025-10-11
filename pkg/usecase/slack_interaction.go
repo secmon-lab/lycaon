@@ -294,6 +294,15 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		}
 	}
 
+	// Extract private flag from the modal (optional)
+	var privateValue bool
+	if privateBlock, ok := interaction.View.State.Values["private_block"]; ok {
+		if privateCheckbox, ok := privateBlock["private_checkbox"]; ok {
+			// If any option is selected in the checkbox group, it means private is checked
+			privateValue = len(privateCheckbox.SelectedOptions) > 0
+		}
+	}
+
 	// Validate required fields
 	if titleValue == "" {
 		ctxlog.From(ctx).Error("Title is required for incident creation")
@@ -311,6 +320,7 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		"category", categoryValue,
 		"severity", severityValue,
 		"assetCount", len(assetIDs),
+		"private", privateValue,
 	)
 
 	// Process incident creation asynchronously
@@ -325,6 +335,7 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 			categoryValue,
 			severityValue,
 			assetIDs,
+			privateValue,
 			interaction.User.ID,
 		)
 		if err != nil {
