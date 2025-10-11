@@ -643,10 +643,8 @@ func (r *queryResolver) Tasks(ctx context.Context, incidentID string) ([]*model.
 	// Check if user has access to this incident
 	slackUserID, hasAuth := getSlackUserIDFromContext(ctx)
 	if hasAuth && incident.Private {
-		// Filter the incident to check access
-		filteredIncident := r.incidentUC.FilterIncidentForUser(ctx, incident, slackUserID)
-		// If incident was filtered (title changed to "Private Incident"), deny access to tasks
-		if filteredIncident.Title == "Private Incident" && incident.Title != "Private Incident" {
+		// Use CanUserAccessIncident to check access
+		if !r.incidentUC.CanUserAccessIncident(ctx, incident, slackUserID) {
 			return []*model.Task{}, nil // Return empty list for non-members
 		}
 	}
@@ -670,10 +668,8 @@ func (r *queryResolver) Task(ctx context.Context, id string) (*model.Task, error
 	// Check if user has access to this incident
 	slackUserID, hasAuth := getSlackUserIDFromContext(ctx)
 	if hasAuth && incident.Private {
-		// Filter the incident to check access
-		filteredIncident := r.incidentUC.FilterIncidentForUser(ctx, incident, slackUserID)
-		// If incident was filtered (title changed to "Private Incident"), deny access to task
-		if filteredIncident.Title == "Private Incident" && incident.Title != "Private Incident" {
+		// Use CanUserAccessIncident to check access
+		if !r.incidentUC.CanUserAccessIncident(ctx, incident, slackUserID) {
 			return nil, goerr.New("access denied: task belongs to private incident")
 		}
 	}
