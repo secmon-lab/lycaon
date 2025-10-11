@@ -214,6 +214,31 @@ func (r *incidentResolver) Tasks(ctx context.Context, obj *model.Incident) ([]*m
 	return r.repo.ListTasksByIncident(ctx, obj.ID)
 }
 
+// ViewerCanAccess is the resolver for the viewerCanAccess field.
+func (r *incidentResolver) ViewerCanAccess(ctx context.Context, obj *model.Incident) (bool, error) {
+	// If incident is not private, everyone can access
+	if !obj.Private {
+		return true, nil
+	}
+
+	// Get the viewer's Slack user ID from context
+	slackUserID, hasAuth := getSlackUserIDFromContext(ctx)
+	if !hasAuth {
+		// No auth context means backward compatibility mode - allow access
+		return true, nil
+	}
+
+	// Check if the viewer is a member of the incident
+	for _, memberID := range obj.JoinedMemberIDs {
+		if memberID == slackUserID {
+			return true, nil
+		}
+	}
+
+	// Viewer is not a member of this private incident
+	return false, nil
+}
+
 // UpdateIncident is the resolver for the updateIncident field.
 func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input graphql1.UpdateIncidentInput) (*model.Incident, error) {
 	// Parse incident ID

@@ -58,6 +58,7 @@ export const INCIDENT_FIELDS = gql`
     createdAt
     updatedAt
     private
+    viewerCanAccess
     statusHistories {
       ...StatusHistoryFields
     }

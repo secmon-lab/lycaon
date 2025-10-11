@@ -43,6 +43,7 @@ type Incident {
   statusHistories: [StatusHistory!]!
   tasks: [Task!]!
   private: Boolean!
+  viewerCanAccess: Boolean!
 }
 
 type User {

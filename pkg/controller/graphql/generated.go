@@ -93,6 +93,7 @@ type ComplexityRoot struct {
 		TeamID            func(childComplexity int) int
 		Title             func(childComplexity int) int
 		UpdatedAt         func(childComplexity int) int
+		ViewerCanAccess   func(childComplexity int) int
 	}
 
 	IncidentConnection struct {
@@ -218,6 +219,8 @@ type IncidentResolver interface {
 
 	StatusHistories(ctx context.Context, obj *model.Incident) ([]*model.StatusHistory, error)
 	Tasks(ctx context.Context, obj *model.Incident) ([]*model.Task, error)
+
+	ViewerCanAccess(ctx context.Context, obj *model.Incident) (bool, error)
 }
 type MutationResolver interface {
 	UpdateIncident(ctx context.Context, id string, input graphql1.UpdateIncidentInput) (*model.Incident, error)
@@ -468,6 +471,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Incident.UpdatedAt(childComplexity), true
+	case "Incident.viewerCanAccess":
+		if e.complexity.Incident.ViewerCanAccess == nil {
+			break
+		}
+
+		return e.complexity.Incident.ViewerCanAccess(childComplexity), true
 
 	case "IncidentConnection.edges":
 		if e.complexity.IncidentConnection.Edges == nil {
@@ -1070,6 +1079,7 @@ type Incident {
   statusHistories: [StatusHistory!]!
   tasks: [Task!]!
   private: Boolean!
+  viewerCanAccess: Boolean!
 }
 
 type User {
@@ -1660,6 +1670,8 @@ func (ec *executionContext) fieldContext_GroupedIncidents_incidents(_ context.Co
 				return ec.fieldContext_Incident_tasks(ctx, field)
 			case "private":
 				return ec.fieldContext_Incident_private(ctx, field)
+			case "viewerCanAccess":
+				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2495,6 +2507,35 @@ func (ec *executionContext) fieldContext_Incident_private(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Incident_viewerCanAccess(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_viewerCanAccess,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Incident().ViewerCanAccess(ctx, obj)
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_viewerCanAccess(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IncidentConnection_edges(ctx context.Context, field graphql.CollectedField, obj *graphql1.IncidentConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2674,6 +2715,8 @@ func (ec *executionContext) fieldContext_IncidentEdge_node(_ context.Context, fi
 				return ec.fieldContext_Incident_tasks(ctx, field)
 			case "private":
 				return ec.fieldContext_Incident_private(ctx, field)
+			case "viewerCanAccess":
+				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2787,6 +2830,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncident(ctx context.Con
 				return ec.fieldContext_Incident_tasks(ctx, field)
 			case "private":
 				return ec.fieldContext_Incident_private(ctx, field)
+			case "viewerCanAccess":
+				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2882,6 +2927,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncidentStatus(ctx conte
 				return ec.fieldContext_Incident_tasks(ctx, field)
 			case "private":
 				return ec.fieldContext_Incident_private(ctx, field)
+			case "viewerCanAccess":
+				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -3321,6 +3368,8 @@ func (ec *executionContext) fieldContext_Query_incident(ctx context.Context, fie
 				return ec.fieldContext_Incident_tasks(ctx, field)
 			case "private":
 				return ec.fieldContext_Incident_private(ctx, field)
+			case "viewerCanAccess":
+				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -7497,6 +7546,42 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "viewerCanAccess":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Incident_viewerCanAccess(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

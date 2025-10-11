@@ -60,7 +60,7 @@ const IncidentDetail: React.FC = () => {
   const validStatus = toIncidentStatus(incident.status) || IncidentStatus.TRIAGE;
 
   // Check if this is a private incident with restricted access
-  const isPrivateRestricted = incident.private && incident.title === "Private Incident";
+  const isPrivateRestricted = incident.private && !incident.viewerCanAccess;
 
   return (
     <div className="max-w-7xl mx-auto p-4">

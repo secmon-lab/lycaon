@@ -100,6 +100,11 @@ func TestIncidentResolverPrivateFiltering(t *testing.T) {
 		gt.V(t, incident).NotNil()
 		gt.Equal(t, incident.Title, "Public Incident")
 		gt.Equal(t, incident.Description, "This is public")
+
+		// Verify viewerCanAccess for public incident
+		canAccess, err := resolver.Incident().ViewerCanAccess(userCtx, incident)
+		gt.NoError(t, err)
+		gt.True(t, canAccess)
 	})
 
 	t.Run("Private incident is filtered for non-members", func(t *testing.T) {
@@ -116,6 +121,11 @@ func TestIncidentResolverPrivateFiltering(t *testing.T) {
 		// Should be filtered
 		gt.Equal(t, incident.Title, "Private Incident")
 		gt.Equal(t, incident.Description, "")
+
+		// Verify viewerCanAccess returns false for non-member
+		canAccess, err := resolver.Incident().ViewerCanAccess(nonMemberCtx, incident)
+		gt.NoError(t, err)
+		gt.False(t, canAccess)
 	})
 
 	t.Run("Private incident is fully visible to members", func(t *testing.T) {
@@ -132,6 +142,11 @@ func TestIncidentResolverPrivateFiltering(t *testing.T) {
 		// Should NOT be filtered
 		gt.Equal(t, incident.Title, "Private Incident Real Title")
 		gt.Equal(t, incident.Description, "This is private and sensitive")
+
+		// Verify viewerCanAccess returns true for member
+		canAccess, err := resolver.Incident().ViewerCanAccess(memberCtx, incident)
+		gt.NoError(t, err)
+		gt.True(t, canAccess)
 	})
 
 	t.Run("Incidents list filters private incidents for non-members", func(t *testing.T) {
