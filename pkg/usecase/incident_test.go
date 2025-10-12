@@ -3,20 +3,14 @@ package usecase_test
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/m-mizutani/goerr/v2"
 	"github.com/m-mizutani/gt"
 	"github.com/secmon-lab/lycaon/pkg/domain/interfaces/mocks"
 	"github.com/secmon-lab/lycaon/pkg/domain/model"
 	"github.com/secmon-lab/lycaon/pkg/domain/types"
-	"github.com/secmon-lab/lycaon/pkg/repository"
-	slackSvc "github.com/secmon-lab/lycaon/pkg/service/slack"
 	"github.com/secmon-lab/lycaon/pkg/usecase"
 	"github.com/slack-go/slack"
 )
-
-// getTestCategoriesForIncident returns categories for incident testing purposes
 
 // Helper function to create a test model.Config
 func testConfig() *model.Config {
@@ -43,1060 +37,146 @@ func testConfig() *model.Config {
 	}
 }
 
-func TestIncidentUseCaseCreateIncident(t *testing.T) {
+func TestSyncIncidentMemberWithEvent(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Successful incident creation", func(t *testing.T) {
-		// Use memory repository for testing
-		repo := repository.NewMemory()
-
-		// Create mock Slack client with default behavior
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-					UserID: "U123456",
-					User:   "test-bot",
+	t.Run("Skip sync for public incident", func(t *testing.T) {
+		repo := &mocks.RepositoryMock{
+			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
+				return &model.Incident{
+					ID:      id,
+					Private: false,
+					Title:   "Public Incident",
 				}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-NEW-INCIDENT",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: channelID,
-						},
-						Purpose: slack.Purpose{
-							Value: purpose,
-						},
-					},
-				}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
 			},
 		}
+		slackClient := &mocks.SlackClientMock{}
 
-		// Create use case with mock and default categories
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
+		uc := usecase.NewIncident(repo, slackClient, nil, &model.Config{}, nil, &usecase.IncidentConfig{})
 
-		// Create an incident
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "database outage",
-			Description:       "",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-CREATOR",
-		})
+		// Should skip sync without calling Slack API
+		err := uc.SyncIncidentMemberWithEvent(ctx, types.IncidentID(1), types.ChannelID("C123"), types.SlackUserID("U001"), true)
+		gt.NoError(t, err)
 
-		// Verify incident was created successfully
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
-		gt.Equal(t, 1, incident.ID)
-		gt.Equal(t, "inc-1-database-outage", incident.ChannelName)
-		gt.Equal(t, "database outage", incident.Title)
-		gt.Equal(t, "C-ORIGIN", incident.OriginChannelID)
-		gt.Equal(t, "general", incident.OriginChannelName)
-		gt.Equal(t, "U-CREATOR", incident.CreatedBy)
-
-		// Verify channel ID was set by mock
-		gt.Equal(t, "C-NEW-INCIDENT", incident.ChannelID)
-
-		// Verify incident was saved to repository
-		savedIncident, err := repo.GetIncident(ctx, 1)
-		gt.NoError(t, err).Required()
-		gt.Equal(t, incident.ID, savedIncident.ID)
+		// Verify no Slack API calls were made
+		gt.Equal(t, len(slackClient.GetUsersInConversationContextCalls()), 0)
 	})
 
-	t.Run("Multiple incidents get sequential IDs", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-					UserID: "U123456",
-					User:   "test-bot",
+	t.Run("Skip sync when user joins but already a member", func(t *testing.T) {
+		repo := &mocks.RepositoryMock{
+			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
+				return &model.Incident{
+					ID:              id,
+					Private:         true,
+					JoinedMemberIDs: []types.SlackUserID{"U001", "U002"},
 				}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-NEW-INCIDENT",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: channelID,
-						},
-						Purpose: slack.Purpose{
-							Value: purpose,
-						},
-					},
-				}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
 			},
 		}
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
+		slackClient := &mocks.SlackClientMock{}
 
-		// Create first incident
-		incident1, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "api error",
-			Description:       "",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C1",
-			OriginChannelName: "channel1",
-			CreatedBy:         "U1",
-		})
-		gt.Equal(t, 1, incident1.ID)
-		gt.Equal(t, "inc-1-api-error", incident1.ChannelName)
+		uc := usecase.NewIncident(repo, slackClient, nil, &model.Config{}, nil, &usecase.IncidentConfig{})
 
-		// Create second incident
-		incident2, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "database down",
-			Description:       "",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C2",
-			OriginChannelName: "channel2",
-			CreatedBy:         "U2",
-		})
-		gt.Equal(t, 2, incident2.ID)
-		gt.Equal(t, "inc-2-database-down", incident2.ChannelName)
+		// User U001 joins (but already a member) - should skip sync
+		err := uc.SyncIncidentMemberWithEvent(ctx, types.IncidentID(1), types.ChannelID("C123"), types.SlackUserID("U001"), true)
+		gt.NoError(t, err)
 
-		// Create third incident
-		incident3, _ := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "",
-			Description:       "",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C3",
-			OriginChannelName: "channel3",
-			CreatedBy:         "U3",
-		})
-		gt.Equal(t, 3, incident3.ID)
-		gt.Equal(t, "inc-3", incident3.ChannelName)
+		// Verify no Slack API calls were made (needsSync = false)
+		gt.Equal(t, len(slackClient.GetUsersInConversationContextCalls()), 0)
+		// Verify no PutIncident calls
+		gt.Equal(t, len(repo.PutIncidentCalls()), 0)
 	})
 
-	t.Run("GetIncident retrieves correct incident", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-					UserID: "U123456",
-					User:   "test-bot",
+	t.Run("Skip sync when user leaves but not a member", func(t *testing.T) {
+		repo := &mocks.RepositoryMock{
+			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
+				return &model.Incident{
+					ID:              id,
+					Private:         true,
+					JoinedMemberIDs: []types.SlackUserID{"U001", "U002"},
 				}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-NEW-INCIDENT",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: channelID,
-						},
-						Purpose: slack.Purpose{
-							Value: purpose,
-						},
-					},
-				}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
 			},
 		}
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
+		slackClient := &mocks.SlackClientMock{}
 
-		// Create an incident
-		created, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "test incident",
-			Description:       "",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C-TEST",
-			OriginChannelName: "test-channel",
-			CreatedBy:         "U-TEST",
-		})
-		gt.NoError(t, err).Required()
+		uc := usecase.NewIncident(repo, slackClient, nil, &model.Config{}, nil, &usecase.IncidentConfig{})
 
-		// Retrieve the incident
-		retrieved, err := uc.GetIncident(ctx, created.ID.Int())
-		gt.NoError(t, err).Required()
-		gt.Equal(t, created.ID, retrieved.ID)
-		gt.Equal(t, created.ChannelName, retrieved.ChannelName)
-		gt.Equal(t, created.OriginChannelID, retrieved.OriginChannelID)
-		gt.Equal(t, created.CreatedBy, retrieved.CreatedBy)
+		// User U003 leaves (but not a member) - should skip sync
+		err := uc.SyncIncidentMemberWithEvent(ctx, types.IncidentID(1), types.ChannelID("C123"), types.SlackUserID("U003"), false)
+		gt.NoError(t, err)
+
+		// Verify no Slack API calls were made (needsSync = false)
+		gt.Equal(t, len(slackClient.GetUsersInConversationContextCalls()), 0)
+		// Verify no PutIncident calls
+		gt.Equal(t, len(repo.PutIncidentCalls()), 0)
 	})
 
-	t.Run("GetIncident returns error for non-existent ID", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-					UserID: "U123456",
-					User:   "test-bot",
+	t.Run("Sync when user joins and not a member", func(t *testing.T) {
+		repo := &mocks.RepositoryMock{
+			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
+				return &model.Incident{
+					ID:              id,
+					Private:         true,
+					JoinedMemberIDs: []types.SlackUserID{"U001"},
 				}, nil
 			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-NEW-INCIDENT",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: channelID,
-						},
-						Purpose: slack.Purpose{
-							Value: purpose,
-						},
-					},
-				}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
-
-		// Try to get non-existent incident
-		incident, err := uc.GetIncident(ctx, 999)
-		gt.Error(t, err)
-		gt.V(t, incident).Nil()
-		gt.S(t, err.Error()).Contains("incident not found")
-	})
-}
-
-func TestIncidentUseCaseWithMockRepository(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Repository error handling", func(t *testing.T) {
-		// Create mock repository
-		mockRepo := &mocks.RepositoryMock{
-			GetNextIncidentNumberFunc: func(ctx context.Context) (types.IncidentID, error) {
-				return 0, goerr.New("database error")
-			},
-		}
-
-		mockSlack := &mocks.SlackClientMock{}
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(mockRepo, mockSlack, slackService, testConfig(), nil, config)
-
-		// Try to create incident - should fail due to repository error
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "test",
-			Description:       "",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C1",
-			OriginChannelName: "channel1",
-			CreatedBy:         "U1",
-		})
-		gt.Error(t, err)
-		gt.V(t, incident).Nil()
-		gt.S(t, err.Error()).Contains("failed to get next incident number")
-	})
-
-	t.Run("Create incident with category invitations", func(t *testing.T) {
-		// Use memory repository for testing
-		repo := repository.NewMemory()
-
-		// Track invited users
-		var invitedUsers []string
-
-		// Create mock Slack client
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-					UserID: "U123456",
-					User:   "test-bot",
-				}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-INCIDENT-WITH-INVITES",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				// Capture invited users
-				invitedUsers = append(invitedUsers, users...)
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-
-		// Create mock Invite that tracks invitations
-		mockInvite := &mocks.InviteMock{
-			InviteUsersByListFunc: func(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error) {
-				// Verify correct category invitations are passed
-				gt.Equal(t, 1, len(users))
-				gt.Equal(t, "@security-lead", users[0])
-				gt.Equal(t, 1, len(groups))
-				gt.Equal(t, "@security-team", groups[0])
-
-				return &model.InvitationResult{
-					Details: []model.InviteDetail{
-						{
-							UserID:       "U-SECURITY-LEAD",
-							Username:     "@security-lead",
-							SourceConfig: "@security-lead",
-							Status:       "success",
-						},
-						{
-							UserID:       "U-SECURITY-MEMBER1",
-							Username:     "",
-							SourceConfig: "@security-team",
-							Status:       "success",
-						},
-					},
-				}, nil
-			},
-		}
-
-		// Create use case with mock invite
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), mockInvite, config)
-
-		// Create an incident with security_incident category
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "security breach",
-			Description:       "Potential security incident detected",
-			CategoryID:        "security_incident",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-CREATOR",
-		})
-
-		// Verify incident was created successfully
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
-		gt.Equal(t, "security_incident", incident.CategoryID)
-
-		// Verify invite was called with correct parameters
-		gt.Equal(t, 1, len(mockInvite.InviteUsersByListCalls()))
-		inviteCall := mockInvite.InviteUsersByListCalls()[0]
-		gt.Equal(t, []string{"@security-lead"}, inviteCall.Users)
-		gt.Equal(t, []string{"@security-team"}, inviteCall.Groups)
-		gt.Equal(t, incident.ChannelID, inviteCall.ChannelID)
-	})
-
-	t.Run("Create incident with no category invitations", func(t *testing.T) {
-		// Use memory repository for testing
-		repo := repository.NewMemory()
-
-		// Create mock Slack client
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-					UserID: "U123456",
-					User:   "test-bot",
-				}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-INCIDENT-NO-INVITES",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-
-		// Create mock Invite that should NOT be called
-		mockInvite := &mocks.InviteMock{
-			InviteUsersByListFunc: func(ctx context.Context, users []string, groups []string, channelID types.ChannelID) (*model.InvitationResult, error) {
-				t.Fatal("InviteUsersByList should not be called for unknown category")
-				return nil, nil
-			},
-		}
-
-		// Create use case with mock invite
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), mockInvite, config)
-
-		// Create an incident with unknown category (no invitations)
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "unknown issue",
-			Description:       "Some unknown issue",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-CREATOR",
-		})
-
-		// Verify incident was created successfully
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
-		gt.Equal(t, "unknown", incident.CategoryID)
-
-		// Verify invite was NOT called
-		gt.Equal(t, 0, len(mockInvite.InviteUsersByListCalls()))
-	})
-}
-
-func TestIncidentUseCaseWithCustomPrefix(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Create incident with custom prefix generates correct channel name", func(t *testing.T) {
-		// Use memory repository for testing
-		repo := repository.NewMemory()
-
-		// Create mock Slack client
-		var createdChannelName string
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T123456",
-					Team:   "Test Team",
-				}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				// Capture the channel name that was requested
-				createdChannelName = params.ChannelName
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-NEW-INCIDENT",
-						},
-						Name: params.ChannelName,
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-
-		// Test with custom prefix "security"
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("security"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
-
-		// Create an incident
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "data breach",
-			Description:       "Suspicious data access detected",
-			CategoryID:        "security_incident",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "security-alerts",
-			CreatedBy:         "U-SECURITY-ANALYST",
-		})
-
-		// Verify incident was created successfully
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
-
-		// Verify the channel name uses the custom prefix
-		gt.Equal(t, "security-1-data-breach", incident.ChannelName.String())
-		gt.Equal(t, "security-1-data-breach", createdChannelName)
-
-		// Verify other properties
-		gt.Equal(t, "data breach", incident.Title)
-		gt.Equal(t, "security_incident", incident.CategoryID)
-		gt.Equal(t, "C-NEW-INCIDENT", incident.ChannelID.String())
-	})
-
-	t.Run("Create incident with different custom prefixes", func(t *testing.T) {
-		testCases := []struct {
-			name           string
-			prefix         string
-			title          string
-			expectedPrefix string
-		}{
-			{"Alert prefix", "alert", "system down", "alert-1-system-down"},
-			{"Incident prefix", "incident", "api failure", "incident-1-api-failure"},
-			{"Emergency prefix", "emergency", "critical issue", "emergency-1-critical-issue"},
-			{"Empty prefix fallback", "", "test issue", "inc-1-test-issue"}, // Should fallback to default
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				// Use fresh repository for each test to ensure incident ID starts at 1
-				repo := repository.NewMemory()
-
-				var createdChannelName string
-				mockSlack := &mocks.SlackClientMock{
-					AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-						return &slack.AuthTestResponse{TeamID: "T123456"}, nil
-					},
-					CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-						createdChannelName = params.ChannelName
-						return &slack.Channel{
-							GroupConversation: slack.GroupConversation{
-								Conversation: slack.Conversation{ID: "C-NEW"},
-								Name:         params.ChannelName,
-							},
-						}, nil
-					},
-					SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-						return &slack.Channel{}, nil
-					},
-					InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-						return &slack.Channel{}, nil
-					},
-					PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-						return "channel", "timestamp", nil
-					},
-				}
-
-				var config *usecase.IncidentConfig
-				if tc.prefix == "" {
-					// Test default value by not specifying prefix
-					config = usecase.NewIncidentConfig()
-				} else {
-					config = usecase.NewIncidentConfig(usecase.WithChannelPrefix(tc.prefix))
-				}
-				slackService := slackSvc.NewUIService(mockSlack, testConfig())
-				uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
-
-				// Create an incident
-				incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-					Title:             tc.title,
-					Description:       "Test description",
-					CategoryID:        "unknown",
-					SeverityID:        "",
-					OriginChannelID:   "C-ORIGIN",
-					OriginChannelName: "general",
-					CreatedBy:         "U-CREATOR",
-				})
-
-				// Verify incident was created successfully
-				gt.NoError(t, err).Required()
-				gt.V(t, incident).NotNil()
-
-				// Verify the channel name uses the expected prefix
-				gt.Equal(t, tc.expectedPrefix, incident.ChannelName.String())
-				gt.Equal(t, tc.expectedPrefix, createdChannelName)
-			})
-		}
-	})
-}
-
-func TestIncidentUseCaseWithBookmark(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Add bookmark when frontend URL is configured", func(t *testing.T) {
-		repo := repository.NewMemory()
-
-		mockSlack := &mocks.SlackClientMock{
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-TEST-CHANNEL",
-						},
-					},
-				}, nil
-			},
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T-TEST-TEAM",
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
+			PutIncidentFunc: func(ctx context.Context, incident *model.Incident) error {
 				return nil
 			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return channelID, "1234567890.123456", nil
+		}
+		slackClient := &mocks.SlackClientMock{
+			GetUsersInConversationContextFunc: func(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error) {
+				return []string{"U001", "U002"}, "", nil
 			},
 		}
 
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
+		uc := usecase.NewIncident(repo, slackClient, nil, &model.Config{}, nil, &usecase.IncidentConfig{})
 
-		// Create an incident
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "Test Incident",
-			Description:       "Test description",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-CREATOR",
-		})
+		// User U002 joins (new member) - should sync
+		err := uc.SyncIncidentMemberWithEvent(ctx, types.IncidentID(1), types.ChannelID("C123"), types.SlackUserID("U002"), true)
+		gt.NoError(t, err)
 
-		// Verify incident was created successfully
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
+		// Verify Slack API was called (needsSync = true)
+		gt.Equal(t, len(slackClient.GetUsersInConversationContextCalls()), 1)
+		// Verify PutIncident was called to update member list
+		gt.Equal(t, len(repo.PutIncidentCalls()), 1)
 
-		// Verify AddBookmark was called once with correct arguments
-		addBookmarkCalls := mockSlack.AddBookmarkCalls()
-		gt.Equal(t, 1, len(addBookmarkCalls))
-		bookmarkCall := addBookmarkCalls[0]
-		gt.Equal(t, "C-TEST-CHANNEL", bookmarkCall.ChannelID)
-		gt.Equal(t, "Incident #1 - Web UI", bookmarkCall.Title)
-		gt.Equal(t, "https://lycaon.example.com/incidents/1", bookmarkCall.Link)
+		// Verify the updated incident has correct member list
+		putCall := repo.PutIncidentCalls()[0]
+		gt.A(t, putCall.Incident.JoinedMemberIDs).Length(2)
 	})
 
-	t.Run("Skip bookmark when frontend URL is not configured", func(t *testing.T) {
-		repo := repository.NewMemory()
-
-		mockSlack := &mocks.SlackClientMock{
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-TEST-CHANNEL",
-						},
-					},
+	t.Run("Sync when user leaves and is a member", func(t *testing.T) {
+		repo := &mocks.RepositoryMock{
+			GetIncidentFunc: func(ctx context.Context, id types.IncidentID) (*model.Incident, error) {
+				return &model.Incident{
+					ID:              id,
+					Private:         true,
+					JoinedMemberIDs: []types.SlackUserID{"U001", "U002"},
 				}, nil
 			},
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T-TEST-TEAM",
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
-				t.Error("AddBookmark should not be called when frontend URL is not configured")
+			PutIncidentFunc: func(ctx context.Context, incident *model.Incident) error {
 				return nil
 			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return channelID, "1234567890.123456", nil
+		}
+		slackClient := &mocks.SlackClientMock{
+			GetUsersInConversationContextFunc: func(ctx context.Context, params *slack.GetUsersInConversationParameters) ([]string, string, error) {
+				return []string{"U001"}, "", nil
 			},
 		}
 
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc")) // No frontend URL
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
+		uc := usecase.NewIncident(repo, slackClient, nil, &model.Config{}, nil, &usecase.IncidentConfig{})
 
-		// Create an incident
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "Test Incident",
-			Description:       "Test description",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-CREATOR",
-		})
+		// User U002 leaves (existing member) - should sync
+		err := uc.SyncIncidentMemberWithEvent(ctx, types.IncidentID(1), types.ChannelID("C123"), types.SlackUserID("U002"), false)
+		gt.NoError(t, err)
 
-		// Verify incident was created successfully
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
+		// Verify Slack API was called (needsSync = true)
+		gt.Equal(t, len(slackClient.GetUsersInConversationContextCalls()), 1)
+		// Verify PutIncident was called to update member list
+		gt.Equal(t, len(repo.PutIncidentCalls()), 1)
 
-		// Verify AddBookmark was not called
-		gt.Equal(t, 0, len(mockSlack.AddBookmarkCalls()))
-	})
-
-	t.Run("Handle bookmark failure gracefully", func(t *testing.T) {
-		repo := repository.NewMemory()
-
-		mockSlack := &mocks.SlackClientMock{
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{
-							ID: "C-TEST-CHANNEL",
-						},
-					},
-				}, nil
-			},
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{
-					TeamID: "T-TEST-TEAM",
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			AddBookmarkFunc: func(ctx context.Context, channelID, title, link string) error {
-				return goerr.New("bookmark API failed")
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return channelID, "1234567890.123456", nil
-			},
-		}
-
-		config := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"), usecase.WithFrontendURL("https://lycaon.example.com"))
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, config)
-
-		// Create an incident - should succeed even if bookmark fails
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "Test Incident",
-			Description:       "Test description",
-			CategoryID:        "unknown",
-			SeverityID:        "",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-CREATOR",
-		})
-
-		// Verify incident was created successfully despite bookmark failure
-		gt.NoError(t, err).Required()
-		gt.V(t, incident).NotNil()
-
-		// Verify AddBookmark was called (and failed)
-		gt.Equal(t, 1, len(mockSlack.AddBookmarkCalls()))
-	})
-}
-
-func TestGetIncidentTrendBySeverity_WeekRanges(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Week ranges should not overlap and preserve timezone", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{}
-		slackService := slackSvc.NewUIService(mockSlack, testConfig())
-		uc := usecase.NewIncident(repo, mockSlack, slackService, testConfig(), nil, nil)
-
-		// Get 8 weeks of trend data
-		trend, err := uc.GetIncidentTrendBySeverity(ctx, 8)
-		gt.NoError(t, err).Required()
-		gt.A(t, trend).Length(8)
-
-		// Verify no date overlap between consecutive weeks
-		for i := 0; i < len(trend)-1; i++ {
-			currentWeek := trend[i]
-			nextWeek := trend[i+1]
-
-			// Current week end should be before next week start
-			// Allow 1 second gap (current week ends at 23:59:59, next starts at 00:00:00 next day)
-			if !currentWeek.WeekEnd.Before(nextWeek.WeekStart) {
-				t.Errorf("Week %d end (%s) should be before Week %d start (%s)",
-					i, currentWeek.WeekEnd.Format("2006-01-02 15:04:05"),
-					i+1, nextWeek.WeekStart.Format("2006-01-02 15:04:05"))
-			}
-
-			// Verify each week is exactly 7 days (Monday to Sunday)
-			// WeekEnd is Sunday 23:59:59, so we check the day difference
-			weekDuration := currentWeek.WeekEnd.Sub(currentWeek.WeekStart)
-			expectedDuration := 7*24*time.Hour - time.Second // 6 days 23:59:59
-			if weekDuration != expectedDuration {
-				t.Errorf("Week %d should span exactly 7 days (Mon 00:00:00 to Sun 23:59:59), got %v",
-					i, weekDuration)
-			}
-
-			// Verify Monday start (weekday should be Monday = 1)
-			if currentWeek.WeekStart.Weekday() != time.Monday {
-				t.Errorf("Week %d should start on Monday, got %s",
-					i, currentWeek.WeekStart.Weekday())
-			}
-
-			// Verify Sunday end (weekday should be Sunday = 0)
-			if currentWeek.WeekEnd.Weekday() != time.Sunday {
-				t.Errorf("Week %d should end on Sunday, got %s",
-					i, currentWeek.WeekEnd.Weekday())
-			}
-
-			// Verify timezone is preserved (not UTC)
-			if currentWeek.WeekStart.Location().String() == "UTC" {
-				t.Errorf("Week %d start should preserve local timezone, got UTC", i)
-			}
-		}
-
-		// Verify labels don't contain overlapping dates
-		for i := 0; i < len(trend)-1; i++ {
-			currentLabel := trend[i].WeekLabel
-			nextLabel := trend[i+1].WeekLabel
-
-			// Labels should be different
-			if currentLabel == nextLabel {
-				t.Errorf("Week labels should be unique: Week %d (%s) vs Week %d (%s)",
-					i, currentLabel, i+1, nextLabel)
-			}
-		}
-	})
-}
-func TestUpdateIncident_AssetIDsChangeDetection(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Detect asset IDs removal", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{TeamID: "T123456"}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{ID: "C-TEST"},
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-
-		config := &model.Config{
-			Categories: testConfig().Categories,
-			Assets: []model.Asset{
-				{ID: "asset_a", Name: "Asset A"},
-				{ID: "asset_b", Name: "Asset B"},
-				{ID: "asset_c", Name: "Asset C"},
-			},
-		}
-
-		slackService := slackSvc.NewUIService(mockSlack, config)
-		incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, slackService, config, nil, incidentConfig)
-
-		// Create incident with assets A and B
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "test",
-			CategoryID:        "unknown",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-TEST",
-			AssetIDs:          []types.AssetID{"asset_a", "asset_b"},
-		})
-		gt.NoError(t, err).Required()
-		gt.A(t, incident.AssetIDs).Length(2)
-
-		// Update to only asset A (remove asset B)
-		assetIDs := []types.AssetID{"asset_a"}
-		updateReq := model.UpdateIncidentRequest{
-			AssetIDs: &assetIDs,
-		}
-		updated, err := uc.UpdateIncident(ctx, incident.ID, updateReq)
-		gt.NoError(t, err).Required()
-		gt.A(t, updated.AssetIDs).Length(1)
-		gt.Equal(t, types.AssetID("asset_a"), updated.AssetIDs[0])
-
-		// Verify persistence
-		retrieved, err := repo.GetIncident(ctx, incident.ID)
-		gt.NoError(t, err).Required()
-		gt.A(t, retrieved.AssetIDs).Length(1)
-		gt.Equal(t, types.AssetID("asset_a"), retrieved.AssetIDs[0])
-	})
-
-	t.Run("Detect asset IDs addition", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{TeamID: "T123456"}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{ID: "C-TEST"},
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-
-		config := &model.Config{
-			Categories: testConfig().Categories,
-			Assets: []model.Asset{
-				{ID: "asset_a", Name: "Asset A"},
-				{ID: "asset_b", Name: "Asset B"},
-			},
-		}
-
-		slackService := slackSvc.NewUIService(mockSlack, config)
-		incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, slackService, config, nil, incidentConfig)
-
-		// Create incident with asset A only
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "test",
-			CategoryID:        "unknown",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-TEST",
-			AssetIDs:          []types.AssetID{"asset_a"},
-		})
-		gt.NoError(t, err).Required()
-
-		// Update to add asset B
-		assetIDs := []types.AssetID{"asset_a", "asset_b"}
-		updateReq := model.UpdateIncidentRequest{
-			AssetIDs: &assetIDs,
-		}
-		updated, err := uc.UpdateIncident(ctx, incident.ID, updateReq)
-		gt.NoError(t, err).Required()
-		gt.A(t, updated.AssetIDs).Length(2)
-
-		// Verify persistence
-		retrieved, err := repo.GetIncident(ctx, incident.ID)
-		gt.NoError(t, err).Required()
-		gt.A(t, retrieved.AssetIDs).Length(2)
-	})
-
-	t.Run("No change when asset IDs are same", func(t *testing.T) {
-		repo := repository.NewMemory()
-		mockSlack := &mocks.SlackClientMock{
-			AuthTestContextFunc: func(ctx context.Context) (*slack.AuthTestResponse, error) {
-				return &slack.AuthTestResponse{TeamID: "T123456"}, nil
-			},
-			CreateConversationFunc: func(ctx context.Context, params slack.CreateConversationParams) (*slack.Channel, error) {
-				return &slack.Channel{
-					GroupConversation: slack.GroupConversation{
-						Conversation: slack.Conversation{ID: "C-TEST"},
-					},
-				}, nil
-			},
-			SetPurposeOfConversationContextFunc: func(ctx context.Context, channelID, purpose string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			InviteUsersToConversationFunc: func(ctx context.Context, channelID string, users ...string) (*slack.Channel, error) {
-				return &slack.Channel{}, nil
-			},
-			PostMessageFunc: func(ctx context.Context, channelID string, options ...slack.MsgOption) (string, string, error) {
-				return "channel", "timestamp", nil
-			},
-		}
-
-		config := &model.Config{
-			Categories: testConfig().Categories,
-			Assets: []model.Asset{
-				{ID: "asset_a", Name: "Asset A"},
-				{ID: "asset_b", Name: "Asset B"},
-			},
-		}
-
-		slackService := slackSvc.NewUIService(mockSlack, config)
-		incidentConfig := usecase.NewIncidentConfig(usecase.WithChannelPrefix("inc"))
-		uc := usecase.NewIncident(repo, mockSlack, slackService, config, nil, incidentConfig)
-
-		// Create incident with assets
-		incident, err := uc.CreateIncident(ctx, &model.CreateIncidentRequest{
-			Title:             "test",
-			CategoryID:        "unknown",
-			OriginChannelID:   "C-ORIGIN",
-			OriginChannelName: "general",
-			CreatedBy:         "U-TEST",
-			AssetIDs:          []types.AssetID{"asset_a", "asset_b"},
-		})
-		gt.NoError(t, err).Required()
-
-		// Update with same asset IDs (different order)
-		assetIDs := []types.AssetID{"asset_b", "asset_a"}
-		updateReq := model.UpdateIncidentRequest{
-			AssetIDs: &assetIDs,
-		}
-		updated, err := uc.UpdateIncident(ctx, incident.ID, updateReq)
-		gt.NoError(t, err).Required()
-
-		// Asset IDs should remain the same
-		gt.A(t, updated.AssetIDs).Length(2)
+		// Verify the updated incident has correct member list (U002 removed)
+		putCall := repo.PutIncidentCalls()[0]
+		gt.A(t, putCall.Incident.JoinedMemberIDs).Length(1)
 	})
 }

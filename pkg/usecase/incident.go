@@ -680,33 +680,16 @@ func (u *Incident) SyncIncidentMemberWithEvent(ctx context.Context, incidentID t
 		return nil
 	}
 
-	// Check if this event would cause a change
-	needsSync := false
-	if isJoin {
-		// Check if user is NOT already in the list
-		found := false
-		for _, memberID := range incident.JoinedMemberIDs {
-			if memberID == eventUserID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			needsSync = true
-		}
-	} else {
-		// Leave event - check if user IS in the list
-		found := false
-		for _, memberID := range incident.JoinedMemberIDs {
-			if memberID == eventUserID {
-				found = true
-				break
-			}
-		}
-		if found {
-			needsSync = true
+	// Check if this event would cause a change. A sync is needed if a user is joining
+	// and is not already a member, or if a user is leaving and is currently a member.
+	isMember := false
+	for _, memberID := range incident.JoinedMemberIDs {
+		if memberID == eventUserID {
+			isMember = true
+			break
 		}
 	}
+	needsSync := isJoin != isMember
 
 	// If no change is expected, skip API call
 	if !needsSync {
