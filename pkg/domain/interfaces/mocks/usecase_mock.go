@@ -436,8 +436,14 @@ var _ interfaces.Incident = &IncidentMock{}
 //
 //		// make and configure a mocked interfaces.Incident
 //		mockedIncident := &IncidentMock{
+//			CanUserAccessIncidentFunc: func(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) bool {
+//				panic("mock out the CanUserAccessIncident method")
+//			},
 //			CreateIncidentFunc: func(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error) {
 //				panic("mock out the CreateIncident method")
+//			},
+//			FilterIncidentForUserFunc: func(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) *model.Incident {
+//				panic("mock out the FilterIncidentForUser method")
 //			},
 //			GetIncidentFunc: func(ctx context.Context, id int) (*model.Incident, error) {
 //				panic("mock out the GetIncident method")
@@ -463,11 +469,14 @@ var _ interfaces.Incident = &IncidentMock{}
 //			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, userID string) (*model.Incident, error) {
 //				panic("mock out the HandleCreateIncidentWithDetails method")
 //			},
-//			HandleCreateIncidentWithDetailsAndAssetsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error) {
+//			HandleCreateIncidentWithDetailsAndAssetsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error) {
 //				panic("mock out the HandleCreateIncidentWithDetailsAndAssets method")
 //			},
 //			HandleEditIncidentActionFunc: func(ctx context.Context, requestID string, userID string, triggerID string) error {
 //				panic("mock out the HandleEditIncidentAction method")
+//			},
+//			SyncIncidentMemberWithEventFunc: func(ctx context.Context, incidentID types.IncidentID, channelID types.ChannelID, eventUserID types.SlackUserID, isJoin bool) error {
+//				panic("mock out the SyncIncidentMemberWithEvent method")
 //			},
 //			UpdateIncidentDetailsFunc: func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, updatedBy types.SlackUserID) (*model.Incident, error) {
 //				panic("mock out the UpdateIncidentDetails method")
@@ -482,8 +491,14 @@ var _ interfaces.Incident = &IncidentMock{}
 //
 //	}
 type IncidentMock struct {
+	// CanUserAccessIncidentFunc mocks the CanUserAccessIncident method.
+	CanUserAccessIncidentFunc func(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) bool
+
 	// CreateIncidentFunc mocks the CreateIncident method.
 	CreateIncidentFunc func(ctx context.Context, req *model.CreateIncidentRequest) (*model.Incident, error)
+
+	// FilterIncidentForUserFunc mocks the FilterIncidentForUser method.
+	FilterIncidentForUserFunc func(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) *model.Incident
 
 	// GetIncidentFunc mocks the GetIncident method.
 	GetIncidentFunc func(ctx context.Context, id int) (*model.Incident, error)
@@ -510,10 +525,13 @@ type IncidentMock struct {
 	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, userID string) (*model.Incident, error)
 
 	// HandleCreateIncidentWithDetailsAndAssetsFunc mocks the HandleCreateIncidentWithDetailsAndAssets method.
-	HandleCreateIncidentWithDetailsAndAssetsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error)
+	HandleCreateIncidentWithDetailsAndAssetsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error)
 
 	// HandleEditIncidentActionFunc mocks the HandleEditIncidentAction method.
 	HandleEditIncidentActionFunc func(ctx context.Context, requestID string, userID string, triggerID string) error
+
+	// SyncIncidentMemberWithEventFunc mocks the SyncIncidentMemberWithEvent method.
+	SyncIncidentMemberWithEventFunc func(ctx context.Context, incidentID types.IncidentID, channelID types.ChannelID, eventUserID types.SlackUserID, isJoin bool) error
 
 	// UpdateIncidentDetailsFunc mocks the UpdateIncidentDetails method.
 	UpdateIncidentDetailsFunc func(ctx context.Context, incidentID types.IncidentID, title string, description string, lead types.SlackUserID, severityID string, updatedBy types.SlackUserID) (*model.Incident, error)
@@ -523,12 +541,30 @@ type IncidentMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// CanUserAccessIncident holds details about calls to the CanUserAccessIncident method.
+		CanUserAccessIncident []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Incident is the incident argument value.
+			Incident *model.Incident
+			// SlackUserID is the slackUserID argument value.
+			SlackUserID types.SlackUserID
+		}
 		// CreateIncident holds details about calls to the CreateIncident method.
 		CreateIncident []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Req is the req argument value.
 			Req *model.CreateIncidentRequest
+		}
+		// FilterIncidentForUser holds details about calls to the FilterIncidentForUser method.
+		FilterIncidentForUser []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Incident is the incident argument value.
+			Incident *model.Incident
+			// SlackUserID is the slackUserID argument value.
+			SlackUserID types.SlackUserID
 		}
 		// GetIncident holds details about calls to the GetIncident method.
 		GetIncident []struct {
@@ -618,6 +654,8 @@ type IncidentMock struct {
 			SeverityID string
 			// AssetIDs is the assetIDs argument value.
 			AssetIDs []types.AssetID
+			// IsPrivate is the isPrivate argument value.
+			IsPrivate bool
 			// UserID is the userID argument value.
 			UserID string
 		}
@@ -631,6 +669,19 @@ type IncidentMock struct {
 			UserID string
 			// TriggerID is the triggerID argument value.
 			TriggerID string
+		}
+		// SyncIncidentMemberWithEvent holds details about calls to the SyncIncidentMemberWithEvent method.
+		SyncIncidentMemberWithEvent []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// IncidentID is the incidentID argument value.
+			IncidentID types.IncidentID
+			// ChannelID is the channelID argument value.
+			ChannelID types.ChannelID
+			// EventUserID is the eventUserID argument value.
+			EventUserID types.SlackUserID
+			// IsJoin is the isJoin argument value.
+			IsJoin bool
 		}
 		// UpdateIncidentDetails holds details about calls to the UpdateIncidentDetails method.
 		UpdateIncidentDetails []struct {
@@ -669,7 +720,9 @@ type IncidentMock struct {
 			UpdatedBy types.SlackUserID
 		}
 	}
+	lockCanUserAccessIncident                    sync.RWMutex
 	lockCreateIncident                           sync.RWMutex
+	lockFilterIncidentForUser                    sync.RWMutex
 	lockGetIncident                              sync.RWMutex
 	lockGetIncidentByChannelID                   sync.RWMutex
 	lockGetIncidentRequest                       sync.RWMutex
@@ -680,8 +733,49 @@ type IncidentMock struct {
 	lockHandleCreateIncidentWithDetails          sync.RWMutex
 	lockHandleCreateIncidentWithDetailsAndAssets sync.RWMutex
 	lockHandleEditIncidentAction                 sync.RWMutex
+	lockSyncIncidentMemberWithEvent              sync.RWMutex
 	lockUpdateIncidentDetails                    sync.RWMutex
 	lockUpdateIncidentDetailsWithAssets          sync.RWMutex
+}
+
+// CanUserAccessIncident calls CanUserAccessIncidentFunc.
+func (mock *IncidentMock) CanUserAccessIncident(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) bool {
+	if mock.CanUserAccessIncidentFunc == nil {
+		panic("IncidentMock.CanUserAccessIncidentFunc: method is nil but Incident.CanUserAccessIncident was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Incident    *model.Incident
+		SlackUserID types.SlackUserID
+	}{
+		Ctx:         ctx,
+		Incident:    incident,
+		SlackUserID: slackUserID,
+	}
+	mock.lockCanUserAccessIncident.Lock()
+	mock.calls.CanUserAccessIncident = append(mock.calls.CanUserAccessIncident, callInfo)
+	mock.lockCanUserAccessIncident.Unlock()
+	return mock.CanUserAccessIncidentFunc(ctx, incident, slackUserID)
+}
+
+// CanUserAccessIncidentCalls gets all the calls that were made to CanUserAccessIncident.
+// Check the length with:
+//
+//	len(mockedIncident.CanUserAccessIncidentCalls())
+func (mock *IncidentMock) CanUserAccessIncidentCalls() []struct {
+	Ctx         context.Context
+	Incident    *model.Incident
+	SlackUserID types.SlackUserID
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Incident    *model.Incident
+		SlackUserID types.SlackUserID
+	}
+	mock.lockCanUserAccessIncident.RLock()
+	calls = mock.calls.CanUserAccessIncident
+	mock.lockCanUserAccessIncident.RUnlock()
+	return calls
 }
 
 // CreateIncident calls CreateIncidentFunc.
@@ -717,6 +811,46 @@ func (mock *IncidentMock) CreateIncidentCalls() []struct {
 	mock.lockCreateIncident.RLock()
 	calls = mock.calls.CreateIncident
 	mock.lockCreateIncident.RUnlock()
+	return calls
+}
+
+// FilterIncidentForUser calls FilterIncidentForUserFunc.
+func (mock *IncidentMock) FilterIncidentForUser(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) *model.Incident {
+	if mock.FilterIncidentForUserFunc == nil {
+		panic("IncidentMock.FilterIncidentForUserFunc: method is nil but Incident.FilterIncidentForUser was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Incident    *model.Incident
+		SlackUserID types.SlackUserID
+	}{
+		Ctx:         ctx,
+		Incident:    incident,
+		SlackUserID: slackUserID,
+	}
+	mock.lockFilterIncidentForUser.Lock()
+	mock.calls.FilterIncidentForUser = append(mock.calls.FilterIncidentForUser, callInfo)
+	mock.lockFilterIncidentForUser.Unlock()
+	return mock.FilterIncidentForUserFunc(ctx, incident, slackUserID)
+}
+
+// FilterIncidentForUserCalls gets all the calls that were made to FilterIncidentForUser.
+// Check the length with:
+//
+//	len(mockedIncident.FilterIncidentForUserCalls())
+func (mock *IncidentMock) FilterIncidentForUserCalls() []struct {
+	Ctx         context.Context
+	Incident    *model.Incident
+	SlackUserID types.SlackUserID
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Incident    *model.Incident
+		SlackUserID types.SlackUserID
+	}
+	mock.lockFilterIncidentForUser.RLock()
+	calls = mock.calls.FilterIncidentForUser
+	mock.lockFilterIncidentForUser.RUnlock()
 	return calls
 }
 
@@ -1041,7 +1175,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsCalls() []struct {
 }
 
 // HandleCreateIncidentWithDetailsAndAssets calls HandleCreateIncidentWithDetailsAndAssetsFunc.
-func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error) {
+func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error) {
 	if mock.HandleCreateIncidentWithDetailsAndAssetsFunc == nil {
 		panic("IncidentMock.HandleCreateIncidentWithDetailsAndAssetsFunc: method is nil but Incident.HandleCreateIncidentWithDetailsAndAssets was just called")
 	}
@@ -1053,6 +1187,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.C
 		CategoryID  string
 		SeverityID  string
 		AssetIDs    []types.AssetID
+		IsPrivate   bool
 		UserID      string
 	}{
 		Ctx:         ctx,
@@ -1062,12 +1197,13 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.C
 		CategoryID:  categoryID,
 		SeverityID:  severityID,
 		AssetIDs:    assetIDs,
+		IsPrivate:   isPrivate,
 		UserID:      userID,
 	}
 	mock.lockHandleCreateIncidentWithDetailsAndAssets.Lock()
 	mock.calls.HandleCreateIncidentWithDetailsAndAssets = append(mock.calls.HandleCreateIncidentWithDetailsAndAssets, callInfo)
 	mock.lockHandleCreateIncidentWithDetailsAndAssets.Unlock()
-	return mock.HandleCreateIncidentWithDetailsAndAssetsFunc(ctx, requestID, title, description, categoryID, severityID, assetIDs, userID)
+	return mock.HandleCreateIncidentWithDetailsAndAssetsFunc(ctx, requestID, title, description, categoryID, severityID, assetIDs, isPrivate, userID)
 }
 
 // HandleCreateIncidentWithDetailsAndAssetsCalls gets all the calls that were made to HandleCreateIncidentWithDetailsAndAssets.
@@ -1082,6 +1218,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssetsCalls() []stru
 	CategoryID  string
 	SeverityID  string
 	AssetIDs    []types.AssetID
+	IsPrivate   bool
 	UserID      string
 } {
 	var calls []struct {
@@ -1092,6 +1229,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssetsCalls() []stru
 		CategoryID  string
 		SeverityID  string
 		AssetIDs    []types.AssetID
+		IsPrivate   bool
 		UserID      string
 	}
 	mock.lockHandleCreateIncidentWithDetailsAndAssets.RLock()
@@ -1141,6 +1279,54 @@ func (mock *IncidentMock) HandleEditIncidentActionCalls() []struct {
 	mock.lockHandleEditIncidentAction.RLock()
 	calls = mock.calls.HandleEditIncidentAction
 	mock.lockHandleEditIncidentAction.RUnlock()
+	return calls
+}
+
+// SyncIncidentMemberWithEvent calls SyncIncidentMemberWithEventFunc.
+func (mock *IncidentMock) SyncIncidentMemberWithEvent(ctx context.Context, incidentID types.IncidentID, channelID types.ChannelID, eventUserID types.SlackUserID, isJoin bool) error {
+	if mock.SyncIncidentMemberWithEventFunc == nil {
+		panic("IncidentMock.SyncIncidentMemberWithEventFunc: method is nil but Incident.SyncIncidentMemberWithEvent was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		IncidentID  types.IncidentID
+		ChannelID   types.ChannelID
+		EventUserID types.SlackUserID
+		IsJoin      bool
+	}{
+		Ctx:         ctx,
+		IncidentID:  incidentID,
+		ChannelID:   channelID,
+		EventUserID: eventUserID,
+		IsJoin:      isJoin,
+	}
+	mock.lockSyncIncidentMemberWithEvent.Lock()
+	mock.calls.SyncIncidentMemberWithEvent = append(mock.calls.SyncIncidentMemberWithEvent, callInfo)
+	mock.lockSyncIncidentMemberWithEvent.Unlock()
+	return mock.SyncIncidentMemberWithEventFunc(ctx, incidentID, channelID, eventUserID, isJoin)
+}
+
+// SyncIncidentMemberWithEventCalls gets all the calls that were made to SyncIncidentMemberWithEvent.
+// Check the length with:
+//
+//	len(mockedIncident.SyncIncidentMemberWithEventCalls())
+func (mock *IncidentMock) SyncIncidentMemberWithEventCalls() []struct {
+	Ctx         context.Context
+	IncidentID  types.IncidentID
+	ChannelID   types.ChannelID
+	EventUserID types.SlackUserID
+	IsJoin      bool
+} {
+	var calls []struct {
+		Ctx         context.Context
+		IncidentID  types.IncidentID
+		ChannelID   types.ChannelID
+		EventUserID types.SlackUserID
+		IsJoin      bool
+	}
+	mock.lockSyncIncidentMemberWithEvent.RLock()
+	calls = mock.calls.SyncIncidentMemberWithEvent
+	mock.lockSyncIncidentMemberWithEvent.RUnlock()
 	return calls
 }
 

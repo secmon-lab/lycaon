@@ -116,11 +116,14 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 
 	channel, err := u.slackClient.CreateConversation(ctx, slack.CreateConversationParams{
 		ChannelName: channelName.String(),
-		IsPrivate:   false,
+		IsPrivate:   req.Private, // Use private flag from request
 	})
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to create Slack channel")
 	}
+
+	// Set private flag in incident
+	incident.Private = req.Private
 
 	// Set channel purpose/description if title is provided
 	if req.Title != "" {
@@ -176,6 +179,28 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	} else {
 		// Save the welcome message timestamp for later updates
 		incident.WelcomeMessageTS = welcomeTS
+	}
+
+	// If private, get initial members from Slack channel
+	if req.Private {
+		members, _, err := u.slackClient.GetUsersInConversationContext(ctx, &slack.GetUsersInConversationParameters{
+			ChannelID: channel.ID,
+		})
+		if err != nil {
+			// Log error but continue - we can sync later via events
+			apperr.Handle(ctx, err)
+		} else {
+			// Initialize JoinedMemberIDs with current channel members
+			joinedMemberIDs := make([]types.SlackUserID, 0, len(members))
+			for _, slackUserID := range members {
+				joinedMemberIDs = append(joinedMemberIDs, types.SlackUserID(slackUserID))
+			}
+			incident.JoinedMemberIDs = joinedMemberIDs
+
+			ctxlog.From(ctx).Info("Initialized private incident members",
+				"incidentID", incident.ID,
+				"memberCount", len(joinedMemberIDs))
+		}
 	}
 
 	// Save incident to repository
@@ -637,4 +662,119 @@ func generateWeekRanges(startOfCurrentWeek time.Time, weeks int) []weekRange {
 	}
 
 	return ranges
+}
+
+// SyncIncidentMemberWithEvent updates incident member list based on Slack event
+// This method checks if the event would cause a change before calling Slack API
+func (u *Incident) SyncIncidentMemberWithEvent(ctx context.Context, incidentID types.IncidentID, channelID types.ChannelID, eventUserID types.SlackUserID, isJoin bool) error {
+	// Get incident
+	incident, err := u.repo.GetIncident(ctx, incidentID)
+	if err != nil {
+		return goerr.Wrap(err, "failed to get incident")
+	}
+
+	// Skip if not private
+	if !incident.Private {
+		ctxlog.From(ctx).Debug("Skipping member sync for public incident",
+			"incidentID", incidentID)
+		return nil
+	}
+
+	// Check if this event would cause a change. A sync is needed if a user is joining
+	// and is not already a member, or if a user is leaving and is currently a member.
+	isMember := false
+	for _, memberID := range incident.JoinedMemberIDs {
+		if memberID == eventUserID {
+			isMember = true
+			break
+		}
+	}
+	needsSync := isJoin != isMember
+
+	// If no change is expected, skip API call
+	if !needsSync {
+		ctxlog.From(ctx).Debug("No sync needed, member list is already consistent",
+			"incidentID", incidentID,
+			"eventUserID", eventUserID,
+			"isJoin", isJoin)
+		return nil
+	}
+
+	// Get current channel members from Slack API (only when change is expected)
+	members, _, err := u.slackClient.GetUsersInConversationContext(ctx, &slack.GetUsersInConversationParameters{
+		ChannelID: string(channelID),
+	})
+	if err != nil {
+		return goerr.Wrap(err, "failed to get channel members from Slack")
+	}
+
+	// Convert to SlackUserID slice
+	joinedMemberIDs := make([]types.SlackUserID, 0, len(members))
+	for _, slackUserID := range members {
+		joinedMemberIDs = append(joinedMemberIDs, types.SlackUserID(slackUserID))
+	}
+
+	// Update incident with new member list (complete replacement)
+	incident.JoinedMemberIDs = joinedMemberIDs
+
+	// Save to repository
+	if err := u.repo.PutIncident(ctx, incident); err != nil {
+		return goerr.Wrap(err, "failed to update incident members")
+	}
+
+	ctxlog.From(ctx).Info("Synced incident members",
+		"incidentID", incidentID,
+		"eventUserID", eventUserID,
+		"isJoin", isJoin,
+		"memberCount", len(joinedMemberIDs))
+
+	return nil
+}
+
+// CanUserAccessIncident checks if a user can access full incident information
+func (u *Incident) CanUserAccessIncident(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) bool {
+	// Public incidents are accessible by everyone
+	if !incident.Private {
+		return true
+	}
+
+	// Check if user is in joined members list
+	for _, joinedID := range incident.JoinedMemberIDs {
+		if joinedID == slackUserID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// FilterIncidentForUser filters incident information based on user access rights
+func (u *Incident) FilterIncidentForUser(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) *model.Incident {
+	// If user can access, return as-is
+	if u.CanUserAccessIncident(ctx, incident, slackUserID) {
+		return incident
+	}
+
+	// Create filtered copy
+	filtered := &model.Incident{
+		ID:          incident.ID,
+		Title:       "Private Incident",  // Hide title
+		Description: "",                  // Hide description
+		CategoryID:  incident.CategoryID, // Keep category for display
+		SeverityID:  incident.SeverityID, // Keep severity
+		Status:      incident.Status,     // Keep status
+		CreatedAt:   incident.CreatedAt,  // Keep created at
+		Private:     true,
+		// Hide other sensitive fields
+		AssetIDs:          nil,
+		ChannelID:         "",
+		ChannelName:       "",
+		OriginChannelID:   "",
+		OriginChannelName: "",
+		TeamID:            "",
+		CreatedBy:         "",
+		Lead:              "",
+	}
+
+	return filtered
 }

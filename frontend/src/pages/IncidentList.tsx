@@ -23,6 +23,7 @@ import {
   Check,
   TrendingUp,
   Timer,
+  Lock,
 } from 'lucide-react';
 
 interface User {
@@ -58,6 +59,7 @@ interface Incident {
   createdByUser?: User;
   createdAt: string;
   updatedAt: string;
+  private: boolean;
   statusHistories: StatusHistory[];
   tasks: Task[];
 }
@@ -745,8 +747,13 @@ const IncidentList: React.FC = () => {
                       />
                     </td>
                     <td className="px-4 py-3 max-w-md">
-                      <div className="font-medium text-slate-900 truncate">
-                        {incident.title}
+                      <div className="flex items-center gap-2">
+                        {incident.private && (
+                          <Lock className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                        )}
+                        <div className="font-medium text-slate-900 truncate">
+                          {incident.title}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>

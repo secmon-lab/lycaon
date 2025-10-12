@@ -214,6 +214,31 @@ func (r *incidentResolver) Tasks(ctx context.Context, obj *model.Incident) ([]*m
 	return r.repo.ListTasksByIncident(ctx, obj.ID)
 }
 
+// ViewerCanAccess is the resolver for the viewerCanAccess field.
+func (r *incidentResolver) ViewerCanAccess(ctx context.Context, obj *model.Incident) (bool, error) {
+	// If incident is not private, everyone can access
+	if !obj.Private {
+		return true, nil
+	}
+
+	// Get the viewer's Slack user ID from context
+	slackUserID, hasAuth := getSlackUserIDFromContext(ctx)
+	if !hasAuth {
+		// No auth context means backward compatibility mode - allow access
+		return true, nil
+	}
+
+	// Check if the viewer is a member of the incident
+	for _, memberID := range obj.JoinedMemberIDs {
+		if memberID == slackUserID {
+			return true, nil
+		}
+	}
+
+	// Viewer is not a member of this private incident
+	return false, nil
+}
+
 // UpdateIncident is the resolver for the updateIncident field.
 func (r *mutationResolver) UpdateIncident(ctx context.Context, id string, input graphql1.UpdateIncidentInput) (*model.Incident, error) {
 	// Parse incident ID
@@ -521,6 +546,12 @@ func (r *queryResolver) Incidents(ctx context.Context, first *int, after *string
 		return nil, goerr.Wrap(err, "failed to list incidents")
 	}
 
+	// Apply filtering based on user access
+	slackUserID, ok := getSlackUserIDFromContext(ctx)
+	if ok {
+		incidents = filterIncidentsForUser(ctx, incidents, r.incidentUC, slackUserID)
+	}
+
 	// Create edges
 	edges := make([]*graphql1.IncidentEdge, len(incidents))
 	for i, incident := range incidents {
@@ -558,7 +589,18 @@ func (r *queryResolver) Incident(ctx context.Context, id string) (*model.Inciden
 	if err != nil {
 		return nil, goerr.Wrap(err, "invalid incident ID")
 	}
-	return r.repo.GetIncident(ctx, types.IncidentID(incidentID))
+	incident, err := r.repo.GetIncident(ctx, types.IncidentID(incidentID))
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply filtering based on user access
+	slackUserID, ok := getSlackUserIDFromContext(ctx)
+	if !ok {
+		// If no user context, return as-is (for backward compatibility)
+		return incident, nil
+	}
+	return filterIncidentForUser(ctx, incident, r.incidentUC, slackUserID), nil
 }
 
 // IncidentStatusHistory is the resolver for the incidentStatusHistory field.
@@ -591,12 +633,48 @@ func (r *queryResolver) Tasks(ctx context.Context, incidentID string) ([]*model.
 	if err != nil {
 		return nil, goerr.Wrap(err, "invalid incident ID")
 	}
+
+	// Get the incident to check access rights
+	incident, err := r.repo.GetIncident(ctx, types.IncidentID(id))
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident")
+	}
+
+	// Check if user has access to this incident
+	slackUserID, hasAuth := getSlackUserIDFromContext(ctx)
+	if hasAuth && incident.Private {
+		// Use CanUserAccessIncident to check access
+		if !r.incidentUC.CanUserAccessIncident(ctx, incident, slackUserID) {
+			return []*model.Task{}, nil // Return empty list for non-members
+		}
+	}
+
 	return r.repo.ListTasksByIncident(ctx, types.IncidentID(id))
 }
 
 // Task is the resolver for the task field.
 func (r *queryResolver) Task(ctx context.Context, id string) (*model.Task, error) {
-	return r.repo.GetTask(ctx, types.TaskID(id))
+	task, err := r.repo.GetTask(ctx, types.TaskID(id))
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get task")
+	}
+
+	// Get the incident to check access rights
+	incident, err := r.repo.GetIncident(ctx, task.IncidentID)
+	if err != nil {
+		return nil, goerr.Wrap(err, "failed to get incident for task")
+	}
+
+	// Check if user has access to this incident
+	slackUserID, hasAuth := getSlackUserIDFromContext(ctx)
+	if hasAuth && incident.Private {
+		// Use CanUserAccessIncident to check access
+		if !r.incidentUC.CanUserAccessIncident(ctx, incident, slackUserID) {
+			return nil, goerr.New("access denied: task belongs to private incident")
+		}
+	}
+
+	return task, nil
 }
 
 // ChannelMembers is the resolver for the channelMembers field.
@@ -640,6 +718,15 @@ func (r *queryResolver) RecentOpenIncidents(ctx context.Context, days *int) ([]*
 	incidentsMap, err := r.incidentUC.GetRecentOpenIncidents(ctx, daysCount)
 	if err != nil {
 		return nil, goerr.Wrap(err, "failed to get recent open incidents")
+	}
+
+	// Apply filtering based on user access
+	slackUserID, ok := getSlackUserIDFromContext(ctx)
+	if ok {
+		// Filter incidents in each date group
+		for date, incidents := range incidentsMap {
+			incidentsMap[date] = filterIncidentsForUser(ctx, incidents, r.incidentUC, slackUserID)
+		}
 	}
 
 	// Convert map to sorted slice (by date descending)

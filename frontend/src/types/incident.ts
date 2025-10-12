@@ -60,6 +60,8 @@ export interface Incident {
   updatedAt: string;
   statusHistories: StatusHistory[];
   tasks: Task[];
+  private: boolean;
+  viewerCanAccess: boolean;
 }
 
 // Task types

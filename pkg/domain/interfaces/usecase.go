@@ -121,7 +121,7 @@ type Incident interface {
 	// HandleCreateIncidentWithDetails handles the create incident with edited details from modal
 	HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, categoryID, severityID, userID string) (*model.Incident, error)
 	// HandleCreateIncidentWithDetailsAndAssets handles the create incident with edited details and assets from modal
-	HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, userID string) (*model.Incident, error)
+	HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error)
 	// UpdateIncidentDetailsWithAssets updates incident title, description, lead, severity, and assets
 	UpdateIncidentDetailsWithAssets(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID, severityID string, assetIDs []types.AssetID, updatedBy types.SlackUserID) (*model.Incident, error)
 	// GetIncidentRequest retrieves an incident request by ID
@@ -133,6 +133,12 @@ type Incident interface {
 	GetRecentOpenIncidents(ctx context.Context, days int) (map[string][]*model.Incident, error)
 	// GetIncidentTrendBySeverity retrieves incident trend data by severity for specified weeks
 	GetIncidentTrendBySeverity(ctx context.Context, weeks int) ([]*model.WeeklySeverityCount, error)
+	// SyncIncidentMemberWithEvent syncs incident members based on Slack event
+	SyncIncidentMemberWithEvent(ctx context.Context, incidentID types.IncidentID, channelID types.ChannelID, eventUserID types.SlackUserID, isJoin bool) error
+	// CanUserAccessIncident checks if user can access full incident information
+	CanUserAccessIncident(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) bool
+	// FilterIncidentForUser filters incident information based on user access
+	FilterIncidentForUser(ctx context.Context, incident *model.Incident, slackUserID types.SlackUserID) *model.Incident
 }
 
 // TaskUpdateRequest represents parameters for updating a task
