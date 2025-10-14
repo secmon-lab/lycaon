@@ -60,6 +60,7 @@ interface Incident {
   createdAt: string;
   updatedAt: string;
   private: boolean;
+  viewerCanAccess: boolean;
   statusHistories: StatusHistory[];
   tasks: Task[];
 }
@@ -748,10 +749,14 @@ const IncidentList: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 max-w-md">
                       <div className="flex items-center gap-2">
-                        {incident.private && (
+                        {incident.private && !incident.viewerCanAccess && (
                           <Lock className="h-4 w-4 text-slate-400 flex-shrink-0" />
                         )}
-                        <div className="font-medium text-slate-900 truncate">
+                        <div className={`font-medium truncate ${
+                          incident.private && !incident.viewerCanAccess
+                            ? 'text-slate-400 italic'
+                            : 'text-slate-900'
+                        }`}>
                           {incident.title}
                         </div>
                       </div>
