@@ -10,6 +10,7 @@ import { EditIncidentModal } from '../components/IncidentDetail/EditIncidentModa
 import { Button } from '../components/ui/Button';
 import SlackChannelLink from '../components/common/SlackChannelLink';
 import SeverityBadge from '../components/common/SeverityBadge';
+import TestBadge from '../components/common/TestBadge';
 import {
   User,
   Calendar,
@@ -79,11 +80,7 @@ const IncidentDetail: React.FC = () => {
               {isPrivateRestricted && (
                 <Lock className="h-5 w-5 text-slate-400" />
               )}
-              {incident.isTest && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-yellow-800 bg-yellow-100 border border-yellow-300 rounded">
-                  🧪 TEST
-                </span>
-              )}
+              {incident.isTest && <TestBadge size="md" />}
             </div>
             <p className="text-sm text-slate-500">
               Created {format(new Date(incident.createdAt), 'MMM d, yyyy HH:mm')}

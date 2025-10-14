@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { IncidentStatus, StatusHistory, Task } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
+import TestBadge from '../components/common/TestBadge';
 import SlackChannelLink from '../components/common/SlackChannelLink';
 import { StatCard } from '../components/IncidentList/StatCard';
 import { useIncidentStats } from '../hooks/useIncidentStats';
@@ -761,11 +762,7 @@ const IncidentList: React.FC = () => {
                           }`}>
                             {incident.title}
                           </div>
-                          {incident.isTest && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-yellow-800 bg-yellow-100 border border-yellow-300 rounded whitespace-nowrap">
-                              🧪 TEST
-                            </span>
-                          )}
+                          {incident.isTest && <TestBadge size="sm" />}
                         </div>
                       </div>
                     </td>
