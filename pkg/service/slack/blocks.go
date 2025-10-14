@@ -524,6 +524,32 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description, cat
 	)
 	privateBlock.Optional = true
 
+	// Build test mode checkbox block
+	testModeBlock := slack.NewInputBlock(
+		"test_mode_block",
+		slack.NewTextBlockObject(
+			slack.PlainTextType,
+			"Test Mode (optional)",
+			false,
+			false,
+		),
+		slack.NewTextBlockObject(
+			slack.PlainTextType,
+			"Test incidents are excluded from statistics",
+			false,
+			false,
+		),
+		slack.NewCheckboxGroupsBlockElement(
+			"test_mode_checkbox",
+			slack.NewOptionBlockObject(
+				"test_mode",
+				slack.NewTextBlockObject(slack.PlainTextType, "This is a test incident", false, false),
+				slack.NewTextBlockObject(slack.PlainTextType, "Will not be counted in statistics", false, false),
+			),
+		),
+	)
+	testModeBlock.Optional = true
+
 	// Build blocks slice
 	blocksSlice := []slack.Block{
 		titleBlock,
@@ -531,6 +557,7 @@ func (b *BlockBuilder) BuildIncidentEditModal(requestID, title, description, cat
 		categoryBlock,
 		severityBlock,
 		privateBlock,
+		testModeBlock,
 	}
 
 	// Add asset selection block if assets are configured
@@ -628,12 +655,18 @@ func (b *BlockBuilder) BuildStatusMessageBlocks(incident *model.Incident, leadNa
 		assetsText = "(none)"
 	}
 
+	// Build header text with test mode badge if applicable
+	headerText := incident.Title
+	if incident.IsTest {
+		headerText = "🧪 [TEST] " + incident.Title
+	}
+
 	blocks := []slack.Block{
 		&slack.HeaderBlock{
 			Type: slack.MBTHeader,
 			Text: &slack.TextBlockObject{
 				Type: slack.PlainTextType,
-				Text: incident.Title,
+				Text: headerText,
 			},
 		},
 		&slack.DividerBlock{

@@ -61,6 +61,7 @@ interface Incident {
   updatedAt: string;
   private: boolean;
   viewerCanAccess: boolean;
+  isTest: boolean;
   statusHistories: StatusHistory[];
   tasks: Task[];
 }
@@ -752,12 +753,19 @@ const IncidentList: React.FC = () => {
                         {incident.private && !incident.viewerCanAccess && (
                           <Lock className="h-4 w-4 text-slate-400 flex-shrink-0" />
                         )}
-                        <div className={`font-medium truncate ${
-                          incident.private && !incident.viewerCanAccess
-                            ? 'text-slate-400 italic'
-                            : 'text-slate-900'
-                        }`}>
-                          {incident.title}
+                        <div className="flex items-center gap-2">
+                          <div className={`font-medium truncate ${
+                            incident.private && !incident.viewerCanAccess
+                              ? 'text-slate-400 italic'
+                              : 'text-slate-900'
+                          }`}>
+                            {incident.title}
+                          </div>
+                          {incident.isTest && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-yellow-800 bg-yellow-100 border border-yellow-300 rounded whitespace-nowrap">
+                              🧪 TEST
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>

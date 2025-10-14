@@ -303,6 +303,15 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		}
 	}
 
+	// Extract test mode flag from the modal (optional)
+	var isTestValue bool
+	if testModeBlock, ok := interaction.View.State.Values["test_mode_block"]; ok {
+		if testModeCheckbox, ok := testModeBlock["test_mode_checkbox"]; ok {
+			// If any option is selected in the checkbox group, it means test mode is checked
+			isTestValue = len(testModeCheckbox.SelectedOptions) > 0
+		}
+	}
+
 	// Validate required fields
 	if titleValue == "" {
 		ctxlog.From(ctx).Error("Title is required for incident creation")
@@ -321,6 +330,7 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 		"severity", severityValue,
 		"assetCount", len(assetIDs),
 		"private", privateValue,
+		"isTest", isTestValue,
 	)
 
 	// Process incident creation asynchronously
@@ -336,6 +346,7 @@ func (s *SlackInteraction) handleIncidentModalSubmission(ctx context.Context, in
 			severityValue,
 			assetIDs,
 			privateValue,
+			isTestValue,
 			interaction.User.ID,
 		)
 		if err != nil {

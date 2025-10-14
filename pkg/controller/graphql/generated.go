@@ -79,6 +79,7 @@ type ComplexityRoot struct {
 		Description       func(childComplexity int) int
 		ID                func(childComplexity int) int
 		InitialTriage     func(childComplexity int) int
+		IsTest            func(childComplexity int) int
 		Lead              func(childComplexity int) int
 		LeadUser          func(childComplexity int) int
 		OriginChannelID   func(childComplexity int) int
@@ -387,6 +388,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Incident.InitialTriage(childComplexity), true
+	case "Incident.isTest":
+		if e.complexity.Incident.IsTest == nil {
+			break
+		}
+
+		return e.complexity.Incident.IsTest(childComplexity), true
 	case "Incident.lead":
 		if e.complexity.Incident.Lead == nil {
 			break
@@ -1080,6 +1087,7 @@ type Incident {
   tasks: [Task!]!
   private: Boolean!
   viewerCanAccess: Boolean!
+  isTest: Boolean!
 }
 
 type User {
@@ -1672,6 +1680,8 @@ func (ec *executionContext) fieldContext_GroupedIncidents_incidents(_ context.Co
 				return ec.fieldContext_Incident_private(ctx, field)
 			case "viewerCanAccess":
 				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
+			case "isTest":
+				return ec.fieldContext_Incident_isTest(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2536,6 +2546,35 @@ func (ec *executionContext) fieldContext_Incident_viewerCanAccess(_ context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Incident_isTest(ctx context.Context, field graphql.CollectedField, obj *model.Incident) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Incident_isTest,
+		func(ctx context.Context) (any, error) {
+			return obj.IsTest, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Incident_isTest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Incident",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IncidentConnection_edges(ctx context.Context, field graphql.CollectedField, obj *graphql1.IncidentConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2717,6 +2756,8 @@ func (ec *executionContext) fieldContext_IncidentEdge_node(_ context.Context, fi
 				return ec.fieldContext_Incident_private(ctx, field)
 			case "viewerCanAccess":
 				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
+			case "isTest":
+				return ec.fieldContext_Incident_isTest(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2832,6 +2873,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncident(ctx context.Con
 				return ec.fieldContext_Incident_private(ctx, field)
 			case "viewerCanAccess":
 				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
+			case "isTest":
+				return ec.fieldContext_Incident_isTest(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -2929,6 +2972,8 @@ func (ec *executionContext) fieldContext_Mutation_updateIncidentStatus(ctx conte
 				return ec.fieldContext_Incident_private(ctx, field)
 			case "viewerCanAccess":
 				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
+			case "isTest":
+				return ec.fieldContext_Incident_isTest(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -3370,6 +3415,8 @@ func (ec *executionContext) fieldContext_Query_incident(ctx context.Context, fie
 				return ec.fieldContext_Incident_private(ctx, field)
 			case "viewerCanAccess":
 				return ec.fieldContext_Incident_viewerCanAccess(ctx, field)
+			case "isTest":
+				return ec.fieldContext_Incident_isTest(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Incident", field.Name)
 		},
@@ -7582,6 +7629,11 @@ func (ec *executionContext) _Incident(ctx context.Context, sel ast.SelectionSet,
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "isTest":
+			out.Values[i] = ec._Incident_isTest(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

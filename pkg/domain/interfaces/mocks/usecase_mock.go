@@ -469,7 +469,7 @@ var _ interfaces.Incident = &IncidentMock{}
 //			HandleCreateIncidentWithDetailsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, userID string) (*model.Incident, error) {
 //				panic("mock out the HandleCreateIncidentWithDetails method")
 //			},
-//			HandleCreateIncidentWithDetailsAndAssetsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error) {
+//			HandleCreateIncidentWithDetailsAndAssetsFunc: func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, isTest bool, userID string) (*model.Incident, error) {
 //				panic("mock out the HandleCreateIncidentWithDetailsAndAssets method")
 //			},
 //			HandleEditIncidentActionFunc: func(ctx context.Context, requestID string, userID string, triggerID string) error {
@@ -525,7 +525,7 @@ type IncidentMock struct {
 	HandleCreateIncidentWithDetailsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, userID string) (*model.Incident, error)
 
 	// HandleCreateIncidentWithDetailsAndAssetsFunc mocks the HandleCreateIncidentWithDetailsAndAssets method.
-	HandleCreateIncidentWithDetailsAndAssetsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error)
+	HandleCreateIncidentWithDetailsAndAssetsFunc func(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, isTest bool, userID string) (*model.Incident, error)
 
 	// HandleEditIncidentActionFunc mocks the HandleEditIncidentAction method.
 	HandleEditIncidentActionFunc func(ctx context.Context, requestID string, userID string, triggerID string) error
@@ -656,6 +656,8 @@ type IncidentMock struct {
 			AssetIDs []types.AssetID
 			// IsPrivate is the isPrivate argument value.
 			IsPrivate bool
+			// IsTest is the isTest argument value.
+			IsTest bool
 			// UserID is the userID argument value.
 			UserID string
 		}
@@ -1175,7 +1177,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsCalls() []struct {
 }
 
 // HandleCreateIncidentWithDetailsAndAssets calls HandleCreateIncidentWithDetailsAndAssetsFunc.
-func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error) {
+func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID string, title string, description string, categoryID string, severityID string, assetIDs []types.AssetID, isPrivate bool, isTest bool, userID string) (*model.Incident, error) {
 	if mock.HandleCreateIncidentWithDetailsAndAssetsFunc == nil {
 		panic("IncidentMock.HandleCreateIncidentWithDetailsAndAssetsFunc: method is nil but Incident.HandleCreateIncidentWithDetailsAndAssets was just called")
 	}
@@ -1188,6 +1190,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.C
 		SeverityID  string
 		AssetIDs    []types.AssetID
 		IsPrivate   bool
+		IsTest      bool
 		UserID      string
 	}{
 		Ctx:         ctx,
@@ -1198,12 +1201,13 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssets(ctx context.C
 		SeverityID:  severityID,
 		AssetIDs:    assetIDs,
 		IsPrivate:   isPrivate,
+		IsTest:      isTest,
 		UserID:      userID,
 	}
 	mock.lockHandleCreateIncidentWithDetailsAndAssets.Lock()
 	mock.calls.HandleCreateIncidentWithDetailsAndAssets = append(mock.calls.HandleCreateIncidentWithDetailsAndAssets, callInfo)
 	mock.lockHandleCreateIncidentWithDetailsAndAssets.Unlock()
-	return mock.HandleCreateIncidentWithDetailsAndAssetsFunc(ctx, requestID, title, description, categoryID, severityID, assetIDs, isPrivate, userID)
+	return mock.HandleCreateIncidentWithDetailsAndAssetsFunc(ctx, requestID, title, description, categoryID, severityID, assetIDs, isPrivate, isTest, userID)
 }
 
 // HandleCreateIncidentWithDetailsAndAssetsCalls gets all the calls that were made to HandleCreateIncidentWithDetailsAndAssets.
@@ -1219,6 +1223,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssetsCalls() []stru
 	SeverityID  string
 	AssetIDs    []types.AssetID
 	IsPrivate   bool
+	IsTest      bool
 	UserID      string
 } {
 	var calls []struct {
@@ -1230,6 +1235,7 @@ func (mock *IncidentMock) HandleCreateIncidentWithDetailsAndAssetsCalls() []stru
 		SeverityID  string
 		AssetIDs    []types.AssetID
 		IsPrivate   bool
+		IsTest      bool
 		UserID      string
 	}
 	mock.lockHandleCreateIncidentWithDetailsAndAssets.RLock()

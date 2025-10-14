@@ -121,7 +121,7 @@ type Incident interface {
 	// HandleCreateIncidentWithDetails handles the create incident with edited details from modal
 	HandleCreateIncidentWithDetails(ctx context.Context, requestID, title, description, categoryID, severityID, userID string) (*model.Incident, error)
 	// HandleCreateIncidentWithDetailsAndAssets handles the create incident with edited details and assets from modal
-	HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error)
+	HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, isPrivate bool, isTest bool, userID string) (*model.Incident, error)
 	// UpdateIncidentDetailsWithAssets updates incident title, description, lead, severity, and assets
 	UpdateIncidentDetailsWithAssets(ctx context.Context, incidentID types.IncidentID, title, description string, lead types.SlackUserID, severityID string, assetIDs []types.AssetID, updatedBy types.SlackUserID) (*model.Incident, error)
 	// GetIncidentRequest retrieves an incident request by ID

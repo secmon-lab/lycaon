@@ -62,6 +62,7 @@ export interface Incident {
   tasks: Task[];
   private: boolean;
   viewerCanAccess: boolean;
+  isTest: boolean;
 }
 
 // Task types

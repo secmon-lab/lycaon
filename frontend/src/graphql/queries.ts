@@ -59,6 +59,7 @@ export const INCIDENT_FIELDS = gql`
     updatedAt
     private
     viewerCanAccess
+    isTest
     statusHistories {
       ...StatusHistoryFields
     }
@@ -211,6 +212,7 @@ export const GET_RECENT_OPEN_INCIDENTS = gql`
           avatarUrl
         }
         createdAt
+        isTest
       }
     }
   }
