@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import * as Avatar from '@radix-ui/react-avatar';
 import SeverityBadge from '../common/SeverityBadge';
 import StatusBadge from '../IncidentList/StatusBadge';
+import TestBadge from '../common/TestBadge';
 import { Incident } from '../../types/incident';
 
 interface IncidentCardProps {
@@ -36,6 +37,7 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({ incident }) => {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-medium text-gray-500">#{incident.id}</span>
             <h3 className="text-base font-medium text-gray-900">{incident.title}</h3>
+            {incident.isTest && <TestBadge size="sm" />}
           </div>
           {incident.description && (
             <p className="text-sm text-gray-600 mb-2">

@@ -44,6 +44,7 @@ type Incident {
   tasks: [Task!]!
   private: Boolean!
   viewerCanAccess: Boolean!
+  isTest: Boolean!
 }
 
 type User {

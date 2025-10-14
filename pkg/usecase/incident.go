@@ -114,6 +114,24 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	// Create Slack channel with the generated channel name (includes title if provided)
 	channelName := incident.ChannelName
 
+	// Add TEST prefix to channel name if this is a test incident
+	if req.IsTest {
+		// Insert "test-" after the incident number (e.g., "inc-15" becomes "inc-15-test" or "inc-15-title" becomes "inc-15-test-title")
+		prefix := u.config.channelPrefix
+		if prefix == "" {
+			prefix = "inc"
+		}
+		basePrefix := fmt.Sprintf("%s-%d", prefix, incidentNumber)
+		if strings.HasPrefix(string(channelName), basePrefix) {
+			suffix := string(channelName)[len(basePrefix):]
+			if suffix == "" {
+				channelName = types.ChannelName(basePrefix + "-test")
+			} else {
+				channelName = types.ChannelName(basePrefix + "-test" + suffix)
+			}
+		}
+	}
+
 	channel, err := u.slackClient.CreateConversation(ctx, slack.CreateConversationParams{
 		ChannelName: channelName.String(),
 		IsPrivate:   req.Private, // Use private flag from request
@@ -125,6 +143,9 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 	// Set private flag in incident
 	incident.Private = req.Private
 
+	// Set test mode flag in incident
+	incident.IsTest = req.IsTest
+
 	// Set channel purpose/description if title is provided
 	if req.Title != "" {
 		_, err = u.slackClient.SetPurposeOfConversationContext(ctx, channel.ID, req.Title)
@@ -134,8 +155,9 @@ func (u *Incident) CreateIncident(ctx context.Context, req *model.CreateIncident
 		}
 	}
 
-	// Set channel ID
+	// Set channel ID and actual channel name
 	incident.ChannelID = types.ChannelID(channel.ID)
+	incident.ChannelName = channelName
 
 	// Invite creator to the channel
 	_, err = u.slackClient.InviteUsersToConversation(ctx, channel.ID, req.CreatedBy)
@@ -591,6 +613,10 @@ func (u *Incident) GetIncidentTrendBySeverity(ctx context.Context, weeks int) ([
 		counts := make(map[string]int)
 
 		for _, incident := range incidents {
+			// Skip test incidents from statistics
+			if incident.IsTest {
+				continue
+			}
 			// Check if incident is within this week
 			if incident.CreatedAt.Before(weekRange.Start) || incident.CreatedAt.After(weekRange.End) {
 				continue

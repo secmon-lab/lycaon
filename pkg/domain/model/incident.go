@@ -34,6 +34,8 @@ type Incident struct {
 	// Private mode fields
 	Private         bool                // Private incident flag
 	JoinedMemberIDs []types.SlackUserID // List of Slack user IDs who joined this incident channel
+	// Test mode field
+	IsTest bool // Test mode flag - test incidents are excluded from statistics
 }
 
 // CreateIncidentRequest represents parameters for creating an incident
@@ -49,6 +51,7 @@ type CreateIncidentRequest struct {
 	CreatedBy         string
 	InitialTriage     bool // Whether to start with Triage status
 	Private           bool // Whether to create a private incident
+	IsTest            bool // Whether to create a test incident
 }
 
 // UpdateIncidentRequest represents parameters for updating an incident

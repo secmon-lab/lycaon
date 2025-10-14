@@ -23,7 +23,7 @@ func (u *Incident) HandleCreateIncidentWithDetails(ctx context.Context, requestI
 }
 
 // HandleCreateIncidentWithDetailsAndAssets handles the create incident with edited details and assets from modal
-func (u *Incident) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, isPrivate bool, userID string) (*model.Incident, error) {
+func (u *Incident) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context, requestID, title, description, categoryID, severityID string, assetIDs []types.AssetID, isPrivate bool, isTest bool, userID string) (*model.Incident, error) {
 	return u.handleCreateIncidentFromRequest(ctx, requestID, userID, &incidentDetails{
 		title:       title,
 		description: description,
@@ -31,6 +31,7 @@ func (u *Incident) HandleCreateIncidentWithDetailsAndAssets(ctx context.Context,
 		severityID:  severityID,
 		assetIDs:    assetIDs,
 		private:     isPrivate,
+		isTest:      isTest,
 	})
 }
 
@@ -42,6 +43,7 @@ type incidentDetails struct {
 	severityID  string
 	assetIDs    []types.AssetID
 	private     bool
+	isTest      bool
 }
 
 // handleCreateIncidentFromRequest is the common implementation for creating incidents from requests
@@ -93,6 +95,7 @@ func (u *Incident) handleCreateIncidentFromRequest(ctx context.Context, requestI
 			CreatedBy:         userID,
 			InitialTriage:     false, // TODO: Get from modal checkbox
 			Private:           details.private,
+			IsTest:            details.isTest,
 		})
 		if err != nil {
 			return nil, goerr.Wrap(err, "failed to create incident")

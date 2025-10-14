@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { IncidentStatus, StatusHistory, Task } from '../types/incident';
 import StatusBadge from '../components/IncidentList/StatusBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
+import TestBadge from '../components/common/TestBadge';
 import SlackChannelLink from '../components/common/SlackChannelLink';
 import { StatCard } from '../components/IncidentList/StatCard';
 import { useIncidentStats } from '../hooks/useIncidentStats';
@@ -61,6 +62,7 @@ interface Incident {
   updatedAt: string;
   private: boolean;
   viewerCanAccess: boolean;
+  isTest: boolean;
   statusHistories: StatusHistory[];
   tasks: Task[];
 }
@@ -752,12 +754,15 @@ const IncidentList: React.FC = () => {
                         {incident.private && !incident.viewerCanAccess && (
                           <Lock className="h-4 w-4 text-slate-400 flex-shrink-0" />
                         )}
-                        <div className={`font-medium truncate ${
-                          incident.private && !incident.viewerCanAccess
-                            ? 'text-slate-400 italic'
-                            : 'text-slate-900'
-                        }`}>
-                          {incident.title}
+                        <div className="flex items-center gap-2">
+                          <div className={`font-medium truncate ${
+                            incident.private && !incident.viewerCanAccess
+                              ? 'text-slate-400 italic'
+                              : 'text-slate-900'
+                          }`}>
+                            {incident.title}
+                          </div>
+                          {incident.isTest && <TestBadge size="sm" />}
                         </div>
                       </div>
                     </td>
